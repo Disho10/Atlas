@@ -1,8 +1,9 @@
 import { searchProducts } from '@/lib/data';
 import ProductCard from '@/components/ProductCard';
 
-export default async function SearchPage({ searchParams }: { searchParams: { q?: string } }) {
-  const q = (searchParams.q ?? '').trim();
+export default async function SearchPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+  const { q: rawQ } = await searchParams;
+  const q = (rawQ ?? '').trim();
   const results = await searchProducts(q);
 
   return (

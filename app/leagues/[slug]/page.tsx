@@ -4,9 +4,10 @@ import LeagueProductGrid from '@/components/LeagueProductGrid';
 import LeagueCrest from '@/components/LeagueCrest';
 import DiagonalSplitBg from '@/components/DiagonalSplitBg';
 
-export default async function LeaguePage({ params }: { params: { slug: string } }) {
+export default async function LeaguePage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
   const leagues = await getLeagues();
-  const league = leagues.find(l => l.slug === params.slug);
+  const league = leagues.find(l => l.slug === slug);
   if (!league) return notFound();
 
   const leagueProducts = await getProducts({ leagueSlug: league.slug });

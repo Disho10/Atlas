@@ -16,7 +16,7 @@ const HAS_SUPABASE = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 
 export async function getLeagues(): Promise<League[]> {
   if (!HAS_SUPABASE) return mockLeagues;
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase.from('leagues').select('*').order('sort_order');
   if (error || !data) return mockLeagues;
   return data.map(mapLeagueRow);
@@ -35,7 +35,7 @@ export async function getProducts(filters?: {
     return items;
   }
 
-  const supabase = createClient();
+  const supabase = await createClient();
   let query = supabase.from('products').select(`${PUBLIC_PRODUCT_COLUMNS}, product_tags(tags(label))`).eq('status', 'published');
   if (filters?.leagueSlug) query = query.eq('league_slug', filters.leagueSlug);
   if (filters?.category && filters.category !== 'all') query = query.eq('category', filters.category);
@@ -49,7 +49,7 @@ export async function getProducts(filters?: {
 export async function getProductById(id: string): Promise<Product | undefined> {
   if (!HAS_SUPABASE) return mockProducts.find(p => p.id === id);
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from('products')
     .select(`${PUBLIC_PRODUCT_COLUMNS}, product_tags(tags(label))`)
@@ -70,7 +70,7 @@ export async function searchProducts(term: string): Promise<Product[]> {
     );
   }
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from('products')
     .select(`${PUBLIC_PRODUCT_COLUMNS}, product_tags(tags(label))`)
@@ -89,7 +89,7 @@ export async function searchProducts(term: string): Promise<Product[]> {
 export async function getReviews(productId: string): Promise<Review[]> {
   if (!HAS_SUPABASE) return mockReviews.filter(r => r.productId === productId);
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from('reviews')
     .select('id, product_id, author_name, rating, body, photo_url, created_at')
