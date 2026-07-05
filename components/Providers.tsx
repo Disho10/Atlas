@@ -126,12 +126,49 @@ function WishlistProvider({ children }: { children: ReactNode }) {
   return <WishlistCtx.Provider value={{ ids, toggle }}>{children}</WishlistCtx.Provider>;
 }
 
+// ---------------------------------------------------------------------------
+// AUTH — tracks whether someone is signed in, live. Drives the header's
+// "Sign in" button vs. account icon. In prototype mode (no Supabase env vars)
+// it simply reports signed-out.
+// ---------------------------------------------------------------------------
+const AuthCtx = createContext<{ signedIn: boolean; loading: boolean }>({ signedIn: false, loading: true });
+export const useAuth = () => useContext(AuthCtx);
+
+function AuthProvider({ children }: { children: ReactNode }) {
+  const [signedIn, setSignedIn] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+      setLoading(false);
+      return;
+    }
+    let unsub: (() => void) | undefined;
+    import('@/lib/supabase/client').then(async ({ createClient }) => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      setSignedIn(!!user);
+      setLoading(false);
+      // Keep the header in sync when the user signs in or out anywhere.
+      const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+        setSignedIn(!!session?.user);
+      });
+      unsub = () => data.subscription.unsubscribe();
+    });
+    return () => unsub?.();
+  }, []);
+
+  return <AuthCtx.Provider value={{ signedIn, loading }}>{children}</AuthCtx.Provider>;
+}
+
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <ThemeProvider>
       <CurrencyProvider>
         <CartProvider>
-          <WishlistProvider>{children}</WishlistProvider>
+          <WishlistProvider>
+            <AuthProvider>{children}</AuthProvider>
+          </WishlistProvider>
         </CartProvider>
       </CurrencyProvider>
     </ThemeProvider>

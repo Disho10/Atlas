@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { useCart, useCurrency, useTheme, useWishlist } from './Providers';
+import { useCart, useCurrency, useTheme, useWishlist, useAuth } from './Providers';
 import { leagues } from '@/lib/mockData';
 
 export default function Header() {
@@ -10,6 +10,7 @@ export default function Header() {
   const { ids } = useWishlist();
   const { theme, toggle } = useTheme();
   const { currency, setCurrency } = useCurrency();
+  const { signedIn, loading } = useAuth();
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -74,9 +75,20 @@ export default function Header() {
               </span>
             )}
           </Link>
-          <Link href="/account" className="hidden sm:block p-1" aria-label="Account">
-            <UserIcon />
-          </Link>
+          {!loading && (
+            signedIn ? (
+              <Link href="/account" className="hidden sm:block p-1" aria-label="Account">
+                <UserIcon />
+              </Link>
+            ) : (
+              <Link
+                href="/sign-in"
+                className="hidden sm:inline-flex items-center bg-volt text-ink text-sm font-medium rounded-full px-4 py-1.5"
+              >
+                Sign in
+              </Link>
+            )
+          )}
           <Link href="/cart" className="relative p-1" aria-label="Cart">
             <BagIcon />
             {count > 0 && (
@@ -123,6 +135,11 @@ export default function Header() {
           ))}
           <Link href="/shop/sportswear" onClick={() => setMenuOpen(false)}>Sportswear</Link>
           <Link href="/about" onClick={() => setMenuOpen(false)}>About Us</Link>
+          {!loading && (
+            signedIn
+              ? <Link href="/account" onClick={() => setMenuOpen(false)}>My Account</Link>
+              : <Link href="/sign-in" onClick={() => setMenuOpen(false)}>Sign in</Link>
+          )}
         </nav>
       )}
     </header>
