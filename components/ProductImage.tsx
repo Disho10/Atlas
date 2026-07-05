@@ -22,5 +22,5 @@ export default function ProductImage(props: ImageProps) {
     );
   }
 
-  return <Image {...props} onError={() => setFailed(true)} />;
+  return <Image {...props} loading={props.priority ? undefined : 'lazy'} quality={70} onError={() => setFailed(true)} />;
 }

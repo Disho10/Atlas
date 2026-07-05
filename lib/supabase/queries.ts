@@ -27,7 +27,12 @@ export function mapProductRow(row: ProductRow): Product {
     price: Number(row.price_usd),
     compareAt: row.compare_at_usd ? Number(row.compare_at_usd) : undefined,
     gender: row.gender,
-    tags: row.product_tags?.map(pt => pt.tags.label) ?? [],
+    // The nested join `product_tags(tags(label))` can return `tags` as either
+    // an object or a single-element array depending on the relationship shape,
+    // so handle both rather than assuming one and crashing on the other.
+    tags: (row.product_tags ?? [])
+      .map((pt: any) => Array.isArray(pt.tags) ? pt.tags[0]?.label : pt.tags?.label)
+      .filter(Boolean),
     sizes: row.sizes ?? [],
     outOfStockSizes: row.out_of_stock_sizes ?? [],
     stock: row.stock,

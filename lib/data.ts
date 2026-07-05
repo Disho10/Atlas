@@ -14,12 +14,21 @@ import {
 // switches to live data with no further changes needed.
 const HAS_SUPABASE = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 
+// IMPORTANT: when Supabase IS configured, we must NOT silently fall back to the
+// full mock catalog on error — that's what made every league show all 12
+// products. A failed/filtered query should return an empty list (and log the
+// real error to the server console) so problems are visible instead of masked
+// by wrong data. Mock data is used ONLY in true prototype mode (no env vars).
+
 export async function getLeagues(): Promise<League[]> {
   if (!HAS_SUPABASE) return mockLeagues;
   const supabase = await createClient();
   const { data, error } = await supabase.from('leagues').select('*').order('sort_order');
-  if (error || !data) return mockLeagues;
-  return data.map(mapLeagueRow);
+  if (error) {
+    console.error('[getLeagues] Supabase error:', error.message);
+    return [];
+  }
+  return (data ?? []).map(mapLeagueRow);
 }
 
 export async function getProducts(filters?: {
@@ -42,8 +51,11 @@ export async function getProducts(filters?: {
   if (filters?.gender && filters.gender !== 'all') query = query.eq('gender', filters.gender);
 
   const { data, error } = await query;
-  if (error || !data) return mockProducts;
-  return data.map((row: any) => mapProductRow(row));
+  if (error) {
+    console.error('[getProducts] Supabase error:', error.message, '| filters:', JSON.stringify(filters));
+    return [];
+  }
+  return (data ?? []).map((row: any) => mapProductRow(row));
 }
 
 export async function getProductById(id: string): Promise<Product | undefined> {
@@ -56,8 +68,11 @@ export async function getProductById(id: string): Promise<Product | undefined> {
     .eq('id', id)
     .single();
 
-  if (error || !data) return mockProducts.find(p => p.id === id);
-  return mapProductRow(data as any);
+  if (error) {
+    console.error('[getProductById] Supabase error:', error.message, '| id:', id);
+    return undefined;
+  }
+  return data ? mapProductRow(data as any) : undefined;
 }
 
 export async function searchProducts(term: string): Promise<Product[]> {
@@ -77,7 +92,11 @@ export async function searchProducts(term: string): Promise<Product[]> {
     .eq('status', 'published')
     .or(`name.ilike.%${term}%,team.ilike.%${term}%`);
 
-  const results = error || !data ? [] : data.map((row: any) => mapProductRow(row));
+  if (error) {
+    console.error('[searchProducts] Supabase error:', error.message, '| term:', term);
+    return [];
+  }
+  const results = (data ?? []).map((row: any) => mapProductRow(row));
 
   // Log the search for the admin "zero-result searches" analytics view —
   // fire and forget, don't block the response on it.
@@ -96,9 +115,12 @@ export async function getReviews(productId: string): Promise<Review[]> {
     .eq('product_id', productId)
     .order('created_at', { ascending: false });
 
-  if (error || !data) return mockReviews.filter(r => r.productId === productId);
+  if (error) {
+    console.error('[getReviews] Supabase error:', error.message, '| productId:', productId);
+    return [];
+  }
 
-  return data.map(r => ({
+  return (data ?? []).map(r => ({
     id: r.id,
     productId: r.product_id,
     author: r.author_name,
