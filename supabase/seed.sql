@@ -14,7 +14,7 @@ insert into leagues (slug, name, country, primary_color, secondary_color, logo_u
 
 insert into products (name, category, league_slug, team, price_usd, compare_at_usd, gender, sizes, out_of_stock_sizes, stock, coming_soon, hot, status, image_url) values
   ('Real Madrid Home Shirt 25/26', 'shirts', 'la-liga', 'Real Madrid', 89, 110, 'male', '{S,M,L,XL}', '{}', 42, false, true, 'published', 'https://images.unsplash.com/photo-1552667466-07770ae110d0?q=80&w=800&auto=format&fit=crop'),
-  ('Barcelona Away Shirt 25/26', 'shirts', 'la-liga', 'Barcelona', 89, null, 'male', '{S,M,L,XL,XXL}', '{}', 30, false, false, 'published', 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=800&auto=format&fit=crop'),
+  ('Barcelona Away Shirt 25/26', 'shirts', 'la-liga', 'Barcelona', 89, null, 'male', '{S,M,L,XL,XXL}', '{}', 30, false, false, 'published', 'https://images.unsplash.com/photo-1517466787929-bc90951d0974?q=80&w=800&auto=format&fit=crop'),
   ('Man City Home Shirt 25/26', 'shirts', 'premier-league', 'Manchester City', 92, null, 'unisex', '{S,M,L}', '{L}', 12, false, true, 'published', 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?q=80&w=800&auto=format&fit=crop'),
   ('Inter Milan Home Shirt 25/26', 'shirts', 'serie-a', 'Inter Milan', 87, null, 'male', '{S,M,L,XL}', '{}', 18, true, false, 'published', 'https://images.unsplash.com/photo-1517466787929-bc90951d0974?q=80&w=800&auto=format&fit=crop'),
   ('Atlas Match Ball Pro', 'balls', null, 'Atlas', 34, null, 'unisex', '{Size 5}', '{}', 60, false, false, 'published', 'https://images.unsplash.com/photo-1614632537190-23e4146777db?q=80&w=800&auto=format&fit=crop'),

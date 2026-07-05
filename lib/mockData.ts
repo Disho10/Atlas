@@ -61,7 +61,7 @@ export const products: Product[] = [
     leagueSlug: 'la-liga', team: 'Barcelona', price: 89, gender: 'male',
     tags: ['Barcelona', 'Spain', 'Away Kit', 'La Liga'], sizes: ['S', 'M', 'L', 'XL', 'XXL'],
     stock: 30, rating: 4.6, reviewCount: 74,
-    image: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=800&auto=format&fit=crop', color: '#04124A'
+    image: 'https://images.unsplash.com/photo-1517466787929-bc90951d0974?q=80&w=800&auto=format&fit=crop', color: '#04124A'
   },
   {
     id: 'p3', code: 'ATL-SHT-0003', name: 'Man City Home Shirt 25/26', category: 'shirts',

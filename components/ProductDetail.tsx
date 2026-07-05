@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import Image from 'next/image';
+import ProductImage from '@/components/ProductImage';
 import { Product, Review, formatCurrency } from '@/lib/mockData';
 import { useCart, useCurrency, useWishlist } from '@/components/Providers';
 import { createClient } from '@/lib/supabase/client';
@@ -74,7 +74,7 @@ export default function ProductDetail({ product, initialReviews }: { product: Pr
   return (
     <main className="max-w-6xl mx-auto px-6 py-12 grid md:grid-cols-2 gap-12">
       <div className="relative aspect-[4/5] rounded-2xl overflow-hidden bg-black/5 dark:bg-white/5">
-        {product.image && <Image src={product.image} alt={product.name} fill className="object-cover" />}
+        {product.image && <ProductImage src={product.image} alt={product.name} fill className="object-cover" />}
       </div>
 
       <div>

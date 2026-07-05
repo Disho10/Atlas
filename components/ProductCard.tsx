@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
+import ProductImage from './ProductImage';
 import { Product } from '@/lib/mockData';
 import { useCurrency, useWishlist } from './Providers';
 import { formatCurrency } from '@/lib/mockData';
@@ -16,7 +16,7 @@ export default function ProductCard({ product }: { product: Product }) {
   return (
     <div className="group card-hover">
       <Link href={`/product/${product.id}`} className="block relative aspect-[4/5] overflow-hidden rounded-xl bg-black/5 dark:bg-white/5">
-        <Image
+        <ProductImage
           src={product.image}
           alt={product.name}
           fill
