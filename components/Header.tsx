@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useCart, useCurrency, useTheme, useWishlist, useAuth } from './Providers';
 import { leagues } from '@/lib/mockData';
 
@@ -13,9 +13,17 @@ export default function Header() {
   const { signedIn, loading } = useAuth();
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 24);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-black/10 dark:border-white/10 bg-chalk/90 dark:bg-ink/90 backdrop-blur">
+    <header className={`sticky top-0 z-50 border-b border-black/10 dark:border-white/10 bg-chalk/85 dark:bg-ink/85 backdrop-blur-xl transition-shadow duration-300 ${scrolled ? 'header-scrolled' : ''}`}>
       {/* Top utility bar */}
       <div className="hidden md:flex items-center justify-between px-6 py-1.5 text-[11px] tracking-widest2 uppercase border-b border-black/5 dark:border-white/5 text-steel">
         <span>Free shipping on orders over $100 &middot; Free pickup in Saida &middot; Cash on delivery across Lebanon</span>
@@ -50,14 +58,14 @@ export default function Header() {
 
           <nav className="hidden lg:flex items-center gap-5 text-sm uppercase tracking-wide">
             {leagues.slice(0, 4).map(l => (
-              <Link key={l.slug} href={`/leagues/${l.slug}`} className="chip-underline pb-1">
+              <Link key={l.slug} href={`/leagues/${l.slug}`} className="nav-sweep pb-1">
                 {l.name}
               </Link>
             ))}
-            <Link href="/leagues" className="chip-underline pb-1 text-steel">
+            <Link href="/leagues" className="nav-sweep pb-1 text-steel">
               All Leagues
             </Link>
-            <Link href="/shop/sportswear" className="chip-underline pb-1">
+            <Link href="/shop/sportswear" className="nav-sweep pb-1">
               Sportswear
             </Link>
           </nav>
@@ -83,7 +91,7 @@ export default function Header() {
             ) : (
               <Link
                 href="/sign-in"
-                className="hidden sm:inline-flex items-center bg-volt text-ink text-sm font-medium rounded-full px-4 py-1.5"
+                className="hidden sm:inline-flex items-center bg-volt text-ink text-sm font-medium rounded-full px-4 py-1.5 btn-press"
               >
                 Sign in
               </Link>

@@ -14,7 +14,7 @@ export default async function LeaguesPage() {
           <Link
             key={l.slug}
             href={`/leagues/${l.slug}`}
-            className="relative overflow-hidden rounded-2xl h-64 card-hover"
+            className="relative overflow-hidden rounded-2xl h-64 card-premium"
           >
             <DiagonalSplitBg color={l.primary} />
             <div className="relative z-10 h-full flex flex-col justify-between p-8">

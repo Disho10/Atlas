@@ -63,7 +63,7 @@ export default function ChatWidget() {
       )}
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-14 h-14 rounded-full bg-volt text-ink shadow-2xl flex items-center justify-center"
+        className="w-14 h-14 rounded-full bg-volt text-ink shadow-2xl flex items-center justify-center float-idle btn-press"
         aria-label="Open support chat"
       >
         {open ? <CloseIcon className="w-5 h-5" /> : <ChatIcon className="w-6 h-6" />}

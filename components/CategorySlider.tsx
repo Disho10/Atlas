@@ -15,7 +15,7 @@ export default function CategorySlider() {
           <Link
             key={l.slug}
             href={`/leagues/${l.slug}`}
-            className="relative overflow-hidden snap-start shrink-0 w-56 rounded-2xl h-60 card-hover"
+            className="relative overflow-hidden snap-start shrink-0 w-56 rounded-2xl h-60 card-premium"
           >
             <DiagonalSplitBg color={l.primary} />
             <div className="relative z-10 h-full flex flex-col justify-between p-6">

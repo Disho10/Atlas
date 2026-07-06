@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Reveal, CountUp } from './Motion';
 
 // ---------------------------------------------------------------------------
 // STATS BAND — scoreboard-style numbers. Replace with real figures as the
@@ -17,11 +18,13 @@ export function StatsBand() {
   return (
     <section className="bg-ink text-chalk">
       <div className="max-w-7xl mx-auto px-6 py-12 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-        {STATS.map(s => (
-          <div key={s.label}>
-            <p className="font-display text-4xl md:text-5xl text-volt tabular">{s.n}</p>
+        {STATS.map((s, i) => (
+          <Reveal key={s.label} delay={i * 120}>
+            <p className="font-display text-4xl md:text-5xl text-volt tabular">
+              <CountUp value={s.n} />
+            </p>
             <p className="text-chalk/60 text-sm mt-2">{s.label}</p>
-          </div>
+          </Reveal>
         ))}
       </div>
     </section>
@@ -57,14 +60,16 @@ const BADGES = [
 export function TrustBadges() {
   return (
     <section className="max-w-7xl mx-auto px-6 py-14 grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-      {BADGES.map(b => (
-        <div key={b.title} className="rounded-2xl border border-black/10 dark:border-white/10 p-6 card-hover">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-crimson mb-4">
-            {b.icon}
-          </svg>
-          <p className="font-medium">{b.title}</p>
-          <p className="text-sm text-steel mt-2 leading-relaxed">{b.body}</p>
-        </div>
+      {BADGES.map((b, i) => (
+        <Reveal key={b.title} delay={i * 100}>
+          <div className="rounded-2xl border border-black/10 dark:border-white/10 p-6 card-premium h-full">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-crimson mb-4">
+              {b.icon}
+            </svg>
+            <p className="font-medium">{b.title}</p>
+            <p className="text-sm text-steel mt-2 leading-relaxed">{b.body}</p>
+          </div>
+        </Reveal>
       ))}
     </section>
   );

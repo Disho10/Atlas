@@ -59,16 +59,16 @@ export default function HeroSlideshow() {
         <h1 className="font-display text-[15vw] sm:text-7xl md:text-8xl leading-[0.9] tracking-tight text-balance animate-rise [animation-delay:100ms] opacity-0">
           {slide.titleTop}
           <br />
-          <span className="text-volt">{slide.titleAccent}</span>
+          <span className="text-volt shimmer-text">{slide.titleAccent}</span>
         </h1>
         <p className="mt-6 max-w-md text-chalk/70 animate-rise [animation-delay:200ms] opacity-0">
           {slide.body}
         </p>
         <div className="mt-8 flex flex-wrap gap-3 animate-rise [animation-delay:300ms] opacity-0">
-          <Link href={slide.ctaHref} className="bg-volt text-ink px-6 py-3 rounded-full font-medium text-sm">
+          <Link href={slide.ctaHref} className="bg-volt text-ink px-6 py-3 rounded-full font-medium text-sm btn-press">
             {slide.ctaLabel}
           </Link>
-          <Link href={slide.secondaryHref} className="border border-chalk/30 px-6 py-3 rounded-full text-sm">
+          <Link href={slide.secondaryHref} className="border border-chalk/30 px-6 py-3 rounded-full text-sm hover:border-volt hover:text-volt transition-colors">
             {slide.secondaryLabel}
           </Link>
         </div>
