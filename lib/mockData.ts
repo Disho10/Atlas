@@ -46,6 +46,8 @@ export type Product = {
   reviewCount: number;
   image: string;
   color: string;
+  status?: 'draft' | 'published'; // admin only
+  cost?: number;                  // admin only — for margin math
 };
 
 export const products: Product[] = [

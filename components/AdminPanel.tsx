@@ -1,29 +1,39 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import { formatCurrency, type Product, type Order } from '@/lib/mockData';
+import { saveProduct, deleteProduct, logManualOrder, setStaffRole } from '@/app/admin/actions';
 
 type Role = 'owner' | 'manager' | 'admin';
+type LeagueOpt = { slug: string; name: string };
+type StaffMember = { id: string; name: string; email: string; role: string };
 
 export default function AdminPanel({
   role: fixedRole,
   products,
   orders,
   zeroResultSearches,
+  leagues,
+  staff,
   demoMode = false,
 }: {
   role: Role;
   products: Product[];
   orders: Order[];
   zeroResultSearches: { term: string; count: number }[];
+  leagues: LeagueOpt[];
+  staff: StaffMember[];
   demoMode?: boolean;
 }) {
-  // In demo mode (no Supabase configured) the role switcher stays for preview.
-  // With real auth, the role is fixed by the signed-in user's profile.
   const [role, setRole] = useState<Role>(fixedRole);
   const [tab, setTab] = useState('overview');
   const [query, setQuery] = useState('');
   const [salaries, setSalaries] = useState(1200);
+  const [editing, setEditing] = useState<Product | 'new' | null>(null);
+  const [loggingOrder, setLoggingOrder] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const canEditProducts = role === 'owner' || role === 'manager';
 
   const revenue = orders.reduce((s, o) => s + o.total, 0);
   const lowStock = products.filter(p => p.stock > 0 && p.stock <= 6);
@@ -33,7 +43,7 @@ export default function AdminPanel({
     const q = query.toLowerCase().trim();
     if (!q) return [];
     return products.filter(p => p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q) || p.tags.some(t => t.toLowerCase().includes(q)));
-  }, [query]);
+  }, [query, products]);
 
   const tabs = [
     { id: 'overview', label: 'Overview', roles: ['owner', 'manager', 'admin'] },
@@ -41,8 +51,11 @@ export default function AdminPanel({
     { id: 'products', label: 'Products', roles: ['owner', 'manager', 'admin'] },
     { id: 'requests', label: 'Requests', roles: ['owner', 'manager'] },
     { id: 'analytics', label: 'Search analytics', roles: ['owner', 'manager'] },
+    { id: 'team', label: 'Team', roles: ['owner'] },
     { id: 'finance', label: 'Finance', roles: ['owner'] },
   ].filter(t => t.roles.includes(role));
+
+  const flash = (msg: string) => { setNotice(msg); setTimeout(() => setNotice(null), 3500); };
 
   return (
     <main className="max-w-6xl mx-auto px-6 py-10">
@@ -68,6 +81,15 @@ export default function AdminPanel({
         )}
       </div>
 
+      {notice && (
+        <div className="mb-6 rounded-xl bg-volt/15 border border-volt/40 text-ink dark:text-chalk px-4 py-3 text-sm">{notice}</div>
+      )}
+      {demoMode && (
+        <div className="mb-6 rounded-xl bg-black/5 dark:bg-white/10 px-4 py-3 text-sm text-steel">
+          Actions like adding products or logging orders are disabled in demo mode. Connect Supabase and sign in as staff to use them.
+        </div>
+      )}
+
       <div className="flex gap-2 mb-8 overflow-x-auto pb-1">
         {tabs.map(t => (
           <button
@@ -91,11 +113,10 @@ export default function AdminPanel({
       {tab === 'overview' && (
         <Section title="Most requested this week" desc="Owner-configurable time window — currently set to 7 days">
           <div className="space-y-2">
-            {mostRequested.map((p, i) => (
+            {mostRequested.map(p => (
               <Row key={p.id}>
-                <span className="w-6 text-steel tabular">{i + 1}</span>
-                <span className="flex-1">{p.name}</span>
-                <span className="text-steel text-sm">{p.reviewCount} interactions</span>
+                <span className="flex-1 text-sm">{p.name}</span>
+                <span className="text-sm text-steel">{p.reviewCount} reviews</span>
               </Row>
             ))}
           </div>
@@ -105,13 +126,20 @@ export default function AdminPanel({
       {tab === 'orders' && (
         <Section title="Orders" desc="Includes orders placed on the website, and manually logged Instagram / WhatsApp sales">
           <div className="flex justify-end mb-3">
-            <button className="text-sm bg-ink text-chalk dark:bg-chalk dark:text-ink rounded-full px-4 py-2">+ Log Instagram/WhatsApp order</button>
+            <button
+              disabled={demoMode}
+              onClick={() => setLoggingOrder(true)}
+              className="text-sm bg-ink text-chalk dark:bg-chalk dark:text-ink rounded-full px-4 py-2 btn-press disabled:opacity-40"
+            >
+              + Log Instagram/WhatsApp order
+            </button>
           </div>
           <div className="space-y-2">
+            {orders.length === 0 && <p className="text-steel text-sm py-6 text-center">No orders yet.</p>}
             {orders.map(o => (
               <Row key={o.id}>
                 <span className="w-24 text-sm tabular">{o.id}</span>
-                <span className="flex-1 text-sm">{o.customer} &middot; {o.items[0].name}</span>
+                <span className="flex-1 text-sm">{o.customer}{o.items[0] ? ` · ${o.items[0].name}` : ''}</span>
                 <span className="text-xs uppercase text-steel w-20">{o.channel}</span>
                 <span className="text-xs capitalize px-2 py-1 rounded-full bg-black/5 dark:bg-white/10 w-24 text-center">{o.status}</span>
                 <span className="text-sm font-medium w-16 text-right tabular">{formatCurrency(o.total, 'USD')}</span>
@@ -122,20 +150,43 @@ export default function AdminPanel({
       )}
 
       {tab === 'products' && (
-        <Section title="Products" desc="Internal codes are only visible to Owner, Manager, and Admin roles">
-          <input
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            placeholder="Search by product, tag, or internal code..."
-            className="w-full border border-black/15 dark:border-white/20 bg-transparent rounded-xl px-4 py-3 text-sm mb-4"
-          />
+        <Section title="Products" desc={canEditProducts ? 'Add, edit, or remove products. Internal codes are staff-only.' : 'View only — ask an Owner or Manager to make product changes.'}>
+          <div className="flex gap-3 mb-4">
+            <input
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Search by product, tag, or internal code..."
+              className="flex-1 border border-black/15 dark:border-white/20 bg-transparent rounded-xl px-4 py-3 text-sm"
+            />
+            {canEditProducts && (
+              <button
+                disabled={demoMode}
+                onClick={() => setEditing('new')}
+                className="text-sm bg-volt text-ink rounded-xl px-5 btn-press shrink-0 disabled:opacity-40"
+              >
+                + Add product
+              </button>
+            )}
+          </div>
           <div className="space-y-2">
             {(query ? searchResults : products).map(p => (
               <Row key={p.id}>
-                <span className="text-xs font-mono text-steel w-28">{p.code}</span>
-                <span className="flex-1 text-sm">{p.name}</span>
-                <span className="text-sm tabular w-16">{p.stock} in stock</span>
-                <span className="text-sm font-medium tabular w-16 text-right">${p.price}</span>
+                <span className="text-xs font-mono text-steel w-28 truncate">{p.code || '—'}</span>
+                <span className="flex-1 text-sm">
+                  {p.name}
+                  {p.status === 'draft' && <span className="ml-2 text-[10px] uppercase bg-black/10 dark:bg-white/15 rounded px-1.5 py-0.5">Draft</span>}
+                </span>
+                <span className="text-sm tabular w-20">{p.stock} in stock</span>
+                <span className="text-sm font-medium tabular w-14 text-right">${p.price}</span>
+                {canEditProducts && (
+                  <button
+                    disabled={demoMode}
+                    onClick={() => setEditing(p)}
+                    className="text-xs underline underline-offset-2 text-steel w-10 text-right disabled:opacity-40"
+                  >
+                    Edit
+                  </button>
+                )}
               </Row>
             ))}
           </div>
@@ -144,23 +195,23 @@ export default function AdminPanel({
 
       {tab === 'requests' && (
         <>
-          <Section title="Low-stock alerts" desc="Separate from most-requested — flags anything at or below threshold (6 units)">
+          <Section title="Low-stock alerts" desc="Flags anything at or below threshold (6 units)">
             <div className="space-y-2">
+              {lowStock.length === 0 && <p className="text-steel text-sm">Nothing low right now.</p>}
               {lowStock.map(p => (
                 <Row key={p.id}>
                   <span className="flex-1 text-sm">{p.name}</span>
-                  <span className="text-crimson text-sm font-medium">{p.stock} left</span>
+                  <span className="text-sm text-crimson tabular">{p.stock} left</span>
                 </Row>
               ))}
-              {lowStock.length === 0 && <p className="text-sm text-steel">Nothing below threshold right now.</p>}
             </div>
           </Section>
           <Section title="Reorder recommendations" desc="Suggested based on recent sales velocity and demand signals">
             <div className="space-y-2">
-              {lowStock.map(p => (
+              {mostRequested.slice(0, 3).map(p => (
                 <Row key={p.id}>
                   <span className="flex-1 text-sm">{p.name}</span>
-                  <span className="text-sm text-steel">Suggest reordering ~{Math.max(20, p.stock * 4)} units</span>
+                  <span className="text-sm text-steel">High demand</span>
                 </Row>
               ))}
             </div>
@@ -169,16 +220,21 @@ export default function AdminPanel({
       )}
 
       {tab === 'analytics' && (
-        <Section title="Zero-result searches" desc="What customers are searching for that you don't carry yet — a direct demand signal">
+        <Section title="Zero-result searches" desc="What customers search for that you don't carry yet — a direct demand signal">
           <div className="space-y-2">
+            {zeroResultSearches.length === 0 && <p className="text-steel text-sm">No zero-result searches logged yet.</p>}
             {zeroResultSearches.map(z => (
               <Row key={z.term}>
-                <span className="flex-1 text-sm">"{z.term}"</span>
-                <span className="text-sm text-steel">{z.count} searches</span>
+                <span className="flex-1 text-sm">{z.term}</span>
+                <span className="text-sm text-steel tabular">{z.count}×</span>
               </Row>
             ))}
           </div>
         </Section>
+      )}
+
+      {tab === 'team' && (
+        <TeamTab staff={staff} demoMode={demoMode} onDone={flash} />
       )}
 
       {tab === 'finance' && (
@@ -199,7 +255,327 @@ export default function AdminPanel({
           </div>
         </Section>
       )}
+
+      {editing && (
+        <ProductEditor
+          product={editing === 'new' ? null : editing}
+          leagues={leagues}
+          onClose={() => setEditing(null)}
+          onSaved={() => { setEditing(null); flash('Product saved.'); }}
+          onDeleted={() => { setEditing(null); flash('Product deleted.'); }}
+        />
+      )}
+
+      {loggingOrder && (
+        <OrderLogger
+          onClose={() => setLoggingOrder(false)}
+          onLogged={() => { setLoggingOrder(false); flash('Order logged.'); }}
+        />
+      )}
     </main>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// PRODUCT EDITOR MODAL
+// ---------------------------------------------------------------------------
+function ProductEditor({ product, leagues, onClose, onSaved, onDeleted }: {
+  product: Product | null;
+  leagues: LeagueOpt[];
+  onClose: () => void;
+  onSaved: () => void;
+  onDeleted: () => void;
+}) {
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [f, setF] = useState({
+    name: product?.name ?? '',
+    category: product?.category ?? 'shirts',
+    league_slug: product?.leagueSlug ?? '',
+    team: product?.team ?? '',
+    price_usd: product?.price ?? 0,
+    compare_at_usd: product?.compareAt ?? 0,
+    cost_usd: product?.cost ?? 0,
+    gender: product?.gender ?? 'unisex',
+    sizes: (product?.sizes ?? []).join(', '),
+    stock: product?.stock ?? 0,
+    hot: product?.hot ?? false,
+    coming_soon: product?.comingSoon ?? false,
+    status: (product?.status ?? 'published') as 'draft' | 'published',
+    image_url: product?.image ?? '',
+  });
+
+  const set = (k: keyof typeof f, v: any) => setF(prev => ({ ...prev, [k]: v }));
+
+  const submit = () => {
+    setError(null);
+    if (!f.name.trim()) { setError('Name is required.'); return; }
+    start(async () => {
+      const res = await saveProduct({
+        id: product?.id,
+        name: f.name.trim(),
+        category: f.category,
+        league_slug: f.league_slug || null,
+        team: f.team.trim(),
+        price_usd: Number(f.price_usd),
+        compare_at_usd: Number(f.compare_at_usd) || null,
+        cost_usd: Number(f.cost_usd) || null,
+        gender: f.gender,
+        sizes: f.sizes.split(',').map(s => s.trim()).filter(Boolean),
+        stock: Number(f.stock),
+        hot: f.hot,
+        coming_soon: f.coming_soon,
+        status: f.status,
+        image_url: f.image_url.trim() || null,
+      });
+      if (res.ok) onSaved();
+      else setError(res.error);
+    });
+  };
+
+  const remove = () => {
+    if (!product) return;
+    if (!confirm(`Delete "${product.name}"? This can't be undone.`)) return;
+    start(async () => {
+      const res = await deleteProduct(product.id);
+      if (res.ok) onDeleted();
+      else setError(res.error);
+    });
+  };
+
+  return (
+    <Modal title={product ? 'Edit product' : 'Add product'} onClose={onClose}>
+      <div className="grid sm:grid-cols-2 gap-3">
+        <Field label="Name" className="sm:col-span-2"><input value={f.name} onChange={e => set('name', e.target.value)} className={inputCls} /></Field>
+        <Field label="Category">
+          <select value={f.category} onChange={e => set('category', e.target.value)} className={inputCls}>
+            {['shirts', 'socks', 'balls', 'shinpads', 'sportswear'].map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </Field>
+        <Field label="League (optional)">
+          <select value={f.league_slug} onChange={e => set('league_slug', e.target.value)} className={inputCls}>
+            <option value="">— None (general) —</option>
+            {leagues.map(l => <option key={l.slug} value={l.slug}>{l.name}</option>)}
+          </select>
+        </Field>
+        <Field label="Team / Brand"><input value={f.team} onChange={e => set('team', e.target.value)} className={inputCls} /></Field>
+        <Field label="Gender">
+          <select value={f.gender} onChange={e => set('gender', e.target.value)} className={inputCls}>
+            {['unisex', 'male', 'female'].map(g => <option key={g} value={g}>{g}</option>)}
+          </select>
+        </Field>
+        <Field label="Price (USD)"><input type="number" value={f.price_usd} onChange={e => set('price_usd', e.target.value)} className={inputCls} /></Field>
+        <Field label="Compare-at (USD, optional)"><input type="number" value={f.compare_at_usd} onChange={e => set('compare_at_usd', e.target.value)} className={inputCls} /></Field>
+        <Field label="Cost (USD, for margins)"><input type="number" value={f.cost_usd} onChange={e => set('cost_usd', e.target.value)} className={inputCls} /></Field>
+        <Field label="Stock"><input type="number" value={f.stock} onChange={e => set('stock', e.target.value)} className={inputCls} /></Field>
+        <Field label="Sizes (comma-separated)" className="sm:col-span-2"><input value={f.sizes} onChange={e => set('sizes', e.target.value)} placeholder="S, M, L, XL" className={inputCls} /></Field>
+        <Field label="Image URL" className="sm:col-span-2"><input value={f.image_url} onChange={e => set('image_url', e.target.value)} placeholder="https://..." className={inputCls} /></Field>
+        <Field label="Status">
+          <select value={f.status} onChange={e => set('status', e.target.value as any)} className={inputCls}>
+            <option value="published">Published (visible in store)</option>
+            <option value="draft">Draft (hidden)</option>
+          </select>
+        </Field>
+        <div className="flex items-end gap-4">
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.hot} onChange={e => set('hot', e.target.checked)} /> Hot</label>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.coming_soon} onChange={e => set('coming_soon', e.target.checked)} /> Coming soon</label>
+        </div>
+      </div>
+
+      {error && <p className="text-crimson text-sm mt-4">{error}</p>}
+
+      <div className="flex items-center justify-between mt-6">
+        {product ? (
+          <button onClick={remove} disabled={pending} className="text-sm text-crimson underline underline-offset-2 disabled:opacity-50">Delete</button>
+        ) : <span />}
+        <div className="flex gap-2">
+          <button onClick={onClose} className="text-sm px-5 py-2.5 rounded-full border border-black/15 dark:border-white/20">Cancel</button>
+          <button onClick={submit} disabled={pending} className="text-sm px-6 py-2.5 rounded-full bg-volt text-ink font-medium btn-press disabled:opacity-50">
+            {pending ? 'Saving…' : 'Save product'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// MANUAL ORDER LOGGER MODAL
+// ---------------------------------------------------------------------------
+function OrderLogger({ onClose, onLogged }: { onClose: () => void; onLogged: () => void }) {
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [f, setF] = useState({
+    customer_name: '', customer_phone: '', channel: 'whatsapp' as 'whatsapp' | 'instagram',
+    payment_method: 'cod' as 'whish_pay' | 'omt' | 'card' | 'cod',
+    address: '', city: '', product_name: '', size: '', qty: 1, unit_price_usd: 0,
+  });
+  const set = (k: keyof typeof f, v: any) => setF(prev => ({ ...prev, [k]: v }));
+
+  const submit = () => {
+    setError(null);
+    if (!f.customer_name.trim()) { setError('Customer name is required.'); return; }
+    if (!f.product_name.trim()) { setError('Product name is required.'); return; }
+    if (!f.address.trim()) { setError('Delivery address is required.'); return; }
+    start(async () => {
+      const res = await logManualOrder({
+        customer_name: f.customer_name.trim(),
+        customer_phone: f.customer_phone.trim(),
+        channel: f.channel,
+        payment_method: f.payment_method,
+        address: f.address.trim(),
+        city: f.city.trim(),
+        product_name: f.product_name.trim(),
+        size: f.size.trim(),
+        qty: Number(f.qty),
+        unit_price_usd: Number(f.unit_price_usd),
+      });
+      if (res.ok) onLogged();
+      else setError(res.error);
+    });
+  };
+
+  return (
+    <Modal title="Log Instagram / WhatsApp order" onClose={onClose}>
+      <div className="grid sm:grid-cols-2 gap-3">
+        <Field label="Customer name"><input value={f.customer_name} onChange={e => set('customer_name', e.target.value)} className={inputCls} /></Field>
+        <Field label="Phone"><input value={f.customer_phone} onChange={e => set('customer_phone', e.target.value)} className={inputCls} /></Field>
+        <Field label="Channel">
+          <select value={f.channel} onChange={e => set('channel', e.target.value)} className={inputCls}>
+            <option value="whatsapp">WhatsApp</option>
+            <option value="instagram">Instagram</option>
+          </select>
+        </Field>
+        <Field label="Payment method">
+          <select value={f.payment_method} onChange={e => set('payment_method', e.target.value)} className={inputCls}>
+            <option value="cod">Cash on Delivery</option>
+            <option value="whish_pay">Whish Pay</option>
+            <option value="omt">OMT</option>
+            <option value="card">Card</option>
+          </select>
+        </Field>
+        <Field label="Address" className="sm:col-span-2"><input value={f.address} onChange={e => set('address', e.target.value)} className={inputCls} /></Field>
+        <Field label="City"><input value={f.city} onChange={e => set('city', e.target.value)} className={inputCls} /></Field>
+        <Field label="Product name" className="sm:col-span-2"><input value={f.product_name} onChange={e => set('product_name', e.target.value)} placeholder="e.g. Real Madrid Home Shirt 25/26" className={inputCls} /></Field>
+        <Field label="Size"><input value={f.size} onChange={e => set('size', e.target.value)} className={inputCls} /></Field>
+        <Field label="Quantity"><input type="number" value={f.qty} onChange={e => set('qty', e.target.value)} className={inputCls} /></Field>
+        <Field label="Unit price (USD)"><input type="number" value={f.unit_price_usd} onChange={e => set('unit_price_usd', e.target.value)} className={inputCls} /></Field>
+      </div>
+
+      <p className="text-xs text-steel mt-3">Total: {formatCurrency(Number(f.unit_price_usd) * Number(f.qty) || 0, 'USD')}</p>
+      {error && <p className="text-crimson text-sm mt-3">{error}</p>}
+
+      <div className="flex justify-end gap-2 mt-6">
+        <button onClick={onClose} className="text-sm px-5 py-2.5 rounded-full border border-black/15 dark:border-white/20">Cancel</button>
+        <button onClick={submit} disabled={pending} className="text-sm px-6 py-2.5 rounded-full bg-volt text-ink font-medium btn-press disabled:opacity-50">
+          {pending ? 'Logging…' : 'Log order'}
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// TEAM TAB — owner promotes / demotes staff by email
+// ---------------------------------------------------------------------------
+function TeamTab({ staff, demoMode, onDone }: { staff: StaffMember[]; demoMode: boolean; onDone: (m: string) => void }) {
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [email, setEmail] = useState('');
+  const [newRole, setNewRole] = useState<'admin' | 'manager' | 'owner'>('admin');
+
+  const promote = () => {
+    setError(null);
+    if (!email.includes('@')) { setError('Enter a valid email.'); return; }
+    start(async () => {
+      const res = await setStaffRole({ email, role: newRole });
+      if (res.ok) { setEmail(''); onDone(`${email} is now ${newRole}.`); }
+      else setError(res.error);
+    });
+  };
+
+  const changeRole = (m: StaffMember, role: 'customer' | 'admin' | 'manager' | 'owner') => {
+    start(async () => {
+      const res = await setStaffRole({ email: m.email, role });
+      if (res.ok) onDone(`${m.email} updated to ${role}.`);
+      else setError(res.error);
+    });
+  };
+
+  return (
+    <>
+      <Section title="Add a team member" desc="They must sign up on the site first — then enter their email here to grant a role.">
+        <div className="flex flex-wrap gap-2">
+          <input
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            placeholder="teammate@email.com"
+            className="flex-1 min-w-[220px] border border-black/15 dark:border-white/20 bg-transparent rounded-xl px-4 py-3 text-sm"
+          />
+          <select value={newRole} onChange={e => setNewRole(e.target.value as any)} className="border border-black/15 dark:border-white/20 bg-transparent rounded-xl px-4 py-3 text-sm">
+            <option value="admin">Admin</option>
+            <option value="manager">Manager</option>
+            <option value="owner">Owner</option>
+          </select>
+          <button onClick={promote} disabled={pending || demoMode} className="text-sm bg-volt text-ink rounded-xl px-5 btn-press disabled:opacity-40">
+            {pending ? 'Saving…' : 'Grant role'}
+          </button>
+        </div>
+        {error && <p className="text-crimson text-sm mt-3">{error}</p>}
+        <p className="text-xs text-steel mt-3">
+          Roles: <b>Admin</b> logs orders &amp; views products · <b>Manager</b> also edits products &amp; sees analytics · <b>Owner</b> full access incl. finance &amp; team.
+        </p>
+      </Section>
+
+      <Section title="Current team">
+        <div className="space-y-2">
+          {staff.length === 0 && <p className="text-steel text-sm">No staff yet — you're the first.</p>}
+          {staff.map(m => (
+            <Row key={m.id}>
+              <span className="flex-1 text-sm">{m.name}<span className="text-steel"> · {m.email}</span></span>
+              <select
+                value={m.role}
+                onChange={e => changeRole(m, e.target.value as any)}
+                disabled={pending || demoMode}
+                className="text-sm capitalize border border-black/15 dark:border-white/20 bg-transparent rounded-full px-3 py-1.5 disabled:opacity-40"
+              >
+                {['owner', 'manager', 'admin', 'customer'].map(r => <option key={r} value={r}>{r === 'customer' ? 'Remove (customer)' : r}</option>)}
+              </select>
+            </Row>
+          ))}
+        </div>
+      </Section>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// SHARED BITS
+// ---------------------------------------------------------------------------
+const inputCls = 'w-full border border-black/15 dark:border-white/20 bg-transparent rounded-lg px-3 py-2.5 text-sm';
+
+function Modal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-[100] flex items-start justify-center p-4 overflow-y-auto bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-chalk dark:bg-ink rounded-3xl p-6 md:p-8 w-full max-w-2xl my-8 shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="font-display text-2xl">{title}</h2>
+          <button onClick={onClose} aria-label="Close" className="w-9 h-9 rounded-full bg-black/5 dark:bg-white/10 flex items-center justify-center">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, children, className = '' }: { label: string; children: React.ReactNode; className?: string }) {
+  return (
+    <label className={`block ${className}`}>
+      <span className="block text-xs text-steel mb-1.5">{label}</span>
+      {children}
+    </label>
   );
 }
 

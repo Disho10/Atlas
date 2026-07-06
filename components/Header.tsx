@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Logo from './Logo';
 import { useState, useEffect } from 'react';
 import { useCart, useCurrency, useTheme, useWishlist, useAuth } from './Providers';
 import { leagues } from '@/lib/mockData';
@@ -52,9 +53,7 @@ export default function Header() {
             <span className="w-4 h-0.5 bg-ink dark:bg-chalk" />
           </button>
 
-          <Link href="/" className="font-display text-3xl tracking-wide leading-none">
-            ATLAS
-          </Link>
+          <Logo />
 
           <nav className="hidden lg:flex items-center gap-5 text-sm uppercase tracking-wide">
             {leagues.slice(0, 4).map(l => (

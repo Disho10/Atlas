@@ -1,0 +1,170 @@
+'use server';
+
+import { revalidatePath } from 'next/cache';
+import { createClient } from '@/lib/supabase/server';
+
+// Every action re-checks the caller's role server-side. The RLS policies in the
+// database are the real enforcement, but checking here too lets us return clean
+// error messages instead of opaque permission failures, and blocks the action
+// before it ever touches the DB.
+
+type ActionResult = { ok: true } | { ok: false; error: string };
+
+async function getRole(): Promise<{ userId: string; role: string } | null> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+  return { userId: user.id, role: (data as any)?.role ?? 'customer' };
+}
+
+const isStaff = (r: string) => ['admin', 'manager', 'owner'].includes(r);
+const canEditProducts = (r: string) => ['manager', 'owner'].includes(r);
+
+// ---------------------------------------------------------------------------
+// PRODUCTS — create / update / delete. Owner + Manager only.
+// ---------------------------------------------------------------------------
+export async function saveProduct(input: {
+  id?: string;
+  name: string;
+  category: string;
+  league_slug: string | null;
+  team: string;
+  price_usd: number;
+  compare_at_usd: number | null;
+  cost_usd: number | null;
+  gender: string;
+  sizes: string[];
+  stock: number;
+  hot: boolean;
+  coming_soon: boolean;
+  status: 'draft' | 'published';
+  image_url: string | null;
+}): Promise<ActionResult> {
+  const auth = await getRole();
+  if (!auth) return { ok: false, error: 'Not signed in.' };
+  if (!canEditProducts(auth.role)) return { ok: false, error: 'Only Owner and Manager can edit products.' };
+
+  const supabase = await createClient();
+  const row = {
+    name: input.name,
+    category: input.category,
+    league_slug: input.league_slug || null,
+    team: input.team || null,
+    price_usd: input.price_usd,
+    compare_at_usd: input.compare_at_usd,
+    cost_usd: input.cost_usd,
+    gender: input.gender,
+    sizes: input.sizes,
+    stock: input.stock,
+    hot: input.hot,
+    coming_soon: input.coming_soon,
+    status: input.status,
+    image_url: input.image_url,
+  };
+
+  const { error } = input.id
+    ? await supabase.from('products').update(row).eq('id', input.id)
+    : await supabase.from('products').insert(row);
+
+  if (error) return { ok: false, error: error.message };
+  revalidatePath('/admin');
+  revalidatePath('/');
+  return { ok: true };
+}
+
+export async function deleteProduct(id: string): Promise<ActionResult> {
+  const auth = await getRole();
+  if (!auth) return { ok: false, error: 'Not signed in.' };
+  if (!canEditProducts(auth.role)) return { ok: false, error: 'Only Owner and Manager can delete products.' };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from('products').delete().eq('id', id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath('/admin');
+  revalidatePath('/');
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// MANUAL ORDERS — log an Instagram / WhatsApp sale. All staff.
+// ---------------------------------------------------------------------------
+export async function logManualOrder(input: {
+  customer_name: string;
+  customer_phone: string;
+  channel: 'instagram' | 'whatsapp';
+  payment_method: 'whish_pay' | 'omt' | 'card' | 'cod';
+  address: string;
+  city: string;
+  product_name: string;
+  size: string;
+  qty: number;
+  unit_price_usd: number;
+}): Promise<ActionResult> {
+  const auth = await getRole();
+  if (!auth) return { ok: false, error: 'Not signed in.' };
+  if (!isStaff(auth.role)) return { ok: false, error: 'Staff only.' };
+
+  const supabase = await createClient();
+  const subtotal = input.unit_price_usd * input.qty;
+
+  const { data: order, error: orderErr } = await supabase
+    .from('orders')
+    .insert({
+      status: 'confirmed',
+      channel: input.channel,
+      payment_method: input.payment_method,
+      customer_name: input.customer_name,
+      customer_phone: input.customer_phone || null,
+      address: input.address,
+      city: input.city || null,
+      subtotal_usd: subtotal,
+      logged_by: auth.userId,
+    })
+    .select('id')
+    .single();
+
+  if (orderErr || !order) return { ok: false, error: orderErr?.message ?? 'Could not create order.' };
+
+  const { error: itemErr } = await supabase.from('order_items').insert({
+    order_id: order.id,
+    product_name: input.product_name,
+    size: input.size || null,
+    qty: input.qty,
+    unit_price_usd: input.unit_price_usd,
+  });
+
+  if (itemErr) return { ok: false, error: itemErr.message };
+  revalidatePath('/admin');
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// TEAM — owner promotes / demotes staff by email. Owner only.
+// ---------------------------------------------------------------------------
+export async function setStaffRole(input: {
+  email: string;
+  role: 'customer' | 'admin' | 'manager' | 'owner';
+}): Promise<ActionResult> {
+  const auth = await getRole();
+  if (!auth) return { ok: false, error: 'Not signed in.' };
+  if (auth.role !== 'owner') return { ok: false, error: 'Only the Owner can manage the team.' };
+
+  const supabase = await createClient();
+  // The person must already have an account (signed up on the site). We match
+  // their profile by the email stored on it.
+  const { data: profile, error: findErr } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('email', input.email.trim().toLowerCase())
+    .single();
+
+  if (findErr || !profile) {
+    return { ok: false, error: 'No account found with that email. Ask them to sign up on the site first.' };
+  }
+
+  const { error } = await supabase.from('profiles').update({ role: input.role }).eq('id', profile.id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath('/admin');
+  return { ok: true };
+}

@@ -15,7 +15,7 @@ const HAS_SUPABASE = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 export default async function AdminPage() {
   // Prototype mode — no Supabase yet: keep the demo panel with a role switcher.
   if (!HAS_SUPABASE) {
-    return <AdminPanel role="owner" products={mockProducts} orders={mockOrders} zeroResultSearches={mockZero} demoMode />;
+    return <AdminPanel role="owner" products={mockProducts} orders={mockOrders} zeroResultSearches={mockZero} leagues={[]} staff={[]} demoMode />;
   }
 
   const supabase = await createClient();
@@ -37,11 +37,19 @@ export default async function AdminPage() {
   }
 
   // Live data — RLS policies (is_staff) authorize these reads for staff sessions.
-  const [{ data: productRows }, { data: orderRows }, { data: zeroRows }] = await Promise.all([
+  const [{ data: productRows }, { data: orderRows }, { data: zeroRows }, { data: leagueRows }, { data: staffRows }] = await Promise.all([
     supabase.from('products').select(`${STAFF_PRODUCT_COLUMNS}, product_tags(tags(label))`).order('created_at', { ascending: false }),
     supabase.from('orders').select('*, order_items(*)').order('created_at', { ascending: false }).limit(100),
     supabase.from('search_logs').select('term').eq('result_count', 0).limit(500),
+    supabase.from('leagues').select('slug, name').order('sort_order'),
+    // Team list — owner uses this to manage roles. Reads all profiles (allowed for staff via RLS).
+    supabase.from('profiles').select('id, full_name, email, role').order('role'),
   ]);
+
+  const leagueOptions = (leagueRows ?? []).map((l: any) => ({ slug: l.slug, name: l.name }));
+  const staff = (staffRows ?? [])
+    .filter((p: any) => ['admin', 'manager', 'owner'].includes(p.role))
+    .map((p: any) => ({ id: p.id, name: p.full_name ?? '—', email: p.email ?? '—', role: p.role }));
 
   const products = (productRows ?? []).map((r: any) => mapProductRow(r));
 
@@ -76,6 +84,8 @@ export default async function AdminPage() {
       products={products}
       orders={orders}
       zeroResultSearches={zeroResultSearches}
+      leagues={leagueOptions}
+      staff={staff}
     />
   );
 }

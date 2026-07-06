@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Logo from './Logo';
 import { leagues } from '@/lib/mockData';
 
 export default function Footer() {
@@ -6,7 +7,7 @@ export default function Footer() {
     <footer className="border-t border-black/10 dark:border-white/10 mt-24">
       <div className="max-w-7xl mx-auto px-6 py-14 grid grid-cols-2 md:grid-cols-5 gap-8">
         <div className="col-span-2">
-          <div className="font-display text-3xl">ATLAS</div>
+          <Logo withSlogan />
           <p className="text-sm text-steel mt-3 max-w-xs">
             Football culture, carried. Authentic kits and match-day gear for every league, shipped across Lebanon.
           </p>
@@ -22,8 +23,8 @@ export default function Footer() {
         <div>
           <h4 className="text-xs uppercase tracking-widest2 text-steel mb-3">Support</h4>
           <ul className="space-y-2 text-sm">
-            <li><Link href="/account/orders" className="hover:opacity-70">Track an order</Link></li>
-            <li><Link href="/account/returns" className="hover:opacity-70">Returns &amp; exchanges</Link></li>
+            <li><Link href="/track" className="hover:opacity-70">Track an order</Link></li>
+            <li><Link href="/track" className="hover:opacity-70">Returns &amp; exchanges</Link></li>
             <li><a href="https://wa.me/9610000000" className="hover:opacity-70">WhatsApp us</a></li>
             <li><Link href="/scores" className="hover:opacity-70">Match results</Link></li>
           </ul>

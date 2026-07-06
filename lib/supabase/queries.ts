@@ -42,6 +42,8 @@ export function mapProductRow(row: ProductRow): Product {
     reviewCount: row.review_count,
     image: row.image_url ?? '',
     color: '#FFFFFF',
+    status: (row as any).status ?? 'published',
+    cost: (row as any).cost_usd != null ? Number((row as any).cost_usd) : undefined,
   };
 }
 
