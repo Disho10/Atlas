@@ -7,16 +7,15 @@ import Link from 'next/link';
 export default function Logo({ withSlogan = false, className = '' }: { withSlogan?: boolean; className?: string }) {
   return (
     <Link href="/" className={`inline-flex items-center gap-2.5 ${className}`} aria-label="Atlas — home">
-      <span className="relative block h-8 w-8 shrink-0">
+      <span className="relative block h-9 w-9 shrink-0">
         {/* eslint-disable @next/next/no-img-element */}
-        <img src="/brand/atlas-mark-dark.png" alt="Atlas" className="h-8 w-8 object-contain block dark:hidden" />
-        <img src="/brand/atlas-mark-light.png" alt="Atlas" className="h-8 w-8 object-contain hidden dark:block" />
+        <img src="/brand/atlas-mark-dark.png" alt="Atlas" className="h-9 w-9 object-contain block dark:hidden" />
+        <img src="/brand/atlas-mark-light.png" alt="Atlas" className="h-9 w-9 object-contain hidden dark:block" />
         {/* eslint-enable @next/next/no-img-element */}
       </span>
-      <span className="flex flex-col leading-none">
-        <span className="font-display text-2xl tracking-tight">ATLAS</span>
-        {withSlogan && <span className="text-[10px] uppercase tracking-[0.2em] text-steel mt-0.5">Follow Through.</span>}
-      </span>
+      {withSlogan && (
+        <span className="text-[10px] uppercase tracking-[0.2em] text-steel">Follow Through.</span>
+      )}
     </Link>
   );
 }
