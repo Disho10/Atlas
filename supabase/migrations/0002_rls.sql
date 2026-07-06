@@ -4,19 +4,19 @@
 -- ============================================================================
 
 -- Helper: current user's role, without recursive RLS lookups
-create function current_role()
+create function atlas_role()
 returns user_role as $$
   select role from profiles where id = auth.uid();
 $$ language sql stable security definer;
 
 create function is_staff()
 returns boolean as $$
-  select current_role() in ('admin', 'manager', 'owner');
+  select atlas_role() in ('admin', 'manager', 'owner');
 $$ language sql stable security definer;
 
 create function is_manager_or_owner()
 returns boolean as $$
-  select current_role() in ('manager', 'owner');
+  select atlas_role() in ('manager', 'owner');
 $$ language sql stable security definer;
 
 -- ----------------------------------------------------------------------------

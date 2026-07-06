@@ -1,6 +1,7 @@
 import Hero from '@/components/Hero';
 import CategorySlider from '@/components/CategorySlider';
 import ProductRail from '@/components/ProductRail';
+import { StatsBand, TrustBadges, Testimonials, FaqSection, NewsletterSignup } from '@/components/SocialProof';
 import { getProducts } from '@/lib/data';
 
 export default async function HomePage() {
@@ -12,10 +13,10 @@ export default async function HomePage() {
   return (
     <main>
       <Hero />
+      <StatsBand />
       <CategorySlider />
       <ProductRail title="Hot Right Now" subtitle="What's flying off the shelf this week" products={hot} />
       <ProductRail title="Just Dropped" subtitle="The newest arrivals across every league" products={newest} />
-      <ProductRail title="Most Searched" subtitle="What everyone's looking for right now" products={mostSearched} />
 
       <section className="max-w-7xl mx-auto px-6 py-16">
         <div className="rounded-3xl bg-pitch text-chalk p-10 md:p-14 grid md:grid-cols-2 gap-8 items-center">
@@ -35,6 +36,15 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {mostSearched.length > 0 && (
+        <ProductRail title="Most Searched" subtitle="What everyone's looking for right now" products={mostSearched} />
+      )}
+
+      <Testimonials />
+      <TrustBadges />
+      <FaqSection />
+      <NewsletterSignup />
     </main>
   );
 }
