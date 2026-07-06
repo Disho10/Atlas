@@ -10,7 +10,7 @@ export default function Header() {
   const { ids } = useWishlist();
   const { theme, toggle } = useTheme();
   const { currency, setCurrency } = useCurrency();
-  const { signedIn, loading } = useAuth();
+  const { signedIn, loading, isStaff } = useAuth();
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -83,6 +83,14 @@ export default function Header() {
               </span>
             )}
           </Link>
+          {!loading && isStaff && (
+            <Link
+              href="/admin"
+              className="hidden sm:inline-flex items-center border border-crimson text-crimson text-xs uppercase tracking-wide font-medium rounded-full px-3 py-1.5 hover:bg-crimson hover:text-white transition-colors"
+            >
+              Staff Panel
+            </Link>
+          )}
           {!loading && (
             signedIn ? (
               <Link href="/account" className="hidden sm:block p-1" aria-label="Account">
@@ -147,6 +155,9 @@ export default function Header() {
             signedIn
               ? <Link href="/account" onClick={() => setMenuOpen(false)}>My Account</Link>
               : <Link href="/sign-in" onClick={() => setMenuOpen(false)}>Sign in</Link>
+          )}
+          {!loading && isStaff && (
+            <Link href="/admin" onClick={() => setMenuOpen(false)} className="text-crimson">Staff Panel</Link>
           )}
         </nav>
       )}

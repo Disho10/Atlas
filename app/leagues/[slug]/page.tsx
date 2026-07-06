@@ -14,23 +14,34 @@ export default async function LeaguePage({ params }: { params: Promise<{ slug: s
 
   return (
     <main>
-      {/* Category header — locked to this league's own colors, per the category styling rule.
-          Colors come from the `leagues` table's primary_color/secondary_color, editable only
-          by Owner/Manager via the RLS policy in supabase/migrations/0002_rls.sql.
-          The white/color split uses clip-path (not a gradient hard-stop) so the safe zones for
-          the logo and the title stay solid regardless of viewport width — a gradient angle
-          bends differently depending on the box's aspect ratio and was cutting through the text. */}
-      <section className="relative overflow-hidden min-h-[70vh] flex flex-col justify-between pt-20 pb-40">
+      {/* Category header — same diagonal-split concept as before, now with subtle
+          motion polish: the crest and title animate in, and there's a soft glow
+          + grain for depth. Colors stay locked to the league's own brand values
+          (leagues.primary_color/secondary_color), editable only by Owner/Manager
+          via the RLS policy. The white/color split uses clip-path so the safe
+          zones for the logo and title stay solid regardless of viewport width. */}
+      <section className="relative overflow-hidden min-h-[70vh] flex flex-col justify-between pt-20 pb-40 grain">
         <DiagonalSplitBg color={league.primary} splitTop={32} splitBottom={58} />
 
+        {/* Soft glow orb tinted with the league color, drifting behind the crest */}
+        <div className="glow-orb w-[30rem] h-[30rem] top-0 left-1/4" style={{ background: league.primary }} />
+
         <div className="max-w-7xl mx-auto px-6 relative z-10 w-full">
-          <LeagueCrest league={league} size={140} />
-          <span className="block mt-4 text-ink/60 text-xs uppercase tracking-widest2">{league.country}</span>
+          <div className="animate-rise inline-block">
+            <LeagueCrest league={league} size={140} />
+          </div>
+          <span className="block mt-4 text-ink/60 text-xs uppercase tracking-widest2 animate-rise [animation-delay:120ms] opacity-0">
+            {league.country}
+          </span>
         </div>
 
         <div className="max-w-7xl mx-auto px-6 relative z-10 w-full text-right">
-          <h1 className="font-display text-6xl md:text-7xl text-white">{league.name}</h1>
-          <p className="text-white/70 mt-3 max-w-md ml-auto">{leagueProducts.length} products across this league</p>
+          <h1 className="font-display text-6xl md:text-7xl text-white animate-rise [animation-delay:200ms] opacity-0">
+            {league.name}
+          </h1>
+          <p className="text-white/70 mt-3 max-w-md ml-auto animate-rise [animation-delay:300ms] opacity-0">
+            {leagueProducts.length} products across this league
+          </p>
         </div>
 
         {/* Fades the league color into the page background instead of cutting off hard */}

@@ -2,20 +2,24 @@ import Link from 'next/link';
 import { leagues } from '@/lib/mockData';
 import LeagueCrest from './LeagueCrest';
 import DiagonalSplitBg from './DiagonalSplitBg';
+import ArrowRail from './ArrowRail';
+import { Reveal } from './Motion';
 
 export default function CategorySlider() {
   return (
     <section className="max-w-7xl mx-auto px-6 py-10">
-      <div className="flex items-baseline justify-between mb-5">
-        <h2 className="font-display text-2xl">Shop by League</h2>
-        <Link href="/leagues" className="text-sm chip-underline">View all</Link>
-      </div>
-      <div className="flex gap-5 overflow-x-auto pb-3 -mx-6 px-6 snap-x">
+      <Reveal>
+        <div className="flex items-baseline justify-between mb-5">
+          <h2 className="font-display text-2xl">Shop by League</h2>
+          <Link href="/leagues" className="text-sm chip-underline">View all</Link>
+        </div>
+      </Reveal>
+      <ArrowRail>
         {leagues.map(l => (
           <Link
             key={l.slug}
             href={`/leagues/${l.slug}`}
-            className="relative overflow-hidden snap-start shrink-0 w-56 rounded-2xl h-60 card-premium"
+            className="relative overflow-hidden shrink-0 w-56 rounded-2xl h-60 card-premium"
           >
             <DiagonalSplitBg color={l.primary} />
             <div className="relative z-10 h-full flex flex-col justify-between p-6">
@@ -29,7 +33,7 @@ export default function CategorySlider() {
             </div>
           </Link>
         ))}
-      </div>
+      </ArrowRail>
     </section>
   );
 }

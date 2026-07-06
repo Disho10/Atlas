@@ -131,12 +131,16 @@ function WishlistProvider({ children }: { children: ReactNode }) {
 // "Sign in" button vs. account icon. In prototype mode (no Supabase env vars)
 // it simply reports signed-out.
 // ---------------------------------------------------------------------------
-const AuthCtx = createContext<{ signedIn: boolean; loading: boolean }>({ signedIn: false, loading: true });
+type StaffRole = 'customer' | 'admin' | 'manager' | 'owner';
+const AuthCtx = createContext<{ signedIn: boolean; loading: boolean; role: StaffRole; isStaff: boolean }>({
+  signedIn: false, loading: true, role: 'customer', isStaff: false,
+});
 export const useAuth = () => useContext(AuthCtx);
 
 function AuthProvider({ children }: { children: ReactNode }) {
   const [signedIn, setSignedIn] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [role, setRole] = useState<StaffRole>('customer');
 
   useEffect(() => {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
@@ -146,19 +150,29 @@ function AuthProvider({ children }: { children: ReactNode }) {
     let unsub: (() => void) | undefined;
     import('@/lib/supabase/client').then(async ({ createClient }) => {
       const supabase = createClient();
+
+      const loadRole = async (userId: string | undefined) => {
+        if (!userId) { setRole('customer'); return; }
+        const { data } = await supabase.from('profiles').select('role').eq('id', userId).single();
+        setRole((data?.role as StaffRole) ?? 'customer');
+      };
+
       const { data: { user } } = await supabase.auth.getUser();
       setSignedIn(!!user);
+      await loadRole(user?.id);
       setLoading(false);
       // Keep the header in sync when the user signs in or out anywhere.
       const { data } = supabase.auth.onAuthStateChange((_event, session) => {
         setSignedIn(!!session?.user);
+        loadRole(session?.user?.id);
       });
       unsub = () => data.subscription.unsubscribe();
     });
     return () => unsub?.();
   }, []);
 
-  return <AuthCtx.Provider value={{ signedIn, loading }}>{children}</AuthCtx.Provider>;
+  const isStaff = role === 'admin' || role === 'manager' || role === 'owner';
+  return <AuthCtx.Provider value={{ signedIn, loading, role, isStaff }}>{children}</AuthCtx.Provider>;
 }
 
 export function Providers({ children }: { children: ReactNode }) {

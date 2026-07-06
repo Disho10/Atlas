@@ -1,10 +1,18 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
 export default function SignInPage() {
+  return (
+    <Suspense>
+      <SignInInner />
+    </Suspense>
+  );
+}
+
+function SignInInner() {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -12,6 +20,7 @@ export default function SignInPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const next = useSearchParams().get('next') ?? '/account';
 
   const oauth = async (provider: 'google' | 'apple' | 'facebook') => {
     const supabase = createClient();
@@ -31,7 +40,7 @@ export default function SignInPage() {
     if (mode === 'signin') {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) setError(error.message);
-      else router.push('/account');
+      else router.push(next);
     } else {
       const { error } = await supabase.auth.signUp({
         email,
@@ -39,7 +48,7 @@ export default function SignInPage() {
         options: { data: { full_name: fullName } },
       });
       if (error) setError(error.message);
-      else router.push('/account');
+      else router.push(next);
     }
     setLoading(false);
   };

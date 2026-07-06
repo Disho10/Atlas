@@ -24,7 +24,8 @@ export default function LeagueProductGrid({ products }: { products: Product[] })
       {filtered.length === 0 ? (
         <p className="text-steel py-16 text-center">No products match those filters yet.</p>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-5 md:gap-6">
+        // key on the filter state re-triggers the fade each time results change
+        <div key={`${team}-${category}`} className="grid grid-cols-2 md:grid-cols-4 gap-5 md:gap-6 animate-rise">
           {filtered.map(p => <ProductCard key={p.id} product={p} />)}
         </div>
       )}
@@ -39,7 +40,7 @@ function Select({ label, value, onChange, options }: { label: string; value: str
       <select
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="border border-black/15 dark:border-white/20 bg-transparent rounded-full px-4 py-2 capitalize"
+        className="border border-black/15 dark:border-white/20 bg-transparent rounded-full px-4 py-2 capitalize btn-press"
       >
         {options.map(o => (
           <option key={o} value={o} className="text-ink">
