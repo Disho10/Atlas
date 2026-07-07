@@ -15,7 +15,7 @@ const HAS_SUPABASE = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 export default async function AdminPage() {
   // Prototype mode — no Supabase yet: keep the demo panel with a role switcher.
   if (!HAS_SUPABASE) {
-    return <AdminPanel role="owner" products={mockProducts} orders={mockOrders} zeroResultSearches={mockZero} leagues={[]} staff={[]} restockScores={[]} exchangeRate={89500} demoMode />;
+    return <AdminPanel role="owner" products={mockProducts} orders={mockOrders} zeroResultSearches={mockZero} leagues={[]} staff={[]} restockScores={[]} exchangeRate={89500} pages={[]} demoMode />;
   }
 
   const supabase = await createClient();
@@ -37,7 +37,7 @@ export default async function AdminPage() {
   }
 
   // Live data — RLS policies (is_staff) authorize these reads for staff sessions.
-  const [{ data: productRows }, { data: orderRows }, { data: zeroRows }, { data: leagueRows }, { data: staffRows }, { data: settingsRows }] = await Promise.all([
+  const [{ data: productRows }, { data: orderRows }, { data: zeroRows }, { data: leagueRows }, { data: staffRows }, { data: settingsRows }, { data: pagesRows }] = await Promise.all([
     supabase.from('products').select(`${STAFF_PRODUCT_COLUMNS}, product_tags(tags(label))`).order('created_at', { ascending: false }),
     supabase.from('orders').select('*, order_items(*)').order('created_at', { ascending: false }).limit(100),
     supabase.from('search_logs').select('term').eq('result_count', 0).limit(500),
@@ -45,7 +45,10 @@ export default async function AdminPage() {
     // Team list — owner uses this to manage roles. Reads all profiles (allowed for staff via RLS).
     supabase.from('profiles').select('id, full_name, email, role').order('role'),
     supabase.from('site_settings').select('key, value'),
+    supabase.from('custom_pages').select('id, slug, title, blocks, published, updated_at').order('updated_at', { ascending: false }),
   ]);
+
+  const pages = (pagesRows ?? []).map((p: any) => ({ id: p.id, slug: p.slug, title: p.title, blocks: p.blocks ?? [], published: p.published, updatedAt: (p.updated_at ?? '').slice(0, 10) }));
 
   const leagueOptions = (leagueRows ?? []).map((l: any) => ({ slug: l.slug, name: l.name }));
   const staff = (staffRows ?? [])
@@ -145,6 +148,7 @@ export default async function AdminPage() {
       staff={staff}
       restockScores={restockScores}
       exchangeRate={Number((settingsRows ?? []).find((s: any) => s.key === 'usd_to_lbp')?.value ?? 89500)}
+      pages={pages}
     />
   );
 }

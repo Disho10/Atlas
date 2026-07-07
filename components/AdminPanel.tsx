@@ -2,11 +2,12 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import { formatCurrency, type Product, type Order } from '@/lib/mockData';
-import { saveProduct, deleteProduct, logManualOrder, logManualOrderMulti, updateOrderStatus, setStaffRole, createPromo, setExchangeRate } from '@/app/admin/actions';
+import { saveProduct, deleteProduct, logManualOrder, logManualOrderMulti, updateOrderStatus, setStaffRole, createPromo, setExchangeRate, savePage, deletePage } from '@/app/admin/actions';
 
 type Role = 'owner' | 'manager' | 'admin';
 type LeagueOpt = { slug: string; name: string };
 type StaffMember = { id: string; name: string; email: string; role: string };
+type PageData = { id: string; slug: string; title: string; blocks: any[]; published: boolean; updatedAt: string };
 
 export default function AdminPanel({
   role: fixedRole,
@@ -17,6 +18,7 @@ export default function AdminPanel({
   staff,
   restockScores,
   exchangeRate: initialRate,
+  pages,
   demoMode = false,
 }: {
   role: Role;
@@ -27,6 +29,7 @@ export default function AdminPanel({
   staff: StaffMember[];
   restockScores: { id: string; name: string; stock: number; sold: number; searchHits: number; score: number }[];
   exchangeRate: number;
+  pages: PageData[];
   demoMode?: boolean;
 }) {
   const [role, setRole] = useState<Role>(fixedRole);
@@ -35,6 +38,7 @@ export default function AdminPanel({
   const [salaries, setSalaries] = useState(1200);
   const [editing, setEditing] = useState<Product | 'new' | null>(null);
   const [loggingOrder, setLoggingOrder] = useState(false);
+  const [editingPage, setEditingPage] = useState<PageData | 'new' | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   const canEditProducts = role === 'owner' || role === 'manager';
@@ -56,6 +60,7 @@ export default function AdminPanel({
     { id: 'requests', label: 'Restock priority', roles: ['owner', 'manager'] },
     { id: 'analytics', label: 'Search analytics', roles: ['owner', 'manager'] },
     { id: 'promos', label: 'Promo codes', roles: ['owner', 'manager'] },
+    { id: 'pages', label: 'Pages', roles: ['owner', 'manager'] },
     { id: 'team', label: 'Team', roles: ['owner'] },
     { id: 'finance', label: 'Finance', roles: ['owner'] },
   ].filter(t => t.roles.includes(role));
@@ -243,6 +248,10 @@ export default function AdminPanel({
         <PromosTab demoMode={demoMode} onDone={flash} />
       )}
 
+      {tab === 'pages' && (
+        <PagesTab pages={pages} demoMode={demoMode} onDone={flash} />
+      )}
+
       {tab === 'team' && (
         <TeamTab staff={staff} demoMode={demoMode} onDone={flash} />
       )}
@@ -285,6 +294,15 @@ export default function AdminPanel({
           onLogged={() => { setLoggingOrder(false); flash('Order logged.'); }}
         />
       )}
+
+      {editingPage && (
+        <PageEditor
+          page={editingPage === 'new' ? null : editingPage}
+          onClose={() => setEditingPage(null)}
+          onSaved={() => { setEditingPage(null); flash('Page saved.'); }}
+          onDeleted={() => { setEditingPage(null); flash('Page deleted.'); }}
+        />
+      )}
     </main>
   );
 }
@@ -317,6 +335,7 @@ function ProductEditor({ product, leagues, onClose, onSaved, onDeleted }: {
     coming_soon: product?.comingSoon ?? false,
     status: (product?.status ?? 'published') as 'draft' | 'published',
     image_url: product?.image ?? '',
+    additional_images: product?.images ?? [] as string[],
   });
 
   const set = (k: keyof typeof f, v: any) => setF(prev => ({ ...prev, [k]: v }));
@@ -341,6 +360,7 @@ function ProductEditor({ product, leagues, onClose, onSaved, onDeleted }: {
         coming_soon: f.coming_soon,
         status: f.status,
         image_url: f.image_url.trim() || null,
+        images: f.additional_images.filter(Boolean),
       });
       if (res.ok) onSaved();
       else setError(res.error);
@@ -402,6 +422,37 @@ function ProductEditor({ product, leagues, onClose, onSaved, onDeleted }: {
             </label>
           </div>
           {f.image_url && <img src={f.image_url} alt="" className="mt-2 w-20 h-24 object-cover rounded-lg border border-black/10 dark:border-white/10" />}
+        </Field>
+        <Field label="Additional gallery images" className="sm:col-span-2">
+          <div className="flex flex-wrap gap-2 mb-2">
+            {f.additional_images.map((url, i) => (
+              <div key={i} className="relative group">
+                <img src={url} alt="" className="w-16 h-20 object-cover rounded-lg border border-black/10 dark:border-white/10" />
+                <button
+                  type="button"
+                  onClick={() => setF(prev => ({ ...prev, additional_images: prev.additional_images.filter((_, j) => j !== i) }))}
+                  className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-crimson text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                >×</button>
+              </div>
+            ))}
+            <label className={`w-16 h-20 rounded-lg border-2 border-dashed border-black/15 dark:border-white/20 flex items-center justify-center cursor-pointer text-steel text-lg ${uploading ? 'opacity-50' : 'hover:border-volt hover:text-volt transition-colors'}`}>
+              +
+              <input type="file" accept="image/*" className="hidden" disabled={uploading} onChange={async e => {
+                const file = e.target.files?.[0]; if (!file) return;
+                setUploading(true);
+                const { createClient } = await import('@/lib/supabase/client');
+                const supabase = createClient();
+                const path = `gallery/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+                const { data, error } = await supabase.storage.from('product-images').upload(path, file);
+                if (data) {
+                  const publicUrl = supabase.storage.from('product-images').getPublicUrl(data.path).data.publicUrl;
+                  setF(prev => ({ ...prev, additional_images: [...prev.additional_images, publicUrl] }));
+                } else if (error) setError(error.message);
+                setUploading(false);
+              }} />
+            </label>
+          </div>
+          <p className="text-xs text-steel">Click + to upload more shots. Hover and × to remove. These show as a gallery on the product page.</p>
         </Field>
         <Field label="Status">
           <select value={f.status} onChange={e => set('status', e.target.value as any)} className={inputCls}>
@@ -693,6 +744,221 @@ function TeamTab({ staff, demoMode, onDone }: { staff: StaffMember[]; demoMode: 
         </div>
       </Section>
     </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// PAGES TAB — list, create, edit, delete custom pages
+// ---------------------------------------------------------------------------
+function PagesTab({ pages, demoMode, onDone }: { pages: PageData[]; demoMode: boolean; onDone: (m: string) => void }) {
+  // We need to lift setEditingPage from the parent. The cleanest way without
+  // a refactor is to access it via the parent's flash + state. But since the
+  // parent already renders the page editor modal, we need to trigger it from here.
+  // We'll use a callback pattern: the parent passes setEditingPage down through
+  // the tab. But to keep the diff small, let me use a simple local state approach
+  // where PagesTab manages its own editor inline.
+  const [editing, setEditing] = useState<PageData | 'new' | null>(null);
+
+  return (
+    <>
+      <Section title="Custom pages" desc="Create pages for announcements, campaigns, guides — anything you want on the site. They live at /p/your-slug.">
+        <div className="flex justify-end mb-3">
+          <button disabled={demoMode} onClick={() => setEditing('new')} className="text-sm bg-volt text-ink rounded-full px-4 py-2 btn-press disabled:opacity-40">
+            + New page
+          </button>
+        </div>
+        <div className="space-y-2">
+          {pages.length === 0 && <p className="text-steel text-sm">No custom pages yet.</p>}
+          {pages.map(p => (
+            <div key={p.id} className="flex items-center gap-3 border border-black/10 dark:border-white/10 rounded-xl px-4 py-3">
+              <span className="flex-1 text-sm font-medium">{p.title}</span>
+              <span className="text-xs font-mono text-steel">/p/{p.slug}</span>
+              <span className={`text-[11px] px-2 py-1 rounded-full ${p.published ? 'bg-volt/20 text-ink' : 'bg-black/10 dark:bg-white/10 text-steel'}`}>
+                {p.published ? 'Live' : 'Draft'}
+              </span>
+              <button disabled={demoMode} onClick={() => setEditing(p)} className="text-xs underline underline-offset-2 text-steel disabled:opacity-40">Edit</button>
+              {p.published && <a href={`/p/${p.slug}`} target="_blank" rel="noopener noreferrer" className="text-xs underline underline-offset-2 text-steel">View</a>}
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      {editing && (
+        <PageEditor
+          page={editing === 'new' ? null : editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => { setEditing(null); onDone('Page saved — refresh to see it in the list.'); }}
+          onDeleted={() => { setEditing(null); onDone('Page deleted.'); }}
+        />
+      )}
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// PAGE EDITOR — block-based: heading, text, image, logo, spacer, banner
+// ---------------------------------------------------------------------------
+type Block = { type: string; content?: string; src?: string; align?: string; bg?: string };
+const BLOCK_TYPES = [
+  { type: 'heading', label: 'Heading' },
+  { type: 'text', label: 'Text paragraph' },
+  { type: 'image', label: 'Image' },
+  { type: 'logo', label: 'Logo / brand mark' },
+  { type: 'banner', label: 'Full-width banner' },
+  { type: 'spacer', label: 'Spacer' },
+];
+
+function PageEditor({ page, onClose, onSaved, onDeleted }: {
+  page: PageData | null; onClose: () => void; onSaved: () => void; onDeleted: () => void;
+}) {
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [title, setTitle] = useState(page?.title ?? '');
+  const [slug, setSlug] = useState(page?.slug ?? '');
+  const [published, setPublished] = useState(page?.published ?? false);
+  const [blocks, setBlocks] = useState<Block[]>(page?.blocks ?? []);
+
+  const addBlock = (type: string) => {
+    const b: Block = { type };
+    if (type === 'heading') b.content = 'Your heading here';
+    if (type === 'text') b.content = 'Write your content here.';
+    if (type === 'image' || type === 'logo' || type === 'banner') b.src = '';
+    if (type === 'banner') { b.content = 'Banner text'; b.bg = '#0B0D10'; }
+    setBlocks(prev => [...prev, b]);
+  };
+
+  const updateBlock = (idx: number, updates: Partial<Block>) => {
+    setBlocks(prev => prev.map((b, i) => i === idx ? { ...b, ...updates } : b));
+  };
+
+  const removeBlock = (idx: number) => setBlocks(prev => prev.filter((_, i) => i !== idx));
+
+  const moveBlock = (idx: number, dir: -1 | 1) => {
+    setBlocks(prev => {
+      const arr = [...prev];
+      const target = idx + dir;
+      if (target < 0 || target >= arr.length) return arr;
+      [arr[idx], arr[target]] = [arr[target], arr[idx]];
+      return arr;
+    });
+  };
+
+  const uploadImage = async (idx: number) => {
+    const input = document.createElement('input');
+    input.type = 'file'; input.accept = 'image/*';
+    input.onchange = async () => {
+      const file = input.files?.[0]; if (!file) return;
+      setUploading(true);
+      const { createClient } = await import('@/lib/supabase/client');
+      const supabase = createClient();
+      const path = `pages/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      const { data, error: err } = await supabase.storage.from('product-images').upload(path, file);
+      if (data) updateBlock(idx, { src: supabase.storage.from('product-images').getPublicUrl(data.path).data.publicUrl });
+      else if (err) setError(err.message);
+      setUploading(false);
+    };
+    input.click();
+  };
+
+  const submit = () => {
+    setError(null);
+    if (!title.trim()) { setError('Title is required.'); return; }
+    if (!slug.trim()) { setError('URL slug is required.'); return; }
+    start(async () => {
+      const res = await savePage({ id: page?.id, slug, title, blocks, published });
+      if (res.ok) onSaved();
+      else setError(res.error);
+    });
+  };
+
+  const remove = () => {
+    if (!page) return;
+    if (!confirm(`Delete "${page.title}"?`)) return;
+    start(async () => {
+      const res = await deletePage(page.id);
+      if (res.ok) onDeleted();
+      else setError(res.error);
+    });
+  };
+
+  return (
+    <Modal title={page ? 'Edit page' : 'New page'} onClose={onClose}>
+      <div className="grid sm:grid-cols-2 gap-3 mb-4">
+        <Field label="Page title"><input value={title} onChange={e => { setTitle(e.target.value); if (!page) setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '')); }} className={inputCls} /></Field>
+        <Field label="URL slug (/p/...)"><input value={slug} onChange={e => setSlug(e.target.value)} className={inputCls} /></Field>
+      </div>
+
+      {/* Block editor */}
+      <div className="border-t border-black/10 dark:border-white/10 pt-4 mb-4">
+        <p className="text-sm font-medium mb-3">Content blocks</p>
+        <div className="space-y-3">
+          {blocks.map((b, i) => (
+            <div key={i} className="border border-black/10 dark:border-white/10 rounded-xl p-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs uppercase text-steel tracking-wide">{b.type}</span>
+                <div className="flex gap-1">
+                  <button onClick={() => moveBlock(i, -1)} disabled={i === 0} className="text-xs text-steel disabled:opacity-30">↑</button>
+                  <button onClick={() => moveBlock(i, 1)} disabled={i === blocks.length - 1} className="text-xs text-steel disabled:opacity-30">↓</button>
+                  <button onClick={() => removeBlock(i)} className="text-xs text-crimson ml-2">×</button>
+                </div>
+              </div>
+
+              {(b.type === 'heading' || b.type === 'text') && (
+                <textarea value={b.content ?? ''} onChange={e => updateBlock(i, { content: e.target.value })} rows={b.type === 'heading' ? 1 : 3} className={inputCls} />
+              )}
+
+              {(b.type === 'image' || b.type === 'logo') && (
+                <div className="flex gap-2 items-center">
+                  <input value={b.src ?? ''} onChange={e => updateBlock(i, { src: e.target.value })} placeholder="Paste URL or upload →" className={`flex-1 ${inputCls}`} />
+                  <button onClick={() => uploadImage(i)} disabled={uploading} className="text-xs border border-black/15 dark:border-white/20 rounded-lg px-3 py-2 btn-press disabled:opacity-50">
+                    {uploading ? '…' : 'Upload'}
+                  </button>
+                </div>
+              )}
+              {(b.type === 'image' || b.type === 'logo') && b.src && (
+                <img src={b.src} alt="" className="mt-2 max-h-24 rounded-lg" />
+              )}
+
+              {b.type === 'banner' && (
+                <div className="space-y-2">
+                  <input value={b.content ?? ''} onChange={e => updateBlock(i, { content: e.target.value })} placeholder="Banner text" className={inputCls} />
+                  <div className="flex gap-2 items-center">
+                    <label className="text-xs text-steel">Background:</label>
+                    <input type="color" value={b.bg ?? '#0B0D10'} onChange={e => updateBlock(i, { bg: e.target.value })} className="w-8 h-8 rounded border-0 cursor-pointer" />
+                    <input value={b.src ?? ''} onChange={e => updateBlock(i, { src: e.target.value })} placeholder="Background image URL (optional)" className={`flex-1 ${inputCls}`} />
+                  </div>
+                </div>
+              )}
+
+              {b.type === 'spacer' && <div className="h-4 bg-black/5 dark:bg-white/5 rounded" />}
+            </div>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-1.5 mt-3">
+          {BLOCK_TYPES.map(bt => (
+            <button key={bt.type} onClick={() => addBlock(bt.type)} className="text-xs border border-black/10 dark:border-white/20 rounded-full px-3 py-1.5 btn-press">+ {bt.label}</button>
+          ))}
+        </div>
+      </div>
+
+      <label className="flex items-center gap-2 text-sm mb-4">
+        <input type="checkbox" checked={published} onChange={e => setPublished(e.target.checked)} className="w-4 h-4 accent-[#D6FF3F]" />
+        Published (visible at /p/{slug || '...'})
+      </label>
+
+      {error && <p className="text-crimson text-sm mb-3">{error}</p>}
+
+      <div className="flex items-center justify-between">
+        {page ? <button onClick={remove} disabled={pending} className="text-sm text-crimson underline underline-offset-2 disabled:opacity-50">Delete page</button> : <span />}
+        <div className="flex gap-2">
+          <button onClick={onClose} className="text-sm px-5 py-2.5 rounded-full border border-black/15 dark:border-white/20">Cancel</button>
+          <button onClick={submit} disabled={pending} className="text-sm px-6 py-2.5 rounded-full bg-volt text-ink font-medium btn-press disabled:opacity-50">
+            {pending ? 'Saving…' : 'Save page'}
+          </button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 

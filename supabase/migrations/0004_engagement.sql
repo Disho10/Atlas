@@ -342,3 +342,32 @@ create policy "Owner manages settings" on site_settings
 -- Seed the default USD/LBP rate
 insert into site_settings (key, value) values ('usd_to_lbp', '89500')
   on conflict (key) do nothing;
+
+-- ---------------------------------------------------------------------------
+-- PRODUCT IMAGES — multiple images per product (gallery on product page).
+-- image_url stays as the hero/primary. images[] holds additional gallery shots.
+-- ---------------------------------------------------------------------------
+alter table products add column if not exists images text[] not null default '{}';
+
+-- ---------------------------------------------------------------------------
+-- CUSTOM PAGES — owner/manager creates and designs pages from the admin panel.
+-- Each page has a slug (URL), title, and an array of content blocks (JSON).
+-- Block types: heading, text, image, logo, spacer, banner, two-column.
+-- ---------------------------------------------------------------------------
+create table if not exists custom_pages (
+  id uuid primary key default uuid_generate_v4(),
+  slug text unique not null,
+  title text not null,
+  blocks jsonb not null default '[]',
+  published boolean not null default false,
+  created_by uuid references profiles(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table custom_pages enable row level security;
+drop policy if exists "Public reads published pages" on custom_pages;
+create policy "Public reads published pages" on custom_pages
+  for select using (published = true or is_staff());
+drop policy if exists "Manager/owner manage pages" on custom_pages;
+create policy "Manager/owner manage pages" on custom_pages
+  for all using (is_manager_or_owner()) with check (is_manager_or_owner());

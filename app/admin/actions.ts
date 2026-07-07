@@ -40,6 +40,7 @@ export async function saveProduct(input: {
   coming_soon: boolean;
   status: 'draft' | 'published';
   image_url: string | null;
+  images: string[];
 }): Promise<ActionResult> {
   const auth = await getRole();
   if (!auth) return { ok: false, error: 'Not signed in.' };
@@ -61,6 +62,7 @@ export async function saveProduct(input: {
     coming_soon: input.coming_soon,
     status: input.status,
     image_url: input.image_url,
+    images: input.images.filter(Boolean),
   };
 
   const { error } = input.id
@@ -289,6 +291,51 @@ export async function logManualOrderMulti(input: {
 
   const { error: itemErr } = await supabase.from('order_items').insert(itemRows);
   if (itemErr) return { ok: false, error: itemErr.message };
+  revalidatePath('/admin');
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// CUSTOM PAGES — create, update, delete pages. Manager + Owner only.
+// ---------------------------------------------------------------------------
+export async function savePage(input: {
+  id?: string;
+  slug: string;
+  title: string;
+  blocks: any[];
+  published: boolean;
+}): Promise<ActionResult> {
+  const auth = await getRole();
+  if (!auth) return { ok: false, error: 'Not signed in.' };
+  if (!canEditProducts(auth.role)) return { ok: false, error: 'Only Owner and Manager can manage pages.' };
+
+  const supabase = await createClient();
+  const row = {
+    slug: input.slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-'),
+    title: input.title.trim(),
+    blocks: input.blocks,
+    published: input.published,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error } = input.id
+    ? await supabase.from('custom_pages').update(row).eq('id', input.id)
+    : await supabase.from('custom_pages').insert({ ...row, created_by: auth.userId });
+
+  if (error) return { ok: false, error: error.message };
+  revalidatePath('/admin');
+  revalidatePath(`/p/${row.slug}`);
+  return { ok: true };
+}
+
+export async function deletePage(id: string): Promise<ActionResult> {
+  const auth = await getRole();
+  if (!auth) return { ok: false, error: 'Not signed in.' };
+  if (!canEditProducts(auth.role)) return { ok: false, error: 'Only Owner and Manager can delete pages.' };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from('custom_pages').delete().eq('id', id);
+  if (error) return { ok: false, error: error.message };
   revalidatePath('/admin');
   return { ok: true };
 }

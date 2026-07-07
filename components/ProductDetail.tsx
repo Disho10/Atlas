@@ -82,16 +82,8 @@ export default function ProductDetail({ product, initialReviews, related }: { pr
       </nav>
 
       <div className="grid lg:grid-cols-2 gap-10 lg:gap-16">
-        {/* Gallery — sticky on desktop so it stays in view while reading details */}
-        <div className="lg:sticky lg:top-28 self-start">
-          <div className="relative aspect-[4/5] rounded-3xl overflow-hidden bg-black/5 dark:bg-white/5 grain">
-            {product.image && <ProductImage src={product.image} alt={product.name} fill className="object-cover" priority sizes="(max-width: 1024px) 100vw, 50vw" />}
-            <div className="absolute top-4 left-4 flex flex-col gap-1.5">
-              {product.hot && <span className="text-[10px] uppercase tracking-wide px-2.5 py-1 rounded-full bg-crimson text-white">Hot</span>}
-              {product.comingSoon && <span className="text-[10px] uppercase tracking-wide px-2.5 py-1 rounded-full bg-ink text-chalk">Coming Soon</span>}
-            </div>
-          </div>
-        </div>
+        {/* Gallery — sticky on desktop, with thumbnail strip for multiple images */}
+        <GalleryBlock product={product} />
 
         {/* Buy panel */}
         <div>
@@ -289,6 +281,51 @@ export default function ProductDetail({ product, initialReviews, related }: { pr
         </section>
       )}
     </main>
+  );
+}
+
+function GalleryBlock({ product }: { product: Product }) {
+  // Combine hero + additional images into one gallery
+  const allImages = [product.image, ...product.images].filter(Boolean);
+  const [activeIdx, setActiveIdx] = useState(0);
+  const active = allImages[activeIdx] || '';
+
+  return (
+    <div className="lg:sticky lg:top-28 self-start space-y-3">
+      {/* Main image */}
+      <div className="relative aspect-[4/5] rounded-3xl overflow-hidden bg-black/5 dark:bg-white/5 grain">
+        {active && <ProductImage key={active} src={active} alt={product.name} fill className="object-cover" priority sizes="(max-width: 1024px) 100vw, 50vw" />}
+        <div className="absolute top-4 left-4 flex flex-col gap-1.5">
+          {product.hot && <span className="text-[10px] uppercase tracking-wide px-2.5 py-1 rounded-full bg-crimson text-white">Hot</span>}
+          {product.comingSoon && <span className="text-[10px] uppercase tracking-wide px-2.5 py-1 rounded-full bg-ink text-chalk">Coming Soon</span>}
+        </div>
+        {/* Nav arrows for mobile (touch users can also swipe the thumbnails) */}
+        {allImages.length > 1 && (
+          <>
+            <button onClick={() => setActiveIdx(i => (i - 1 + allImages.length) % allImages.length)} className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-ink/60 text-chalk flex items-center justify-center backdrop-blur" aria-label="Previous image">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M15 18l-6-6 6-6" /></svg>
+            </button>
+            <button onClick={() => setActiveIdx(i => (i + 1) % allImages.length)} className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-ink/60 text-chalk flex items-center justify-center backdrop-blur" aria-label="Next image">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M9 6l6 6-6 6" /></svg>
+            </button>
+          </>
+        )}
+      </div>
+      {/* Thumbnail strip */}
+      {allImages.length > 1 && (
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+          {allImages.map((src, i) => (
+            <button
+              key={i}
+              onClick={() => setActiveIdx(i)}
+              className={`shrink-0 w-16 h-20 rounded-xl overflow-hidden border-2 transition-colors ${i === activeIdx ? 'border-volt' : 'border-transparent opacity-60 hover:opacity-100'}`}
+            >
+              <ProductImage src={src} alt={`View ${i + 1}`} width={64} height={80} className="object-cover w-full h-full" />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
