@@ -218,3 +218,77 @@ export async function setExchangeRate(rate: number): Promise<ActionResult> {
   revalidatePath('/');
   return { ok: true };
 }
+
+// ---------------------------------------------------------------------------
+// ORDER STATUS — advance or cancel an order. All staff can advance; cancel
+// is owner/manager only.
+// ---------------------------------------------------------------------------
+export async function updateOrderStatus(orderId: string, newStatus: string): Promise<ActionResult> {
+  const auth = await getRole();
+  if (!auth) return { ok: false, error: 'Not signed in.' };
+  if (!isStaff(auth.role)) return { ok: false, error: 'Staff only.' };
+  if (newStatus === 'cancelled' && !canEditProducts(auth.role)) {
+    return { ok: false, error: 'Only Owner and Manager can cancel orders.' };
+  }
+
+  const valid = ['placed', 'confirmed', 'shipped', 'delivered', 'cancelled'];
+  if (!valid.includes(newStatus)) return { ok: false, error: 'Invalid status.' };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from('orders').update({ status: newStatus }).eq('id', orderId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath('/admin');
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// MANUAL ORDERS — multi-item version. One order, many products.
+// ---------------------------------------------------------------------------
+export async function logManualOrderMulti(input: {
+  customer_name: string;
+  customer_phone: string;
+  channel: 'instagram' | 'whatsapp';
+  payment_method: 'whish_pay' | 'omt' | 'card' | 'cod';
+  address: string;
+  city: string;
+  items: { product_name: string; size: string; qty: number; unit_price_usd: number }[];
+}): Promise<ActionResult> {
+  const auth = await getRole();
+  if (!auth) return { ok: false, error: 'Not signed in.' };
+  if (!isStaff(auth.role)) return { ok: false, error: 'Staff only.' };
+  if (input.items.length === 0) return { ok: false, error: 'Add at least one item.' };
+
+  const supabase = await createClient();
+  const subtotal = input.items.reduce((s, i) => s + i.unit_price_usd * i.qty, 0);
+
+  const { data: order, error: orderErr } = await supabase
+    .from('orders')
+    .insert({
+      status: 'confirmed',
+      channel: input.channel,
+      payment_method: input.payment_method,
+      customer_name: input.customer_name.trim(),
+      customer_phone: input.customer_phone.trim() || null,
+      address: input.address.trim(),
+      city: input.city.trim() || null,
+      subtotal_usd: subtotal,
+      logged_by: auth.userId,
+    })
+    .select('id')
+    .single();
+
+  if (orderErr || !order) return { ok: false, error: orderErr?.message ?? 'Could not create order.' };
+
+  const itemRows = input.items.map(i => ({
+    order_id: order.id,
+    product_name: i.product_name.trim(),
+    size: i.size.trim() || null,
+    qty: i.qty,
+    unit_price_usd: i.unit_price_usd,
+  }));
+
+  const { error: itemErr } = await supabase.from('order_items').insert(itemRows);
+  if (itemErr) return { ok: false, error: itemErr.message };
+  revalidatePath('/admin');
+  return { ok: true };
+}

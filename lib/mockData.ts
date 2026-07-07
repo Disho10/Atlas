@@ -149,10 +149,11 @@ export const reviews: Review[] = [
   { id: 'r3', productId: 'p3', author: 'Yara M.', rating: 5, text: 'Delivery was fast and the shirt looks exactly like the photos.', date: '2026-06-10' },
 ];
 
-export type OrderStatus = 'placed' | 'confirmed' | 'shipped' | 'delivered';
+export type OrderStatus = 'placed' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
 
 export type Order = {
-  id: string;
+  id: string;       // display order number (ATL-xxxxx)
+  dbId: string;     // database UUID for status updates
   date: string;
   status: OrderStatus;
   total: number;
@@ -165,22 +166,22 @@ export type Order = {
 
 export const orders: Order[] = [
   {
-    id: 'ATL-10234', date: '2026-07-01', status: 'shipped', total: 178, channel: 'website',
+    id: 'ATL-10234', dbId: 'ATL-10234', date: '2026-07-01', status: 'shipped', total: 178, channel: 'website',
     paymentMethod: 'Whish Pay', customer: 'Ali D.', address: 'Saida, Lebanon',
     items: [{ productId: 'p1', name: 'Real Madrid Home Shirt 25/26', qty: 2, size: 'L', price: 89 }],
   },
   {
-    id: 'ATL-10233', date: '2026-06-28', status: 'delivered', total: 55, channel: 'instagram',
+    id: 'ATL-10233', dbId: 'ATL-10233', date: '2026-06-28', status: 'delivered', total: 55, channel: 'instagram',
     paymentMethod: 'Cash on Delivery', customer: 'Hassan Z.', address: 'Beirut, Lebanon',
     items: [{ productId: 'p11', name: 'Nejmeh SC Home Shirt', qty: 1, size: 'M', price: 55 }],
   },
   {
-    id: 'ATL-10232', date: '2026-06-25', status: 'confirmed', total: 92, channel: 'website',
+    id: 'ATL-10232', dbId: 'ATL-10232', date: '2026-06-25', status: 'confirmed', total: 92, channel: 'website',
     paymentMethod: 'OMT', customer: 'Lea F.', address: 'Jounieh, Lebanon',
     items: [{ productId: 'p3', name: 'Man City Home Shirt 25/26', qty: 1, size: 'M', price: 92 }],
   },
   {
-    id: 'ATL-10231', date: '2026-06-20', status: 'placed', total: 64, channel: 'whatsapp',
+    id: 'ATL-10231', dbId: 'ATL-10231', date: '2026-06-20', status: 'placed', total: 64, channel: 'whatsapp',
     paymentMethod: 'Cash on Delivery', customer: 'Omar K.', address: 'Tripoli, Lebanon',
     items: [{ productId: 'p12', name: "Men's Performance Track Jacket", qty: 1, size: 'L', price: 64 }],
   },

@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import { formatCurrency, type Product, type Order } from '@/lib/mockData';
-import { saveProduct, deleteProduct, logManualOrder, setStaffRole, createPromo, setExchangeRate } from '@/app/admin/actions';
+import { saveProduct, deleteProduct, logManualOrder, logManualOrderMulti, updateOrderStatus, setStaffRole, createPromo, setExchangeRate } from '@/app/admin/actions';
 
 type Role = 'owner' | 'manager' | 'admin';
 type LeagueOpt = { slug: string; name: string };
@@ -129,7 +129,7 @@ export default function AdminPanel({
       )}
 
       {tab === 'orders' && (
-        <Section title="Orders" desc="Includes orders placed on the website, and manually logged Instagram / WhatsApp sales">
+        <Section title="Orders" desc="Includes website, Instagram, and WhatsApp orders. Change status with the dropdown.">
           <div className="flex justify-end mb-3">
             <button
               disabled={demoMode}
@@ -142,13 +142,7 @@ export default function AdminPanel({
           <div className="space-y-2">
             {orders.length === 0 && <p className="text-steel text-sm py-6 text-center">No orders yet.</p>}
             {orders.map(o => (
-              <Row key={o.id}>
-                <span className="w-24 text-sm tabular">{o.id}</span>
-                <span className="flex-1 text-sm">{o.customer}{o.items[0] ? ` · ${o.items[0].name}` : ''}</span>
-                <span className="text-xs uppercase text-steel w-20">{o.channel}</span>
-                <span className="text-xs capitalize px-2 py-1 rounded-full bg-black/5 dark:bg-white/10 w-24 text-center">{o.status}</span>
-                <span className="text-sm font-medium w-16 text-right tabular">{formatCurrency(o.total, 'USD')}</span>
-              </Row>
+              <OrderRow key={o.id} order={o} role={role} demoMode={demoMode} onDone={flash} />
             ))}
           </div>
         </Section>
@@ -457,27 +451,32 @@ function OrderLogger({ onClose, onLogged }: { onClose: () => void; onLogged: () 
   const [f, setF] = useState({
     customer_name: '', customer_phone: '', channel: 'whatsapp' as 'whatsapp' | 'instagram',
     payment_method: 'cod' as 'whish_pay' | 'omt' | 'card' | 'cod',
-    address: '', city: '', product_name: '', size: '', qty: 1, unit_price_usd: 0,
+    address: '', city: '',
   });
+  type Item = { product_name: string; size: string; qty: number; unit_price_usd: number };
+  const [items, setItems] = useState<Item[]>([{ product_name: '', size: '', qty: 1, unit_price_usd: 0 }]);
   const set = (k: keyof typeof f, v: any) => setF(prev => ({ ...prev, [k]: v }));
+  const setItem = (idx: number, k: keyof Item, v: any) => setItems(prev => prev.map((it, i) => i === idx ? { ...it, [k]: v } : it));
+  const addItem = () => setItems(prev => [...prev, { product_name: '', size: '', qty: 1, unit_price_usd: 0 }]);
+  const removeItem = (idx: number) => setItems(prev => prev.filter((_, i) => i !== idx));
+
+  const total = items.reduce((s, it) => s + Number(it.unit_price_usd) * Number(it.qty), 0);
 
   const submit = () => {
     setError(null);
     if (!f.customer_name.trim()) { setError('Customer name is required.'); return; }
-    if (!f.product_name.trim()) { setError('Product name is required.'); return; }
     if (!f.address.trim()) { setError('Delivery address is required.'); return; }
+    const cleaned = items.filter(it => it.product_name.trim());
+    if (cleaned.length === 0) { setError('Add at least one product.'); return; }
     start(async () => {
-      const res = await logManualOrder({
+      const res = await logManualOrderMulti({
         customer_name: f.customer_name.trim(),
         customer_phone: f.customer_phone.trim(),
         channel: f.channel,
         payment_method: f.payment_method,
         address: f.address.trim(),
         city: f.city.trim(),
-        product_name: f.product_name.trim(),
-        size: f.size.trim(),
-        qty: Number(f.qty),
-        unit_price_usd: Number(f.unit_price_usd),
+        items: cleaned.map(it => ({ product_name: it.product_name.trim(), size: it.size.trim(), qty: Number(it.qty), unit_price_usd: Number(it.unit_price_usd) })),
       });
       if (res.ok) onLogged();
       else setError(res.error);
@@ -486,7 +485,7 @@ function OrderLogger({ onClose, onLogged }: { onClose: () => void; onLogged: () 
 
   return (
     <Modal title="Log Instagram / WhatsApp order" onClose={onClose}>
-      <div className="grid sm:grid-cols-2 gap-3">
+      <div className="grid sm:grid-cols-2 gap-3 mb-4">
         <Field label="Customer name"><input value={f.customer_name} onChange={e => set('customer_name', e.target.value)} className={inputCls} /></Field>
         <Field label="Phone"><input value={f.customer_phone} onChange={e => set('customer_phone', e.target.value)} className={inputCls} /></Field>
         <Field label="Channel">
@@ -505,19 +504,35 @@ function OrderLogger({ onClose, onLogged }: { onClose: () => void; onLogged: () 
         </Field>
         <Field label="Address" className="sm:col-span-2"><input value={f.address} onChange={e => set('address', e.target.value)} className={inputCls} /></Field>
         <Field label="City"><input value={f.city} onChange={e => set('city', e.target.value)} className={inputCls} /></Field>
-        <Field label="Product name" className="sm:col-span-2"><input value={f.product_name} onChange={e => set('product_name', e.target.value)} placeholder="e.g. Real Madrid Home Shirt 25/26" className={inputCls} /></Field>
-        <Field label="Size"><input value={f.size} onChange={e => set('size', e.target.value)} className={inputCls} /></Field>
-        <Field label="Quantity"><input type="number" value={f.qty} onChange={e => set('qty', e.target.value)} className={inputCls} /></Field>
-        <Field label="Unit price (USD)"><input type="number" value={f.unit_price_usd} onChange={e => set('unit_price_usd', e.target.value)} className={inputCls} /></Field>
       </div>
 
-      <p className="text-xs text-steel mt-3">Total: {formatCurrency(Number(f.unit_price_usd) * Number(f.qty) || 0, 'USD')}</p>
-      {error && <p className="text-crimson text-sm mt-3">{error}</p>}
+      <div className="border-t border-black/10 dark:border-white/10 pt-4">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-sm font-medium">Items</p>
+          <button type="button" onClick={addItem} className="text-xs bg-black/5 dark:bg-white/10 rounded-full px-3 py-1.5 btn-press">+ Add item</button>
+        </div>
+        <div className="space-y-3">
+          {items.map((it, i) => (
+            <div key={i} className="grid grid-cols-[1fr_80px_60px_80px_32px] gap-2 items-end">
+              <Field label={i === 0 ? 'Product' : ''}><input value={it.product_name} onChange={e => setItem(i, 'product_name', e.target.value)} placeholder="Product name" className={inputCls} /></Field>
+              <Field label={i === 0 ? 'Size' : ''}><input value={it.size} onChange={e => setItem(i, 'size', e.target.value)} className={inputCls} /></Field>
+              <Field label={i === 0 ? 'Qty' : ''}><input type="number" value={it.qty} onChange={e => setItem(i, 'qty', e.target.value)} className={inputCls} /></Field>
+              <Field label={i === 0 ? 'Price' : ''}><input type="number" value={it.unit_price_usd} onChange={e => setItem(i, 'unit_price_usd', e.target.value)} className={inputCls} /></Field>
+              {items.length > 1 ? (
+                <button onClick={() => removeItem(i)} className="text-steel hover:text-crimson text-lg pb-1" aria-label="Remove">×</button>
+              ) : <span />}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <p className="text-sm font-medium mt-4">Total: {formatCurrency(total, 'USD')}</p>
+      {error && <p className="text-crimson text-sm mt-2">{error}</p>}
 
       <div className="flex justify-end gap-2 mt-6">
         <button onClick={onClose} className="text-sm px-5 py-2.5 rounded-full border border-black/15 dark:border-white/20">Cancel</button>
         <button onClick={submit} disabled={pending} className="text-sm px-6 py-2.5 rounded-full bg-volt text-ink font-medium btn-press disabled:opacity-50">
-          {pending ? 'Logging…' : 'Log order'}
+          {pending ? 'Logging…' : `Log order (${items.filter(i => i.product_name.trim()).length} item${items.length === 1 ? '' : 's'})`}
         </button>
       </div>
     </Modal>
@@ -678,6 +693,80 @@ function TeamTab({ staff, demoMode, onDone }: { staff: StaffMember[]; demoMode: 
         </div>
       </Section>
     </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ORDER ROW — expandable, with status dropdown and cancel
+// ---------------------------------------------------------------------------
+const STATUS_FLOW = ['placed', 'confirmed', 'shipped', 'delivered'] as const;
+const STATUS_COLORS: Record<string, string> = {
+  placed: 'bg-black/5 dark:bg-white/10',
+  confirmed: 'bg-volt/20 text-ink',
+  shipped: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200',
+  delivered: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200',
+  cancelled: 'bg-crimson/15 text-crimson',
+};
+
+function OrderRow({ order: o, role, demoMode, onDone }: { order: Order; role: string; demoMode: boolean; onDone: (m: string) => void }) {
+  const [expanded, setExpanded] = useState(false);
+  const [pending, start] = useTransition();
+  const [localStatus, setLocalStatus] = useState(o.status);
+  const canCancel = role === 'owner' || role === 'manager';
+
+  const changeStatus = (newStatus: string) => {
+    start(async () => {
+      const res = await updateOrderStatus(o.dbId, newStatus);
+      if (res.ok) { setLocalStatus(newStatus as any); onDone(`${o.id} → ${newStatus}`); }
+    });
+  };
+
+  return (
+    <div className="border border-black/10 dark:border-white/10 rounded-xl overflow-hidden">
+      <button onClick={() => setExpanded(e => !e)} className="w-full flex items-center gap-3 px-4 py-3 text-left">
+        <span className="w-24 text-sm tabular font-mono">{o.id}</span>
+        <span className="flex-1 text-sm truncate">{o.customer}</span>
+        <span className="text-xs uppercase text-steel w-16 shrink-0">{o.channel}</span>
+        <span className={`text-[11px] capitalize px-2 py-1 rounded-full shrink-0 ${STATUS_COLORS[localStatus] ?? ''}`}>{localStatus}</span>
+        <span className="text-sm font-medium w-16 text-right tabular shrink-0">{formatCurrency(o.total, 'USD')}</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`shrink-0 transition-transform ${expanded ? 'rotate-180' : ''}`}><path d="M6 9l6 6 6-6" /></svg>
+      </button>
+      {expanded && (
+        <div className="px-4 pb-4 space-y-3 border-t border-black/5 dark:border-white/5 pt-3">
+          <div className="text-xs text-steel">{o.date} · {o.paymentMethod} · {o.address}</div>
+          <div className="space-y-1">
+            {o.items.map((it, i) => (
+              <div key={i} className="flex justify-between text-sm">
+                <span>{it.name}{it.size ? ` · ${it.size}` : ''} ×{it.qty}</span>
+                <span className="tabular">${it.price * it.qty}</span>
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center gap-2 pt-2">
+            <span className="text-xs text-steel">Status:</span>
+            <select
+              value={localStatus}
+              disabled={pending || demoMode || localStatus === 'cancelled'}
+              onChange={e => changeStatus(e.target.value)}
+              className="text-sm border border-black/15 dark:border-white/20 bg-transparent rounded-full px-3 py-1.5 capitalize disabled:opacity-40"
+            >
+              {STATUS_FLOW.map(s => <option key={s} value={s}>{s}</option>)}
+              <option value="cancelled" className="text-crimson">Cancelled</option>
+            </select>
+            {localStatus !== 'cancelled' && localStatus !== 'delivered' && canCancel && (
+              <button
+                disabled={pending || demoMode}
+                onClick={() => { if (confirm(`Cancel order ${o.id}?`)) changeStatus('cancelled'); }}
+                className="text-xs text-crimson underline underline-offset-2 disabled:opacity-40"
+              >
+                Cancel order
+              </button>
+            )}
+            {pending && <span className="text-xs text-steel">Saving…</span>}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

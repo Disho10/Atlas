@@ -56,6 +56,7 @@ export default async function AdminPage() {
 
   const orders: Order[] = (orderRows ?? []).map((o: any) => ({
     id: o.order_number ?? o.id,
+    dbId: o.id,
     date: (o.created_at ?? '').slice(0, 10),
     status: o.status === 'cancelled' ? 'placed' : o.status,
     total: Number(o.subtotal_usd),
