@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import { formatCurrency, type Product, type Order } from '@/lib/mockData';
-import { saveProduct, deleteProduct, logManualOrder, setStaffRole, createPromo } from '@/app/admin/actions';
+import { saveProduct, deleteProduct, logManualOrder, setStaffRole, createPromo, setExchangeRate } from '@/app/admin/actions';
 
 type Role = 'owner' | 'manager' | 'admin';
 type LeagueOpt = { slug: string; name: string };
@@ -15,6 +15,8 @@ export default function AdminPanel({
   zeroResultSearches,
   leagues,
   staff,
+  restockScores,
+  exchangeRate: initialRate,
   demoMode = false,
 }: {
   role: Role;
@@ -23,6 +25,8 @@ export default function AdminPanel({
   zeroResultSearches: { term: string; count: number }[];
   leagues: LeagueOpt[];
   staff: StaffMember[];
+  restockScores: { id: string; name: string; stock: number; sold: number; searchHits: number; score: number }[];
+  exchangeRate: number;
   demoMode?: boolean;
 }) {
   const [role, setRole] = useState<Role>(fixedRole);
@@ -49,7 +53,7 @@ export default function AdminPanel({
     { id: 'overview', label: 'Overview', roles: ['owner', 'manager', 'admin'] },
     { id: 'orders', label: 'Orders', roles: ['owner', 'manager', 'admin'] },
     { id: 'products', label: 'Products', roles: ['owner', 'manager', 'admin'] },
-    { id: 'requests', label: 'Requests', roles: ['owner', 'manager'] },
+    { id: 'requests', label: 'Restock priority', roles: ['owner', 'manager'] },
     { id: 'analytics', label: 'Search analytics', roles: ['owner', 'manager'] },
     { id: 'promos', label: 'Promo codes', roles: ['owner', 'manager'] },
     { id: 'team', label: 'Team', roles: ['owner'] },
@@ -195,29 +199,36 @@ export default function AdminPanel({
       )}
 
       {tab === 'requests' && (
-        <>
-          <Section title="Low-stock alerts" desc="Flags anything at or below threshold (6 units)">
+        <Section
+          title="Restock priority"
+          desc="One combined score per product: sales velocity (40%) + low-stock urgency (35%) + search demand (25%). Higher = restock sooner."
+        >
+          {restockScores.length === 0 ? (
+            <p className="text-steel text-sm">No data yet — scores build up as orders and searches come in.</p>
+          ) : (
             <div className="space-y-2">
-              {lowStock.length === 0 && <p className="text-steel text-sm">Nothing low right now.</p>}
-              {lowStock.map(p => (
-                <Row key={p.id}>
-                  <span className="flex-1 text-sm">{p.name}</span>
-                  <span className="text-sm text-crimson tabular">{p.stock} left</span>
-                </Row>
+              {restockScores.map((r, i) => (
+                <div key={r.id} className="flex items-center gap-3 border border-black/10 dark:border-white/10 rounded-xl px-4 py-3">
+                  <span className="text-xs text-steel w-5 tabular">{i + 1}</span>
+                  <span className="flex-1 text-sm">{r.name}</span>
+                  <span className={`text-xs tabular w-16 text-right ${r.stock <= 3 ? 'text-crimson' : 'text-steel'}`}>{r.stock} left</span>
+                  <span className="text-xs text-steel tabular w-16 text-right">{r.sold} sold</span>
+                  <span className="text-xs text-steel tabular w-20 text-right">{r.searchHits} searches</span>
+                  {/* Score bar */}
+                  <div className="w-24 shrink-0">
+                    <div className="h-2 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden">
+                      <div className="h-full bg-volt rounded-full" style={{ width: `${r.score}%` }} />
+                    </div>
+                  </div>
+                  <span className="text-sm font-medium tabular w-10 text-right">{r.score}</span>
+                </div>
               ))}
             </div>
-          </Section>
-          <Section title="Reorder recommendations" desc="Suggested based on recent sales velocity and demand signals">
-            <div className="space-y-2">
-              {mostRequested.slice(0, 3).map(p => (
-                <Row key={p.id}>
-                  <span className="flex-1 text-sm">{p.name}</span>
-                  <span className="text-sm text-steel">High demand</span>
-                </Row>
-              ))}
-            </div>
-          </Section>
-        </>
+          )}
+          <p className="text-xs text-steel mt-4">
+            A product ranks high only when multiple signals align — selling fast <em>and</em> running low <em>and</em> being searched beats a product that hits just one.
+          </p>
+        </Section>
       )}
 
       {tab === 'analytics' && (
@@ -243,7 +254,9 @@ export default function AdminPanel({
       )}
 
       {tab === 'finance' && (
-        <Section title="Real profit" desc="Owner-only — subtract employee salaries from gross profit">
+        <>
+          <ExchangeRateEditor initialRate={initialRate} demoMode={demoMode} onDone={flash} />
+          <Section title="Real profit" desc="Owner-only — subtract employee salaries from gross profit">
           <div className="flex items-center gap-4 mb-4">
             <label className="text-sm">Monthly salaries ($)</label>
             <input
@@ -259,6 +272,7 @@ export default function AdminPanel({
             <Row><span className="flex-1 font-medium">Real profit</span><span className="tabular font-semibold">{formatCurrency(revenue - salaries, 'USD')}</span></Row>
           </div>
         </Section>
+        </>
       )}
 
       {editing && (
@@ -507,6 +521,34 @@ function OrderLogger({ onClose, onLogged }: { onClose: () => void; onLogged: () 
         </button>
       </div>
     </Modal>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// EXCHANGE RATE — owner/manager sets USD/LBP
+// ---------------------------------------------------------------------------
+function ExchangeRateEditor({ initialRate, demoMode, onDone }: { initialRate: number; demoMode: boolean; onDone: (m: string) => void }) {
+  const [rate, setRate] = useState(initialRate);
+  const [pending, start] = useTransition();
+
+  const save = () => {
+    start(async () => {
+      const res = await setExchangeRate(rate);
+      if (res.ok) onDone(`Rate updated to ${rate.toLocaleString()} LBP.`);
+    });
+  };
+
+  return (
+    <Section title="USD / LBP exchange rate" desc="Customers see prices in both currencies. Change the rate here — no API dependency.">
+      <div className="flex items-center gap-3">
+        <span className="text-sm">$1 =</span>
+        <input type="number" value={rate} onChange={e => setRate(Number(e.target.value))} className="border border-black/15 dark:border-white/20 bg-transparent rounded-lg px-3 py-2 w-36 text-sm tabular" />
+        <span className="text-sm">LBP</span>
+        <button onClick={save} disabled={pending || demoMode} className="text-sm bg-volt text-ink rounded-full px-5 py-2 font-medium btn-press disabled:opacity-40">
+          {pending ? 'Saving…' : 'Update'}
+        </button>
+      </div>
+    </Section>
   );
 }
 

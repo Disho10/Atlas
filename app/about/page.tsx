@@ -1,28 +1,40 @@
 export default function AboutPage() {
   return (
     <main>
-      <section className="bg-ink text-chalk py-20">
-        <div className="max-w-3xl mx-auto px-6">
+      <section className="bg-ink text-chalk py-20 grain relative overflow-hidden">
+        <div className="glow-orb w-[32rem] h-[32rem] bg-crimson -top-32 -left-24 opacity-20" />
+        <div className="max-w-3xl mx-auto px-6 relative z-10">
           <span className="text-volt text-xs uppercase tracking-widest2">Our story</span>
-          <h1 className="font-display text-5xl mt-3 leading-tight">Built by someone who played the game.</h1>
+          <h1 className="font-display text-5xl md:text-6xl mt-3 leading-tight">Built by someone who<br />played the game.</h1>
+          <p className="text-chalk/60 mt-4 max-w-xl">Atlas isn't a reseller template. It came from the pitch — literally.</p>
         </div>
       </section>
 
       <section className="max-w-3xl mx-auto px-6 py-14 space-y-6 text-lg leading-relaxed">
         <p>
-          Atlas started the way most real football businesses do — with a jersey collection and a group chat.
-          Before it was a store, it was a way to stay close to the game after an injury changed what "playing"
-          meant.
+          I grew up on the field. Football wasn't a hobby — it was what I was going to do. I played
+          for Al Nahda in Lebanon, training and competing at a level where the next step was supposed
+          to be the only step. Then a back injury changed everything.
         </p>
         <p>
-          What began as reselling kits through Instagram DMs grew into something bigger: a proper storefront for
-          fans across Lebanon who want authentic gear from LaLiga to the Lebanese Premier League, without
-          waiting weeks or guessing on sizing.
+          When you lose the thing you built your identity around, you don't just move on — you redirect.
+          The love for the game didn't disappear; it just had to find a different channel. For me, that
+          channel became the gear, the culture, the community around football, and eventually this store.
         </p>
         <p>
-          Today Atlas is building toward a full storefront and, eventually, a physical space where fans can try
-          before they buy — carrying the same standard for quality and speed that got this started in the first
-          place.
+          Atlas started as a personal kit collection and a few Instagram DMs — sourcing jerseys for
+          friends who trusted my taste and my standards. That grew into friends of friends, then
+          strangers across Lebanon who just wanted authentic gear without the guesswork, the fakes,
+          or the six-week shipping wait.
+        </p>
+        <p>
+          Today Atlas carries six leagues, ships across all of Lebanon, and is building toward a
+          physical location where fans can try before they buy. Every product is checked before it
+          ships. Every customer gets the same standard I'd expect myself — because when you come
+          from the game, you know what good gear means.
+        </p>
+        <p className="font-medium">
+          Follow Through.
         </p>
       </section>
 
@@ -51,27 +63,31 @@ export default function AboutPage() {
   );
 }
 
-// Edit these to match your real milestones — dates and wording are yours to own.
 const TIMELINE = [
+  {
+    year: 'Before Atlas',
+    title: 'On the pitch',
+    body: 'Playing for Al Nahda in Lebanon — football was the plan, the path, the identity. Until a back injury ended that chapter.',
+  },
   {
     year: '2023',
     title: 'The first kits',
-    body: 'It started with a personal jersey collection and Instagram DMs — sourcing kits for friends, then friends of friends.',
+    body: 'A personal jersey collection turned into sourcing for friends via Instagram DMs. The standard was set: quality gear, no guesswork.',
   },
   {
     year: '2024',
-    title: 'A real business takes shape',
-    body: 'The Instagram store found its people: fans across Lebanon who wanted authentic gear without the wait or the guesswork.',
+    title: 'A real business',
+    body: 'The Instagram store found its people — fans across Lebanon who wanted authentic gear without the wait. Atlas had a name.',
   },
   {
     year: '2025',
     title: 'Beyond football shirts',
-    body: 'The catalog grew — training wear, match essentials, and gear for men and women, from LaLiga to the Lebanese Premier League.',
+    body: 'Training wear, match-day essentials, men\'s and women\'s sportswear — from LaLiga to the Lebanese Premier League.',
   },
   {
     year: '2026',
     title: 'Atlas goes online',
-    body: 'A full storefront built from scratch — with a physical location on the horizon. Same standard, bigger pitch.',
+    body: 'A full e-commerce storefront built from scratch, with a physical location on the horizon. Same standard, bigger pitch.',
   },
 ];
 

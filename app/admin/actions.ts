@@ -202,3 +202,19 @@ export async function createPromo(input: {
   revalidatePath('/admin');
   return { ok: true };
 }
+
+// ---------------------------------------------------------------------------
+// EXCHANGE RATE — owner/manager sets the USD/LBP display rate
+// ---------------------------------------------------------------------------
+export async function setExchangeRate(rate: number): Promise<ActionResult> {
+  const auth = await getRole();
+  if (!auth) return { ok: false, error: 'Not signed in.' };
+  if (!canEditProducts(auth.role)) return { ok: false, error: 'Only Owner and Manager can set the rate.' };
+  if (rate <= 0) return { ok: false, error: 'Rate must be positive.' };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from('site_settings').upsert({ key: 'usd_to_lbp', value: String(rate) });
+  if (error) return { ok: false, error: error.message };
+  revalidatePath('/');
+  return { ok: true };
+}

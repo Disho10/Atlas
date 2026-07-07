@@ -322,3 +322,23 @@ begin
   return welcome_usd;
 end;
 $$ language plpgsql security definer;
+
+-- ---------------------------------------------------------------------------
+-- SITE SETTINGS — key/value store for owner-configurable values like FX rate.
+-- ---------------------------------------------------------------------------
+create table if not exists site_settings (
+  key text primary key,
+  value text not null,
+  updated_at timestamptz not null default now()
+);
+alter table site_settings enable row level security;
+drop policy if exists "Anyone can read settings" on site_settings;
+create policy "Anyone can read settings" on site_settings
+  for select using (true);
+drop policy if exists "Owner manages settings" on site_settings;
+create policy "Owner manages settings" on site_settings
+  for all using (is_manager_or_owner()) with check (is_manager_or_owner());
+
+-- Seed the default USD/LBP rate
+insert into site_settings (key, value) values ('usd_to_lbp', '89500')
+  on conflict (key) do nothing;
