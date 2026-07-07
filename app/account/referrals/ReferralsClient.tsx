@@ -25,7 +25,7 @@ export default function ReferralsClient({ code, referrals, rewardPoints, demoMod
     <main className="max-w-2xl mx-auto px-6 py-12">
       <h1 className="font-display text-3xl mb-2">Refer a friend</h1>
       <p className="text-steel text-sm mb-8">
-        Share your code. When a friend signs up with it and completes their first order, you earn <b>{rewardPoints} points</b> — and they get a warm welcome too.
+        Share your code. Your friend gets a discount on their first order, and once that order is confirmed you earn <b>{rewardPoints} points</b> — about what a $150 purchase would earn you.
       </p>
 
       <div className="rounded-3xl bg-pitch text-chalk p-8 mb-8">

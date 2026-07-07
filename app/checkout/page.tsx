@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useCart, useCurrency } from '@/components/Providers';
 import { formatCurrency } from '@/lib/mockData';
 import { createClient } from '@/lib/supabase/client';
@@ -28,6 +28,15 @@ export default function CheckoutPage() {
   const [discount, setDiscount] = useState(0);
   const [promoMsg, setPromoMsg] = useState<string | null>(null);
   const [promoChecking, setPromoChecking] = useState(false);
+  const [welcomeDiscount, setWelcomeDiscount] = useState(0);
+
+  // Referred customers get an automatic welcome discount on their first order.
+  useEffect(() => {
+    import('@/app/account/actions').then(async m => {
+      const res = await m.getRefereeWelcome();
+      setWelcomeDiscount(res.discountUsd);
+    });
+  }, []);
 
   const applyPromo = async () => {
     setPromoChecking(true);
@@ -64,7 +73,7 @@ export default function CheckoutPage() {
         customer_email: form.email || user?.email || null,
         address: form.address,
         city: form.city,
-        subtotal_usd: Math.max(0, subtotal - discount),
+        subtotal_usd: Math.max(0, subtotal - discount - welcomeDiscount),
         channel: 'website',
       })
       .select()
@@ -168,6 +177,12 @@ export default function CheckoutPage() {
               </button>
             </div>
             {promoMsg && <p className={`text-xs mb-2 ${discount > 0 ? 'text-pitch dark:text-volt' : 'text-crimson'}`}>{promoMsg}</p>}
+            {welcomeDiscount > 0 && (
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-steel">Welcome discount (referred)</span>
+                <span className="tabular text-crimson">−{formatCurrency(welcomeDiscount, currency)}</span>
+              </div>
+            )}
             {discount > 0 && (
               <div className="flex justify-between text-sm mb-1">
                 <span className="text-steel">Discount</span>
@@ -176,7 +191,7 @@ export default function CheckoutPage() {
             )}
             <div className="flex justify-between font-semibold">
               <span>Total</span>
-              <span className="tabular">{formatCurrency(Math.max(0, subtotal - discount), currency)}</span>
+              <span className="tabular">{formatCurrency(Math.max(0, subtotal - discount - welcomeDiscount), currency)}</span>
             </div>
           </div>
         </div>

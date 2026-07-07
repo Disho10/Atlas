@@ -6,7 +6,7 @@ const HAS_SUPABASE = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 
 export default async function ReferralsPage() {
   if (!HAS_SUPABASE) {
-    return <ReferralsClient code="ATLAS-DEMO" referrals={[]} rewardPoints={200} demoMode />;
+    return <ReferralsClient code="ATLAS-DEMO" referrals={[]} rewardPoints={150} demoMode />;
   }
 
   const supabase = await createClient();
@@ -22,7 +22,7 @@ export default async function ReferralsPage() {
     <ReferralsClient
       code={p?.referral_code ?? ''}
       referrals={(reds ?? []).map(r => ({ rewarded: r.rewarded, date: (r.created_at ?? '').slice(0, 10) }))}
-      rewardPoints={200}
+      rewardPoints={150}
     />
   );
 }

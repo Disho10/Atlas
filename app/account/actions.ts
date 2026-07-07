@@ -115,3 +115,14 @@ export async function validatePromo(code: string, subtotalUsd: number): Promise<
 
   return { ok: true, discountUsd: Math.min(discount, subtotalUsd), description: promo.description ?? clean };
 }
+
+// ---------------------------------------------------------------------------
+// REFEREE WELCOME — how much off the current user's first order (referred users)
+// ---------------------------------------------------------------------------
+export async function getRefereeWelcome(): Promise<{ discountUsd: number }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { discountUsd: 0 };
+  const { data } = await supabase.rpc('referee_welcome_discount', { p_user: user.id });
+  return { discountUsd: Number(data ?? 0) };
+}

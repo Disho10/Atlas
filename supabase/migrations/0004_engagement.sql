@@ -199,7 +199,7 @@ begin
     perform apply_loyalty(new.user_id, floor(new.subtotal_usd)::int, 'purchase', new.id);
 
     -- Referral reward: if this is the buyer's first confirmed order and they
-    -- were referred, reward the referrer 200 pts (once).
+    -- were referred, reward the referrer 150 pts (once).
     perform reward_referrer_if_first_order(new.user_id, new.id);
   end if;
   return new;
@@ -233,7 +233,7 @@ begin
   insert into referral_redemptions (code, redeemed_by, rewarded, first_order_id)
   values (v_ref_code, p_buyer, true, p_order);
 
-  perform apply_loyalty(v_referrer, 200, 'referral', null);
+  perform apply_loyalty(v_referrer, 150, 'referral', null);
 end;
 $$ language plpgsql security definer;
 
@@ -295,3 +295,30 @@ drop trigger if exists on_product_new_category on products;
 create trigger on_product_new_category
   after insert or update on products
   for each row execute procedure queue_category_notification();
+
+-- ---------------------------------------------------------------------------
+-- REFEREE WELCOME DISCOUNT — a referred customer gets a discount on their
+-- FIRST order. Amount is fixed here; change REFEREE_WELCOME_USD in one place.
+-- Eligibility: profile.referred_by is set AND they have no prior orders.
+-- ---------------------------------------------------------------------------
+create or replace function referee_welcome_discount(p_user uuid)
+returns numeric as $$
+declare
+  v_referred text;
+  v_orders int;
+  welcome_usd numeric := 10;  -- $10 off first order for referred customers
+begin
+  if p_user is null then return 0; end if;
+
+  select referred_by into v_referred from profiles where id = p_user;
+  if v_referred is null then return 0; end if;
+
+  -- Any prior orders (in any state except cancelled) means they've ordered
+  -- before, so the welcome no longer applies.
+  select count(*) into v_orders from orders
+   where user_id = p_user and status <> 'cancelled';
+  if v_orders > 0 then return 0; end if;
+
+  return welcome_usd;
+end;
+$$ language plpgsql security definer;
