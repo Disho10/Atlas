@@ -1,13 +1,18 @@
 /** @type {import('next').NextConfig} */
+
+// Derive the Supabase storage hostname from the public URL so product/review
+// images uploaded to Supabase storage are allowed by the image optimizer
+// automatically — no manual host edit needed.
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseHost = supabaseUrl ? new URL(supabaseUrl).hostname : null;
+
 const nextConfig = {
   images: {
     // Restrict to the hosts we actually use rather than a wildcard — the
     // wildcard `**` also carries a known DoS advisory for the image optimizer.
     remotePatterns: [
       { protocol: 'https', hostname: 'images.unsplash.com' },
-      // Add your Supabase project's storage host here once you upload real
-      // product photos, e.g.:
-      // { protocol: 'https', hostname: 'YOUR-PROJECT.supabase.co' },
+      ...(supabaseHost ? [{ protocol: 'https', hostname: supabaseHost }] : []),
     ],
     // Cache optimized images for 24h so repeat visits don't re-fetch/re-encode
     // every external photo (a big part of the slow first loads).

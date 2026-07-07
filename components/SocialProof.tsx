@@ -76,19 +76,15 @@ export function TrustBadges() {
 }
 
 // ---------------------------------------------------------------------------
-// TESTIMONIALS — carousel. Swap the placeholder entries for real customer
-// quotes / creators as you collect them (names below are placeholders,
-// NOT real endorsements — replace before launch).
-// ---------------------------------------------------------------------------
-const TESTIMONIALS = [
-  { quote: 'Ordered on Sunday, wearing it at the game on Wednesday. Quality is honestly better than what I paid for.', name: 'Placeholder — replace with a real customer quote', role: 'Verified buyer' },
-  { quote: 'The sizing guide was spot on and the fabric feels like the real matchday kit.', name: 'Placeholder — replace with a real customer quote', role: 'Verified buyer' },
-  { quote: 'Cash on delivery to Tripoli with zero hassle. Will be back for the away kit.', name: 'Placeholder — replace with a real customer quote', role: 'Verified buyer' },
-];
+// TESTIMONIALS — shows REAL customer reviews (highest-rated, with text) pulled
+// from the database and passed in by the homepage. No fabricated quotes: if
+// there are no qualifying reviews yet, the section simply doesn't render.
+type Testimonial = { quote: string; name: string };
 
-export function Testimonials() {
+export function Testimonials({ reviews = [] }: { reviews?: Testimonial[] }) {
   const [i, setI] = useState(0);
-  const t = TESTIMONIALS[i];
+  if (reviews.length === 0) return null;
+  const t = reviews[Math.min(i, reviews.length - 1)];
 
   return (
     <section className="bg-pitch text-chalk">
@@ -97,17 +93,19 @@ export function Testimonials() {
         <blockquote key={i} className="font-display text-2xl md:text-3xl leading-snug animate-rise">
           “{t.quote}”
         </blockquote>
-        <p className="mt-5 text-chalk/60 text-sm">{t.name} · {t.role}</p>
-        <div className="flex gap-2 justify-center mt-8">
-          {TESTIMONIALS.map((_, idx) => (
-            <button
-              key={idx}
-              onClick={() => setI(idx)}
-              aria-label={`Testimonial ${idx + 1}`}
-              className={`h-1.5 rounded-full transition-all duration-300 ${idx === i ? 'w-8 bg-volt' : 'w-3 bg-chalk/25'}`}
-            />
-          ))}
-        </div>
+        <p className="mt-5 text-chalk/60 text-sm">{t.name} · Verified buyer</p>
+        {reviews.length > 1 && (
+          <div className="flex gap-2 justify-center mt-8">
+            {reviews.map((_, idx) => (
+              <button
+                key={idx}
+                onClick={() => setI(idx)}
+                aria-label={`Testimonial ${idx + 1}`}
+                className={`h-1.5 rounded-full transition-all duration-300 ${idx === i ? 'w-8 bg-volt' : 'w-3 bg-chalk/25'}`}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

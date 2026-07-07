@@ -130,3 +130,22 @@ export async function getReviews(productId: string): Promise<Review[]> {
     date: r.created_at.slice(0, 10),
   }));
 }
+
+// Top customer reviews for the homepage testimonials — real words only,
+// highest-rated with substantive text. Empty in prototype mode.
+export async function getTopReviews(limit = 5): Promise<{ quote: string; name: string }[]> {
+  if (!HAS_SUPABASE) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('reviews')
+    .select('author_name, rating, body')
+    .gte('rating', 4)
+    .order('rating', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(30);
+  if (error) return [];
+  return (data ?? [])
+    .filter(r => (r.body ?? '').trim().length >= 20) // substantive only
+    .slice(0, limit)
+    .map(r => ({ quote: r.body, name: r.author_name || 'Customer' }));
+}

@@ -293,6 +293,7 @@ function ProductEditor({ product, leagues, onClose, onSaved, onDeleted }: {
 }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [f, setF] = useState({
     name: product?.name ?? '',
     category: product?.category ?? 'shirts',
@@ -374,7 +375,26 @@ function ProductEditor({ product, leagues, onClose, onSaved, onDeleted }: {
         <Field label="Cost (USD, for margins)"><input type="number" value={f.cost_usd} onChange={e => set('cost_usd', e.target.value)} className={inputCls} /></Field>
         <Field label="Stock"><input type="number" value={f.stock} onChange={e => set('stock', e.target.value)} className={inputCls} /></Field>
         <Field label="Sizes (comma-separated)" className="sm:col-span-2"><input value={f.sizes} onChange={e => set('sizes', e.target.value)} placeholder="S, M, L, XL" className={inputCls} /></Field>
-        <Field label="Image URL" className="sm:col-span-2"><input value={f.image_url} onChange={e => set('image_url', e.target.value)} placeholder="https://..." className={inputCls} /></Field>
+        <Field label="Product image" className="sm:col-span-2">
+          <div className="flex gap-2 items-center">
+            <input value={f.image_url} onChange={e => set('image_url', e.target.value)} placeholder="Paste a URL, or upload →" className={inputCls} />
+            <label className={`shrink-0 text-sm border border-black/15 dark:border-white/20 rounded-lg px-4 py-2.5 cursor-pointer ${uploading ? 'opacity-50' : 'btn-press'}`}>
+              {uploading ? 'Uploading…' : 'Upload'}
+              <input type="file" accept="image/*" className="hidden" disabled={uploading} onChange={async e => {
+                const file = e.target.files?.[0]; if (!file) return;
+                setUploading(true);
+                const { createClient } = await import('@/lib/supabase/client');
+                const supabase = createClient();
+                const path = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+                const { data, error } = await supabase.storage.from('product-images').upload(path, file);
+                if (data) set('image_url', supabase.storage.from('product-images').getPublicUrl(data.path).data.publicUrl);
+                else if (error) setError(error.message);
+                setUploading(false);
+              }} />
+            </label>
+          </div>
+          {f.image_url && <img src={f.image_url} alt="" className="mt-2 w-20 h-24 object-cover rounded-lg border border-black/10 dark:border-white/10" />}
+        </Field>
         <Field label="Status">
           <select value={f.status} onChange={e => set('status', e.target.value as any)} className={inputCls}>
             <option value="published">Published (visible in store)</option>
@@ -394,6 +414,16 @@ function ProductEditor({ product, leagues, onClose, onSaved, onDeleted }: {
           <button onClick={remove} disabled={pending} className="text-sm text-crimson underline underline-offset-2 disabled:opacity-50">Delete</button>
         ) : <span />}
         <div className="flex gap-2">
+          {product && (
+            <a
+              href={`/admin/preview/${product.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm px-5 py-2.5 rounded-full border border-black/15 dark:border-white/20 btn-press"
+            >
+              Preview
+            </a>
+          )}
           <button onClick={onClose} className="text-sm px-5 py-2.5 rounded-full border border-black/15 dark:border-white/20">Cancel</button>
           <button onClick={submit} disabled={pending} className="text-sm px-6 py-2.5 rounded-full bg-volt text-ink font-medium btn-press disabled:opacity-50">
             {pending ? 'Saving…' : 'Save product'}

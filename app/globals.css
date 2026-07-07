@@ -1,6 +1,7 @@
-/* League wordmark fonts — free Google Fonts chosen to closely approximate each
-   league's real custom typeface. Loaded here so every league name across the
-   site renders in its own identity. Must precede the @tailwind directives. */
+/* League wordmark fonts + brand fonts — loaded from Google Fonts. On deploy
+   you can optionally self-host via next/font/google for zero runtime requests
+   (see BACKEND_INTEGRATION.md), but this @import approach works everywhere and
+   builds without a network dependency at build time. Must precede @tailwind. */
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Poppins:wght@600;700&family=Oswald:wght@600;700&family=Work+Sans:wght@700;800&family=Rajdhani:wght@600;700&family=Barlow:wght@600;700&display=swap');
 
 @tailwind base;
@@ -9,9 +10,6 @@
 
 :root {
   color-scheme: light dark;
-  /* Sandbox fallback stacks — this sandbox can't reach fonts.googleapis.com.
-     On Vercel, swap these for next/font/google (Anton, Manrope, JetBrains Mono);
-     see /BACKEND_INTEGRATION.md "Fonts" for the two-line change. */
   --font-display: 'Arial Narrow', Impact, 'Helvetica Neue', sans-serif;
   --font-body: 'Segoe UI', Inter, 'Helvetica Neue', Arial, sans-serif;
   --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;

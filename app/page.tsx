@@ -2,10 +2,11 @@ import Hero from '@/components/Hero';
 import CategorySlider from '@/components/CategorySlider';
 import ProductRail from '@/components/ProductRail';
 import { StatsBand, TrustBadges, Testimonials, FaqSection, NewsletterSignup } from '@/components/SocialProof';
-import { getProducts } from '@/lib/data';
+import { getProducts, getTopReviews } from '@/lib/data';
 
 export default async function HomePage() {
   const products = await getProducts();
+  const topReviews = await getTopReviews();
   const hot = products.filter(p => p.hot);
   const newest = [...products].slice(-4);
   const mostSearched = products.filter(p => p.reviewCount > 50);
@@ -41,7 +42,7 @@ export default async function HomePage() {
         <ProductRail title="Most Searched" subtitle="What everyone's looking for right now" products={mostSearched} />
       )}
 
-      <Testimonials />
+      <Testimonials reviews={topReviews} />
       <TrustBadges />
       <FaqSection />
       <NewsletterSignup />
