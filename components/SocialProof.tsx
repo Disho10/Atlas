@@ -164,6 +164,17 @@ export function FaqSection() {
 export function NewsletterSignup() {
   const [email, setEmail] = useState('');
   const [done, setDone] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErr(null);
+    if (!email.includes('@')) { setErr('Enter a valid email.'); return; }
+    const { subscribeNewsletter } = await import('@/app/account/actions');
+    const res = await subscribeNewsletter(email, 'homepage');
+    if (res.ok) setDone(true);
+    else setErr(res.error);
+  };
 
   return (
     <section className="max-w-7xl mx-auto px-6 pb-16">
@@ -178,7 +189,7 @@ export function NewsletterSignup() {
           <p className="text-volt font-medium">You're on the list. Welcome to Atlas.</p>
         ) : (
           <form
-            onSubmit={e => { e.preventDefault(); if (email.includes('@')) setDone(true); }}
+            onSubmit={submit}
             className="flex w-full md:w-auto gap-2"
           >
             <input
@@ -194,6 +205,7 @@ export function NewsletterSignup() {
             </button>
           </form>
         )}
+        {err && <p className="text-crimson text-sm mt-2 md:absolute">{err}</p>}
       </div>
     </section>
   );

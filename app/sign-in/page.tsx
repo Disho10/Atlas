@@ -17,10 +17,13 @@ function SignInInner() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [birthday, setBirthday] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const next = useSearchParams().get('next') ?? '/account';
+  const params = useSearchParams();
+  const next = params.get('next') ?? '/account';
+  const refCode = params.get('ref') ?? '';
 
   const oauth = async (provider: 'google' | 'apple' | 'facebook') => {
     const supabase = createClient();
@@ -45,7 +48,7 @@ function SignInInner() {
       const { error } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { full_name: fullName } },
+        options: { data: { full_name: fullName, birthday: birthday || null, referred_by: refCode || '' } },
       });
       if (error) setError(error.message);
       else router.push(next);
@@ -57,6 +60,12 @@ function SignInInner() {
     <main className="max-w-sm mx-auto px-6 py-20">
       <h1 className="font-display text-3xl mb-1 text-center">Welcome to Atlas</h1>
       <p className="text-steel text-sm text-center mb-8">Sign in to track orders, save your wishlist, and earn loyalty points.</p>
+
+      {refCode && (
+        <div className="mb-6 rounded-xl bg-volt/15 border border-volt/40 px-4 py-3 text-sm text-center">
+          You were invited with code <b>{refCode}</b> — create an account to claim your welcome.
+        </div>
+      )}
 
       <div className="space-y-3 mb-6">
         <SocialButton label="Continue with Google" onClick={() => oauth('google')} />
@@ -76,6 +85,17 @@ function SignInInner() {
             onChange={e => setFullName(e.target.value)}
             className="w-full border border-black/15 dark:border-white/20 bg-transparent rounded-xl px-4 py-3 text-sm"
           />
+        )}
+        {mode === 'signup' && (
+          <label className="block">
+            <span className="block text-xs text-steel mb-1.5">Birthday (optional — for a small birthday treat)</span>
+            <input
+              type="date"
+              value={birthday}
+              onChange={e => setBirthday(e.target.value)}
+              className="w-full border border-black/15 dark:border-white/20 bg-transparent rounded-xl px-4 py-3 text-sm"
+            />
+          </label>
         )}
         <input
           placeholder="Email"

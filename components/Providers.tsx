@@ -84,6 +84,24 @@ function CartProvider({ children }: { children: ReactNode }) {
   const count = lines.reduce((s, l) => s + l.qty, 0);
   const subtotal = lines.reduce((s, l) => s + l.qty * l.product.price, 0);
 
+  // Snapshot the cart to the DB (for the 24h recovery email) whenever it
+  // changes, debounced. Only for signed-in users, and only when non-empty.
+  useEffect(() => {
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || lines.length === 0) return;
+    const t = setTimeout(() => {
+      import('@/lib/supabase/client').then(async ({ createClient }) => {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const items = lines.map(l => ({ id: l.product.id, name: l.product.name, size: l.size, qty: l.qty, price: l.product.price }));
+        // Upsert one open cart per user (delete prior open, insert fresh).
+        await supabase.from('abandoned_carts').delete().eq('user_id', user.id).is('recovered_at', null).is('reminded_at', null);
+        await supabase.from('abandoned_carts').insert({ user_id: user.id, email: user.email, items });
+      });
+    }, 3000);
+    return () => clearTimeout(t);
+  }, [lines]);
+
   return <CartCtx.Provider value={{ lines, add, remove, setQty, count, subtotal }}>{children}</CartCtx.Provider>;
 }
 

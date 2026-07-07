@@ -1,24 +1,13 @@
-import { searchProducts } from '@/lib/data';
-import ProductCard from '@/components/ProductCard';
+import { searchProducts, getProducts, getLeagues } from '@/lib/data';
+import SearchClient from './SearchClient';
 
 export default async function SearchPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const { q: rawQ } = await searchParams;
   const q = (rawQ ?? '').trim();
-  const results = await searchProducts(q);
+  // If there's a query, start from search results; otherwise the whole catalog,
+  // so the filters are useful even with no search term.
+  const base = q ? await searchProducts(q) : await getProducts();
+  const leagues = await getLeagues();
 
-  return (
-    <main className="max-w-6xl mx-auto px-6 py-12">
-      <h1 className="font-display text-3xl mb-2">Search results</h1>
-      <p className="text-steel mb-8">{q ? `${results.length} results for "${q}"` : 'Type something to search.'}</p>
-      {q && results.length === 0 ? (
-        <p className="text-steel">
-          Nothing matched "{q}" yet. Try a team, a league, or a product type like "socks" or "shin pads".
-        </p>
-      ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-5 md:gap-6">
-          {results.map(p => <ProductCard key={p.id} product={p} />)}
-        </div>
-      )}
-    </main>
-  );
+  return <SearchClient query={q} products={base} leagues={leagues.map(l => ({ slug: l.slug, name: l.name }))} />;
 }

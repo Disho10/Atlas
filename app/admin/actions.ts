@@ -168,3 +168,37 @@ export async function setStaffRole(input: {
   revalidatePath('/admin');
   return { ok: true };
 }
+
+// ---------------------------------------------------------------------------
+// PROMO CODES — create a match-day / seasonal discount code. Manager + Owner.
+// ---------------------------------------------------------------------------
+export async function createPromo(input: {
+  code: string;
+  description: string;
+  kind: 'percent' | 'fixed';
+  amount: number;
+  min_subtotal_usd: number;
+  starts_at: string | null;
+  ends_at: string | null;
+  max_uses: number | null;
+}): Promise<ActionResult> {
+  const auth = await getRole();
+  if (!auth) return { ok: false, error: 'Not signed in.' };
+  if (!canEditProducts(auth.role)) return { ok: false, error: 'Only Owner and Manager can create promo codes.' };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from('promo_codes').insert({
+    code: input.code.trim().toUpperCase(),
+    description: input.description.trim() || null,
+    kind: input.kind,
+    amount: input.amount,
+    min_subtotal_usd: input.min_subtotal_usd,
+    starts_at: input.starts_at || null,
+    ends_at: input.ends_at || null,
+    max_uses: input.max_uses,
+    active: true,
+  });
+  if (error) return { ok: false, error: error.message };
+  revalidatePath('/admin');
+  return { ok: true };
+}

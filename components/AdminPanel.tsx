@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import { formatCurrency, type Product, type Order } from '@/lib/mockData';
-import { saveProduct, deleteProduct, logManualOrder, setStaffRole } from '@/app/admin/actions';
+import { saveProduct, deleteProduct, logManualOrder, setStaffRole, createPromo } from '@/app/admin/actions';
 
 type Role = 'owner' | 'manager' | 'admin';
 type LeagueOpt = { slug: string; name: string };
@@ -51,6 +51,7 @@ export default function AdminPanel({
     { id: 'products', label: 'Products', roles: ['owner', 'manager', 'admin'] },
     { id: 'requests', label: 'Requests', roles: ['owner', 'manager'] },
     { id: 'analytics', label: 'Search analytics', roles: ['owner', 'manager'] },
+    { id: 'promos', label: 'Promo codes', roles: ['owner', 'manager'] },
     { id: 'team', label: 'Team', roles: ['owner'] },
     { id: 'finance', label: 'Finance', roles: ['owner'] },
   ].filter(t => t.roles.includes(role));
@@ -231,6 +232,10 @@ export default function AdminPanel({
             ))}
           </div>
         </Section>
+      )}
+
+      {tab === 'promos' && (
+        <PromosTab demoMode={demoMode} onDone={flash} />
       )}
 
       {tab === 'team' && (
@@ -472,6 +477,61 @@ function OrderLogger({ onClose, onLogged }: { onClose: () => void; onLogged: () 
         </button>
       </div>
     </Modal>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// PROMOS TAB — create match-day / seasonal discount codes
+// ---------------------------------------------------------------------------
+function PromosTab({ demoMode, onDone }: { demoMode: boolean; onDone: (m: string) => void }) {
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [f, setF] = useState({
+    code: '', description: '', kind: 'percent' as 'percent' | 'fixed',
+    amount: 10, min_subtotal_usd: 0, starts_at: '', ends_at: '', max_uses: '',
+  });
+  const set = (k: keyof typeof f, v: any) => setF(prev => ({ ...prev, [k]: v }));
+
+  const create = () => {
+    setError(null);
+    if (!f.code.trim()) { setError('Enter a code.'); return; }
+    start(async () => {
+      const res = await createPromo({
+        code: f.code, description: f.description, kind: f.kind,
+        amount: Number(f.amount), min_subtotal_usd: Number(f.min_subtotal_usd),
+        starts_at: f.starts_at || null, ends_at: f.ends_at || null,
+        max_uses: f.max_uses ? Number(f.max_uses) : null,
+      });
+      if (res.ok) { onDone(`Promo ${f.code.toUpperCase()} created.`); setF({ ...f, code: '', description: '' }); }
+      else setError(res.error);
+    });
+  };
+
+  return (
+    <Section title="Create a promo code" desc="Match-day codes, seasonal sales, El Clásico weekend — tie a discount to any event.">
+      <div className="grid sm:grid-cols-2 gap-3">
+        <Field label="Code (customers type this)"><input value={f.code} onChange={e => set('code', e.target.value.toUpperCase())} placeholder="CLASICO25" className={inputCls} /></Field>
+        <Field label="Description (internal)"><input value={f.description} onChange={e => set('description', e.target.value)} placeholder="El Clásico weekend" className={inputCls} /></Field>
+        <Field label="Discount type">
+          <select value={f.kind} onChange={e => set('kind', e.target.value)} className={inputCls}>
+            <option value="percent">Percent off (%)</option>
+            <option value="fixed">Fixed amount off ($)</option>
+          </select>
+        </Field>
+        <Field label={f.kind === 'percent' ? 'Percent (0–100)' : 'Amount (USD)'}><input type="number" value={f.amount} onChange={e => set('amount', e.target.value)} className={inputCls} /></Field>
+        <Field label="Min. spend (USD)"><input type="number" value={f.min_subtotal_usd} onChange={e => set('min_subtotal_usd', e.target.value)} className={inputCls} /></Field>
+        <Field label="Max uses (blank = unlimited)"><input type="number" value={f.max_uses} onChange={e => set('max_uses', e.target.value)} className={inputCls} /></Field>
+        <Field label="Starts (optional)"><input type="datetime-local" value={f.starts_at} onChange={e => set('starts_at', e.target.value)} className={inputCls} /></Field>
+        <Field label="Ends (optional)"><input type="datetime-local" value={f.ends_at} onChange={e => set('ends_at', e.target.value)} className={inputCls} /></Field>
+      </div>
+      {error && <p className="text-crimson text-sm mt-3">{error}</p>}
+      <button onClick={create} disabled={pending || demoMode} className="mt-4 text-sm bg-volt text-ink rounded-full px-6 py-2.5 font-medium btn-press disabled:opacity-40">
+        {pending ? 'Creating…' : 'Create promo code'}
+      </button>
+      <p className="text-xs text-steel mt-4">
+        Tip: use the Match Results page (owner/manager) to spot upcoming fixtures, then create a code timed to that weekend.
+      </p>
+    </Section>
   );
 }
 

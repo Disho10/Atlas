@@ -1,34 +1,37 @@
-export default function SettingsPage() {
+import { redirect } from 'next/navigation';
+import { createClient } from '@/lib/supabase/server';
+import SettingsForm from './SettingsForm';
+
+const HAS_SUPABASE = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+export default async function SettingsPage() {
+  if (!HAS_SUPABASE) {
+    // Prototype preview
+    return <SettingsForm initial={{ full_name: 'Ali', email: '', phone: '', birthday: '', notify_new_categories: true, notify_tag_matches: true, notify_order_updates: true, notify_rewards: false }} demoMode />;
+  }
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect('/sign-in?next=/account/settings');
+
+  const { data: p } = await supabase
+    .from('profiles')
+    .select('full_name, email, phone, birthday, notify_new_categories, notify_tag_matches, notify_order_updates, notify_rewards')
+    .eq('id', user.id)
+    .single();
+
   return (
-    <main className="max-w-lg mx-auto px-6 py-12">
-      <h1 className="font-display text-3xl mb-8">Settings</h1>
-
-      <section className="mb-8">
-        <h2 className="text-sm font-medium mb-3">Profile</h2>
-        <div className="space-y-3">
-          <input defaultValue="Ali" placeholder="Name" className="w-full border border-black/15 dark:border-white/20 bg-transparent rounded-xl px-4 py-3 text-sm" />
-          <input defaultValue="" placeholder="Email" className="w-full border border-black/15 dark:border-white/20 bg-transparent rounded-xl px-4 py-3 text-sm" />
-        </div>
-      </section>
-
-      <section>
-        <h2 className="text-sm font-medium mb-3">Email notifications</h2>
-        <div className="space-y-3 text-sm">
-          <Toggle label="New categories go live" defaultChecked />
-          <Toggle label="Products related to tags I've viewed" defaultChecked />
-          <Toggle label="Order status updates" defaultChecked />
-          <Toggle label="Loyalty & referral rewards" />
-        </div>
-      </section>
-    </main>
-  );
-}
-
-function Toggle({ label, defaultChecked }: { label: string; defaultChecked?: boolean }) {
-  return (
-    <label className="flex items-center justify-between">
-      <span>{label}</span>
-      <input type="checkbox" defaultChecked={defaultChecked} className="w-5 h-5 accent-[#D6FF3F]" />
-    </label>
+    <SettingsForm
+      initial={{
+        full_name: p?.full_name ?? '',
+        email: p?.email ?? user.email ?? '',
+        phone: p?.phone ?? '',
+        birthday: p?.birthday ?? '',
+        notify_new_categories: p?.notify_new_categories ?? true,
+        notify_tag_matches: p?.notify_tag_matches ?? true,
+        notify_order_updates: p?.notify_order_updates ?? true,
+        notify_rewards: p?.notify_rewards ?? false,
+      }}
+    />
   );
 }

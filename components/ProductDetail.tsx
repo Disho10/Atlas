@@ -117,7 +117,12 @@ export default function ProductDetail({ product, initialReviews, related }: { pr
 
           <div className="flex flex-wrap gap-2 mt-4">
             {product.tags.map(t => (
-              <Link key={t} href={`/search?q=${encodeURIComponent(t)}`} className="text-xs border border-black/10 dark:border-white/20 rounded-full px-3 py-1 text-steel hover:border-ink dark:hover:border-chalk transition-colors">{t}</Link>
+              <Link
+                key={t}
+                href={`/search?q=${encodeURIComponent(t)}`}
+                onClick={() => { import('@/app/account/actions').then(m => m.logTagClick(t)); }}
+                className="text-xs border border-black/10 dark:border-white/20 rounded-full px-3 py-1 text-steel hover:border-ink dark:hover:border-chalk transition-colors"
+              >{t}</Link>
             ))}
           </div>
 
@@ -204,6 +209,23 @@ export default function ProductDetail({ product, initialReviews, related }: { pr
           </div>
         </div>
       </div>
+
+      {/* Customer photo gallery — surfaces review photos prominently */}
+      {reviews.some(r => r.photo) && (
+        <section className="mt-20">
+          <Reveal>
+            <h2 className="font-display text-3xl mb-1">Styled by our customers</h2>
+            <p className="text-steel text-sm mb-6">Real photos from real orders.</p>
+          </Reveal>
+          <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+            {reviews.filter(r => r.photo).map(r => (
+              <div key={r.id} className="aspect-square rounded-xl overflow-hidden bg-black/5 dark:bg-white/5">
+                <img src={r.photo} alt={`Customer photo by ${r.author}`} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Reviews */}
       <section id="reviews" className="max-w-3xl mt-20 scroll-mt-28">

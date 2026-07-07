@@ -24,6 +24,20 @@ export default function CheckoutPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', phone: '', city: '', address: '', email: '' });
+  const [promoCode, setPromoCode] = useState('');
+  const [discount, setDiscount] = useState(0);
+  const [promoMsg, setPromoMsg] = useState<string | null>(null);
+  const [promoChecking, setPromoChecking] = useState(false);
+
+  const applyPromo = async () => {
+    setPromoChecking(true);
+    setPromoMsg(null);
+    const { validatePromo } = await import('@/app/account/actions');
+    const res = await validatePromo(promoCode, subtotal);
+    if (res.ok) { setDiscount(res.discountUsd); setPromoMsg(`Applied: ${res.description}`); }
+    else { setDiscount(0); setPromoMsg(res.error); }
+    setPromoChecking(false);
+  };
 
   const placeOrder = async () => {
     setSubmitting(true);
@@ -50,7 +64,7 @@ export default function CheckoutPage() {
         customer_email: form.email || user?.email || null,
         address: form.address,
         city: form.city,
-        subtotal_usd: subtotal,
+        subtotal_usd: Math.max(0, subtotal - discount),
         channel: 'website',
       })
       .select()
@@ -71,6 +85,12 @@ export default function CheckoutPage() {
       unit_price_usd: l.product.price,
     }));
     await supabase.from('order_items').insert(itemRows);
+
+    // Mark any open abandoned-cart snapshot as recovered so no reminder is sent.
+    if (user) {
+      await supabase.from('abandoned_carts').update({ recovered_at: new Date().toISOString() })
+        .eq('user_id', user.id).is('recovered_at', null);
+    }
 
     // The `orders` INSERT above fires the notify-telegram and send-receipt
     // Database Webhooks (once configured in the Supabase dashboard) —
@@ -135,9 +155,29 @@ export default function CheckoutPage() {
               <span className="tabular">{formatCurrency(l.product.price * l.qty, currency)}</span>
             </div>
           ))}
-          <div className="flex justify-between font-semibold pt-3 mt-3 border-t border-black/10 dark:border-white/10">
-            <span>Total</span>
-            <span className="tabular">{formatCurrency(subtotal, currency)}</span>
+          <div className="pt-3 mt-3 border-t border-black/10 dark:border-white/10">
+            <div className="flex gap-2 mb-3">
+              <input
+                value={promoCode}
+                onChange={e => setPromoCode(e.target.value)}
+                placeholder="Discount / match-day code"
+                className="flex-1 border border-black/15 dark:border-white/20 bg-transparent rounded-xl px-3 py-2 text-sm"
+              />
+              <button type="button" onClick={applyPromo} disabled={promoChecking} className="text-sm border border-black/15 dark:border-white/20 rounded-xl px-4 btn-press disabled:opacity-50">
+                {promoChecking ? '…' : 'Apply'}
+              </button>
+            </div>
+            {promoMsg && <p className={`text-xs mb-2 ${discount > 0 ? 'text-pitch dark:text-volt' : 'text-crimson'}`}>{promoMsg}</p>}
+            {discount > 0 && (
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-steel">Discount</span>
+                <span className="tabular text-crimson">−{formatCurrency(discount, currency)}</span>
+              </div>
+            )}
+            <div className="flex justify-between font-semibold">
+              <span>Total</span>
+              <span className="tabular">{formatCurrency(Math.max(0, subtotal - discount), currency)}</span>
+            </div>
           </div>
         </div>
 
