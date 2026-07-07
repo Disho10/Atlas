@@ -57,7 +57,7 @@ export default function Header() {
 
           <nav className="hidden lg:flex items-center gap-5 text-sm uppercase tracking-wide">
             {leagues.slice(0, 4).map(l => (
-              <Link key={l.slug} href={`/leagues/${l.slug}`} className="nav-sweep pb-1">
+              <Link key={l.slug} href={`/leagues/${l.slug}`} className="nav-sweep pb-1" style={{ fontFamily: l.font }}>
                 {l.name}
               </Link>
             ))}
@@ -144,7 +144,7 @@ export default function Header() {
       {menuOpen && (
         <nav className="md:hidden flex flex-col gap-3 px-5 pb-5 text-sm uppercase tracking-wide animate-rise">
           {leagues.map(l => (
-            <Link key={l.slug} href={`/leagues/${l.slug}`} onClick={() => setMenuOpen(false)}>
+            <Link key={l.slug} href={`/leagues/${l.slug}`} onClick={() => setMenuOpen(false)} style={{ fontFamily: l.font }}>
               {l.name}
             </Link>
           ))}

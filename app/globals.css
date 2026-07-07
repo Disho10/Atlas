@@ -1,3 +1,8 @@
+/* League wordmark fonts — free Google Fonts chosen to closely approximate each
+   league's real custom typeface. Loaded here so every league name across the
+   site renders in its own identity. Must precede the @tailwind directives. */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Poppins:wght@600;700&family=Oswald:wght@600;700&family=Work+Sans:wght@700;800&family=Rajdhani:wght@600;700&family=Barlow:wght@600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

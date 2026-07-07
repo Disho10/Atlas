@@ -29,7 +29,7 @@ export default function CategorySlider() {
                   <LeagueCrest league={l} size={68} />
                 </div>
               </div>
-              <span className="font-display text-white text-2xl leading-tight self-end text-right">{l.name}</span>
+              <span className="font-display text-white text-2xl leading-tight self-end text-right" style={{ fontFamily: l.font }}>{l.name}</span>
             </div>
           </Link>
         ))}

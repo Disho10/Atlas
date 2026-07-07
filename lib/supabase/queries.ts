@@ -47,6 +47,17 @@ export function mapProductRow(row: ProductRow): Product {
   };
 }
 
+// Maps each league slug to the free Google Font approximating its real wordmark.
+// Kept here so DB-driven leagues get the right font without needing a DB column.
+const LEAGUE_FONTS: Record<string, string> = {
+  'la-liga': "'Montserrat', sans-serif",
+  'premier-league': "'Poppins', sans-serif",
+  'serie-a': "'Oswald', sans-serif",
+  'bundesliga': "'Work Sans', sans-serif",
+  'ligue-1': "'Rajdhani', sans-serif",
+  'lebanese-league': "'Barlow', sans-serif",
+};
+
 export function mapLeagueRow(row: LeagueRow): League {
   return {
     slug: row.slug,
@@ -56,6 +67,7 @@ export function mapLeagueRow(row: LeagueRow): League {
     secondary: row.secondary_color,
     logoUrl: row.logo_url ?? undefined,
     logoHasWordmark: (row as any).logo_has_wordmark ?? false,
+    font: LEAGUE_FONTS[row.slug] ?? "var(--font-display)",
     logoInitials: row.name
       .split(' ')
       .map(w => w[0])

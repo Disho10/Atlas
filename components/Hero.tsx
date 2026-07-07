@@ -22,7 +22,7 @@ export default function Hero() {
               {[...leagues, ...leagues].map((l, i) => (
                 <div key={l.slug + i} className="flex items-center gap-4 shrink-0 opacity-80 hover:opacity-100 transition-opacity">
                   <LeagueCrest league={l} size={64} />
-                  <span className="text-sm tracking-wide uppercase text-chalk/70">{l.name}</span>
+                  <span className="text-sm tracking-wide uppercase text-chalk/70" style={{ fontFamily: l.font }}>{l.name}</span>
                 </div>
               ))}
             </div>

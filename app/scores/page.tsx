@@ -19,7 +19,7 @@ export default function ScoresPage() {
       <div className="space-y-8">
         {top5.map(l => (
           <div key={l.slug}>
-            <h2 className="text-sm uppercase tracking-widest2 text-steel mb-3">{l.name}</h2>
+            <h2 className="text-sm uppercase tracking-widest2 text-steel mb-3" style={{ fontFamily: l.font }}>{l.name}</h2>
             {MOCK_RESULTS[l.slug]?.map((m, i) => (
               <div key={i} className="flex items-center justify-between border border-black/10 dark:border-white/10 rounded-xl px-5 py-4">
                 <span>{m.home}</span>

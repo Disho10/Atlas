@@ -13,15 +13,16 @@ export type League = {
   logoInitials: string;
   logoUrl?: string;         // licensed real logo, if you have one for this league — see public/logos/
   logoHasWordmark?: boolean; // true if the logo image already spells out the league name
+  font: string;            // CSS font-family stack (free Google Font approximating the league's real wordmark)
 };
 
 export const leagues: League[] = [
-  { slug: 'la-liga', name: 'LaLiga', country: 'Spain', primary: '#EE2737', secondary: '#0B0D10', logoInitials: 'LL', logoUrl: '/logos/la-liga.png', logoHasWordmark: true },
-  { slug: 'premier-league', name: 'Premier League', country: 'England', primary: '#3D195B', secondary: '#00FF87', logoInitials: 'PL', logoUrl: '/logos/premier-league.png' },
-  { slug: 'serie-a', name: 'Serie A', country: 'Italy', primary: '#004B8D', secondary: '#FFFFFF', logoInitials: 'SA', logoUrl: '/logos/serie-a.png', logoHasWordmark: true },
-  { slug: 'bundesliga', name: 'Bundesliga', country: 'Germany', primary: '#D3010C', secondary: '#0B0D10', logoInitials: 'BL', logoUrl: '/logos/bundesliga.png', logoHasWordmark: true },
-  { slug: 'ligue-1', name: 'Ligue 1', country: 'France', primary: '#0D1240', secondary: '#DAE41A', logoInitials: 'L1', logoUrl: '/logos/ligue-1.png', logoHasWordmark: true },
-  { slug: 'lebanese-league', name: 'Lebanese Premier League', country: 'Lebanon', primary: '#C8102E', secondary: '#00693E', logoInitials: 'LPL', logoUrl: '/logos/lebanese-league.png' },
+  { slug: 'la-liga', name: 'LaLiga', country: 'Spain', primary: '#EE2737', secondary: '#0B0D10', logoInitials: 'LL', logoUrl: '/logos/la-liga.png', logoHasWordmark: true, font: "'Montserrat', sans-serif" },
+  { slug: 'premier-league', name: 'Premier League', country: 'England', primary: '#3D195B', secondary: '#00FF87', logoInitials: 'PL', logoUrl: '/logos/premier-league.png', font: "'Poppins', sans-serif" },
+  { slug: 'serie-a', name: 'Serie A', country: 'Italy', primary: '#004B8D', secondary: '#FFFFFF', logoInitials: 'SA', logoUrl: '/logos/serie-a.png', logoHasWordmark: true, font: "'Oswald', sans-serif" },
+  { slug: 'bundesliga', name: 'Bundesliga', country: 'Germany', primary: '#D3010C', secondary: '#0B0D10', logoInitials: 'BL', logoUrl: '/logos/bundesliga.png', logoHasWordmark: true, font: "'Work Sans', sans-serif" },
+  { slug: 'ligue-1', name: 'Ligue 1', country: 'France', primary: '#0D1240', secondary: '#DAE41A', logoInitials: 'L1', logoUrl: '/logos/ligue-1.png', logoHasWordmark: true, font: "'Rajdhani', sans-serif" },
+  { slug: 'lebanese-league', name: 'Lebanese Premier League', country: 'Lebanon', primary: '#C8102E', secondary: '#00693E', logoInitials: 'LPL', logoUrl: '/logos/lebanese-league.png', font: "'Barlow', sans-serif" },
 ];
 
 export type ProductCategory = 'shirts' | 'socks' | 'balls' | 'shinpads' | 'sportswear';

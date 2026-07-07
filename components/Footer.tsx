@@ -16,7 +16,7 @@ export default function Footer() {
           <h4 className="text-xs uppercase tracking-widest2 text-steel mb-3">Leagues</h4>
           <ul className="space-y-2 text-sm">
             {leagues.slice(0, 5).map(l => (
-              <li key={l.slug}><Link href={`/leagues/${l.slug}`} className="hover:opacity-70">{l.name}</Link></li>
+              <li key={l.slug}><Link href={`/leagues/${l.slug}`} className="hover:opacity-70" style={{ fontFamily: l.font }}>{l.name}</Link></li>
             ))}
           </ul>
         </div>

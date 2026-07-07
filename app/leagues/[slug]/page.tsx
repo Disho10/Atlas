@@ -36,7 +36,7 @@ export default async function LeaguePage({ params }: { params: Promise<{ slug: s
         </div>
 
         <div className="max-w-7xl mx-auto px-6 relative z-10 w-full text-right">
-          <h1 className="font-display text-6xl md:text-7xl text-white animate-rise [animation-delay:200ms] opacity-0">
+          <h1 className="font-display text-6xl md:text-7xl text-white animate-rise [animation-delay:200ms] opacity-0" style={{ fontFamily: league.font }}>
             {league.name}
           </h1>
           <p className="text-white/70 mt-3 max-w-md ml-auto animate-rise [animation-delay:300ms] opacity-0">

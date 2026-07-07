@@ -24,7 +24,7 @@ export default async function LeaguesPage() {
                   <LeagueCrest league={l} size={80} />
                 </div>
               </div>
-              <span className="font-display text-white text-2xl self-end text-right">{l.name}</span>
+              <span className="font-display text-white text-2xl self-end text-right" style={{ fontFamily: l.font }}>{l.name}</span>
             </div>
           </Link>
         ))}
