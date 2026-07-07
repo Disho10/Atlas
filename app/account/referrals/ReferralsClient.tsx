@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 type Referral = { rewarded: boolean; date: string };
 
@@ -8,7 +8,13 @@ export default function ReferralsClient({ code, referrals, rewardPoints, demoMod
   code: string; referrals: Referral[]; rewardPoints: number; demoMode?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
-  const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}/sign-in?ref=${code}` : `/sign-in?ref=${code}`;
+  // Build the absolute URL only after mount. During SSR and the first client
+  // render it's the relative path (identical on both sides, so no hydration
+  // mismatch); the effect then upgrades it to the full origin-based URL.
+  const [shareUrl, setShareUrl] = useState(`/sign-in?ref=${code}`);
+  useEffect(() => {
+    setShareUrl(`${window.location.origin}/sign-in?ref=${code}`);
+  }, [code]);
   const converted = referrals.filter(r => r.rewarded).length;
 
   const copy = async () => {
