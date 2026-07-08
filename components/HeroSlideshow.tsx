@@ -54,10 +54,9 @@ export default function HeroSlideshow({ slides: serverSlides }: { slides?: any[]
   const hasImage = !!slide.image;
 
   return (
-    <div className="relative w-full pt-16 pb-4 md:pt-24">
-      {/* Background image — rendered with a plain <img> so it's not constrained
-          by Next.js image optimization domain rules. Absolutely fills the parent
-          section (which is position:relative and overflow:hidden). */}
+    <div className="relative w-full min-h-[70vh] flex flex-col justify-between pt-16 pb-6 md:pt-24">
+
+      {/* Background image — plain img, no Next.js optimization, full quality */}
       {hasImage && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -66,34 +65,40 @@ export default function HeroSlideshow({ slides: serverSlides }: { slides?: any[]
           alt=""
           aria-hidden="true"
           className="absolute inset-0 w-full h-full object-cover object-center"
-          style={{ zIndex: 0 }}
+          style={{ zIndex: 0, imageRendering: 'auto' }}
+          loading="eager"
+          decoding="sync"
         />
       )}
 
-      {/* Content sits above the image */}
-      <div
-        className="relative"
-        style={{ zIndex: 1 }}
-      >
-        <div key={index} className={`px-6 md:px-12 ${hasImage ? 'max-w-2xl' : 'max-w-7xl mx-auto'}`}>
+      {/* Dark scrim — ONLY on the left third where text sits, leaves the right
+          side of the image clean and fully visible */}
+      {hasImage && (
+        <div
+          className="absolute inset-0"
+          style={{
+            zIndex: 1,
+            background: 'linear-gradient(to right, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.1) 60%, transparent 80%)',
+          }}
+        />
+      )}
+
+      {/* Text content */}
+      <div className="relative px-6 md:px-12" style={{ zIndex: 2 }}>
+        <div key={index} className={hasImage ? 'max-w-xl' : 'max-w-7xl mx-auto'}>
+
           <div className="flex items-center gap-2 text-volt text-xs uppercase tracking-widest2 mb-6 animate-rise">
             <span className="w-2 h-2 rounded-full bg-volt inline-block" />
             {slide.tag}
           </div>
 
-          <h1
-            className="font-display text-[15vw] sm:text-7xl md:text-8xl leading-[0.9] tracking-tight text-balance animate-rise [animation-delay:100ms] opacity-0"
-            style={hasImage ? { textShadow: '0 2px 24px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.5)' } : {}}
-          >
+          <h1 className="font-display text-[15vw] sm:text-7xl md:text-8xl leading-[0.9] tracking-tight text-balance animate-rise [animation-delay:100ms] opacity-0 text-white">
             {slide.titleTop}
             <br />
             <span className="text-volt shimmer-text">{slide.titleAccent}</span>
           </h1>
 
-          <p
-            className="mt-6 max-w-md text-chalk/90 animate-rise [animation-delay:200ms] opacity-0"
-            style={hasImage ? { textShadow: '0 1px 12px rgba(0,0,0,0.8)' } : {}}
-          >
+          <p className="mt-6 max-w-md text-white/85 animate-rise [animation-delay:200ms] opacity-0">
             {slide.body}
           </p>
 
@@ -103,21 +108,23 @@ export default function HeroSlideshow({ slides: serverSlides }: { slides?: any[]
             </Link>
             <Link
               href={slide.secondaryHref}
-              className={`px-6 py-3 rounded-full text-sm transition-colors hover:border-volt hover:text-volt ${hasImage ? 'border border-chalk/60 bg-black/30 backdrop-blur-sm text-chalk' : 'border border-chalk/30 text-chalk'}`}
+              className="border border-white/50 text-white px-6 py-3 rounded-full text-sm hover:border-volt hover:text-volt transition-colors bg-black/20 backdrop-blur-sm"
             >
               {slide.secondaryLabel}
             </Link>
           </div>
         </div>
+      </div>
 
-        {/* Slide dots */}
-        <div className={`flex gap-2 mt-10 px-6 md:px-12 ${!hasImage ? 'max-w-7xl mx-auto' : ''}`}>
+      {/* Slide dots */}
+      <div className="relative px-6 md:px-12 mt-6" style={{ zIndex: 2 }}>
+        <div className={!hasImage ? 'max-w-7xl mx-auto' : ''}>
           {slides.map((_, i) => (
             <button
               key={i}
               onClick={() => setIndex(i)}
               aria-label={`Go to slide ${i + 1}`}
-              className={`h-1.5 rounded-full transition-all duration-300 ${i === index ? 'w-8 bg-volt' : 'w-3 bg-chalk/40'}`}
+              className={`inline-block mr-2 h-1.5 rounded-full transition-all duration-300 ${i === index ? 'w-8 bg-volt' : 'w-3 bg-white/40'}`}
             />
           ))}
         </div>
