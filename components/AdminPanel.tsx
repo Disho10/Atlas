@@ -993,12 +993,15 @@ function OrderRow({ order: o, role, demoMode, onDone }: { order: Order; role: st
   const [expanded, setExpanded] = useState(false);
   const [pending, start] = useTransition();
   const [localStatus, setLocalStatus] = useState(o.status);
+  const [statusError, setStatusError] = useState<string | null>(null);
   const canCancel = role === 'owner' || role === 'manager';
 
   const changeStatus = (newStatus: string) => {
+    setStatusError(null);
     start(async () => {
       const res = await updateOrderStatus(o.dbId, newStatus);
       if (res.ok) { setLocalStatus(newStatus as any); onDone(`${o.id} → ${newStatus}`); }
+      else setStatusError(res.error);
     });
   };
 
@@ -1030,16 +1033,16 @@ function OrderRow({ order: o, role, demoMode, onDone }: { order: Order; role: st
               </div>
             ))}
           </div>
-          <div className="flex items-center gap-2 pt-2">
+          <div className="flex flex-wrap items-center gap-2 pt-2">
             <span className="text-xs text-steel">Status:</span>
             <select
               value={localStatus}
-              disabled={pending || demoMode || localStatus === 'cancelled'}
+              disabled={pending || demoMode}
               onChange={e => changeStatus(e.target.value)}
               className="text-sm border border-black/15 dark:border-white/20 bg-transparent rounded-full px-3 py-1.5 capitalize disabled:opacity-40"
             >
               {STATUS_FLOW.map(s => <option key={s} value={s}>{s}</option>)}
-              <option value="cancelled" className="text-crimson">Cancelled</option>
+              <option value="cancelled">Cancelled</option>
             </select>
             {localStatus !== 'cancelled' && localStatus !== 'delivered' && canCancel && (
               <button
@@ -1050,7 +1053,17 @@ function OrderRow({ order: o, role, demoMode, onDone }: { order: Order; role: st
                 Cancel order
               </button>
             )}
+            {localStatus === 'cancelled' && canCancel && (
+              <button
+                disabled={pending || demoMode}
+                onClick={() => changeStatus('placed')}
+                className="text-xs text-volt underline underline-offset-2 disabled:opacity-40"
+              >
+                Restore to placed
+              </button>
+            )}
             {pending && <span className="text-xs text-steel">Saving…</span>}
+            {statusError && <span className="text-xs text-crimson">{statusError}</span>}
           </div>
         </div>
       )}
