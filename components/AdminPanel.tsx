@@ -1142,7 +1142,7 @@ function MiniBlockPreview({ block: b }: { block: any }) {
 // ---------------------------------------------------------------------------
 // HERO SLIDES TAB — edit homepage slideshow with live miniature preview
 // ---------------------------------------------------------------------------
-const DEFAULT_SLIDE = { tag: '', titleTop: '', titleAccent: '', body: '', image: '', ctaLabel: '', ctaHref: '/', secondaryLabel: '', secondaryHref: '/' };
+const DEFAULT_SLIDE = { tag: '', titleTop: '', titleAccent: '', body: '', image: '', imageScale: 100, imageX: 50, imageY: 50, imageRotation: 0, ctaLabel: '', ctaHref: '/', secondaryLabel: '', secondaryHref: '/' };
 
 function HeroSlidesTab({ initialSlides, demoMode, onDone }: { initialSlides: any[] | null; demoMode: boolean; onDone: (m: string) => void }) {
   const [pending, start] = useTransition();
@@ -1222,6 +1222,33 @@ function HeroSlidesTab({ initialSlides, demoMode, onDone }: { initialSlides: any
                 <button onClick={uploadBg} disabled={uploading} className="text-xs border border-black/15 dark:border-white/20 rounded-lg px-3 py-2 btn-press disabled:opacity-50">{uploading ? '…' : 'Upload'}</button>
               </div>
             </Field>
+            {slide.image && (
+              <div className="rounded-xl border border-black/10 dark:border-white/10 p-4 space-y-3">
+                <p className="text-xs font-medium text-steel uppercase tracking-wide">Image transform</p>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3">
+                    <label className="text-xs text-steel w-20 shrink-0">Zoom {slide.imageScale ?? 100}%</label>
+                    <input type="range" min="50" max="200" step="1" value={slide.imageScale ?? 100} onChange={e => setSlide('imageScale', e.target.value)} className="flex-1 accent-[#D6FF3F]" />
+                    <button onClick={() => setSlide('imageScale', '100')} className="text-xs text-steel hover:text-ink dark:hover:text-chalk">↺</button>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <label className="text-xs text-steel w-20 shrink-0">Left/Right {slide.imageX ?? 50}%</label>
+                    <input type="range" min="0" max="100" step="1" value={slide.imageX ?? 50} onChange={e => setSlide('imageX', e.target.value)} className="flex-1 accent-[#D6FF3F]" />
+                    <button onClick={() => setSlide('imageX', '50')} className="text-xs text-steel hover:text-ink dark:hover:text-chalk">↺</button>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <label className="text-xs text-steel w-20 shrink-0">Up/Down {slide.imageY ?? 50}%</label>
+                    <input type="range" min="0" max="100" step="1" value={slide.imageY ?? 50} onChange={e => setSlide('imageY', e.target.value)} className="flex-1 accent-[#D6FF3F]" />
+                    <button onClick={() => setSlide('imageY', '50')} className="text-xs text-steel hover:text-ink dark:hover:text-chalk">↺</button>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <label className="text-xs text-steel w-20 shrink-0">Rotate {slide.imageRotation ?? 0}°</label>
+                    <input type="range" min="-45" max="45" step="1" value={slide.imageRotation ?? 0} onChange={e => setSlide('imageRotation', e.target.value)} className="flex-1 accent-[#D6FF3F]" />
+                    <button onClick={() => setSlide('imageRotation', '0')} className="text-xs text-steel hover:text-ink dark:hover:text-chalk">↺</button>
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <Field label="Primary CTA label"><input value={slide.ctaLabel} onChange={e => setSlide('ctaLabel', e.target.value)} className={inputCls} /></Field>
               <Field label="Primary CTA link"><input value={slide.ctaHref} onChange={e => setSlide('ctaHref', e.target.value)} className={inputCls} /></Field>
@@ -1245,8 +1272,26 @@ function HeroSlidesTab({ initialSlides, demoMode, onDone }: { initialSlides: any
         <p className="text-xs uppercase tracking-widest2 text-steel mb-3">Preview — slide {activeIdx + 1}</p>
         <div
           className="relative rounded-2xl overflow-hidden bg-ink text-chalk"
-          style={{ aspectRatio: '16/9', background: slide.image ? `linear-gradient(rgba(11,13,16,0.7),rgba(11,13,16,0.85)), url(${slide.image}) center/cover no-repeat` : '#0B0D10' }}
+          style={{ aspectRatio: '16/9' }}
         >
+          {slide.image && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={slide.image}
+              alt=""
+              className="absolute inset-0 w-full h-full"
+              style={{
+                objectFit: 'cover',
+                objectPosition: `${slide.imageX ?? 50}% ${slide.imageY ?? 50}%`,
+                transform: `scale(${(slide.imageScale ?? 100) / 100}) rotate(${slide.imageRotation ?? 0}deg)`,
+                transformOrigin: `${slide.imageX ?? 50}% ${slide.imageY ?? 50}%`,
+              }}
+            />
+          )}
+          {!slide.image && <div className="absolute inset-0 bg-[#0B0D10]" />}
+          {slide.image && (
+            <div className="absolute inset-0" style={{ background: 'linear-gradient(to right, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.4) 40%, transparent 70%)' }} />
+          )}
           <div className="absolute inset-0 p-5 flex flex-col justify-between">
             <div>
               <div className="flex items-center gap-1.5 mb-3">

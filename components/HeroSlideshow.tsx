@@ -56,7 +56,7 @@ export default function HeroSlideshow({ slides: serverSlides }: { slides?: any[]
   return (
     <div className="relative w-full min-h-[70vh] flex flex-col justify-between pt-16 pb-6 md:pt-24">
 
-      {/* Background image — plain img, no Next.js optimization, full quality */}
+      {/* Background image — plain img, full quality, with admin-controlled transforms */}
       {hasImage && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -64,8 +64,14 @@ export default function HeroSlideshow({ slides: serverSlides }: { slides?: any[]
           src={slide.image}
           alt=""
           aria-hidden="true"
-          className="absolute inset-0 w-full h-full object-cover object-center"
-          style={{ zIndex: 0, imageRendering: 'auto' }}
+          className="absolute inset-0 w-full h-full"
+          style={{
+            zIndex: 0,
+            objectFit: 'cover',
+            objectPosition: `${slide.imageX ?? 50}% ${slide.imageY ?? 50}%`,
+            transform: `scale(${(slide.imageScale ?? 100) / 100}) rotate(${slide.imageRotation ?? 0}deg)`,
+            transformOrigin: `${slide.imageX ?? 50}% ${slide.imageY ?? 50}%`,
+          }}
           loading="eager"
           decoding="sync"
         />
