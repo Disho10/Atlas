@@ -41,6 +41,7 @@ export async function saveProduct(input: {
   status: 'draft' | 'published';
   image_url: string | null;
   images: string[];
+  variants: { label: string; price: number }[];
 }): Promise<ActionResult> {
   const auth = await getRole();
   if (!auth) return { ok: false, error: 'Not signed in.' };
@@ -63,6 +64,7 @@ export async function saveProduct(input: {
     status: input.status,
     image_url: input.image_url,
     images: input.images.filter(Boolean),
+    variants: input.variants,
   };
 
   const { error } = input.id

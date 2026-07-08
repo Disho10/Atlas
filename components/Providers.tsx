@@ -49,10 +49,10 @@ function CurrencyProvider({ children }: { children: ReactNode }) {
 // ---------------------------------------------------------------------------
 // CART
 // ---------------------------------------------------------------------------
-export type CartLine = { product: Product; size: string; qty: number };
+export type CartLine = { product: Product; size: string; qty: number; variant?: string; variantPrice?: number };
 const CartCtx = createContext<{
   lines: CartLine[];
-  add: (p: Product, size: string) => void;
+  add: (p: Product, size: string, variant?: string, variantPrice?: number) => void;
   remove: (productId: string, size: string) => void;
   setQty: (productId: string, size: string, qty: number) => void;
   count: number;
@@ -63,13 +63,13 @@ export const useCart = () => useContext(CartCtx);
 function CartProvider({ children }: { children: ReactNode }) {
   const [lines, setLines] = useState<CartLine[]>([]);
 
-  const add = (product: Product, size: string) => {
+  const add = (product: Product, size: string, variant?: string, variantPrice?: number) => {
     setLines(prev => {
-      const existing = prev.find(l => l.product.id === product.id && l.size === size);
+      const existing = prev.find(l => l.product.id === product.id && l.size === size && l.variant === variant);
       if (existing) {
         return prev.map(l => (l === existing ? { ...l, qty: l.qty + 1 } : l));
       }
-      return [...prev, { product, size, qty: 1 }];
+      return [...prev, { product, size, qty: 1, variant, variantPrice }];
     });
   };
 
@@ -82,7 +82,7 @@ function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const count = lines.reduce((s, l) => s + l.qty, 0);
-  const subtotal = lines.reduce((s, l) => s + l.qty * l.product.price, 0);
+  const subtotal = lines.reduce((s, l) => s + l.qty * (l.variantPrice ?? l.product.price), 0);
 
   // Snapshot the cart to the DB (for the 24h recovery email) whenever it
   // changes, debounced. Only for signed-in users, and only when non-empty.

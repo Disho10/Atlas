@@ -16,6 +16,10 @@ export default function ProductDetail({ product, initialReviews, related }: { pr
   const { ids, toggle } = useWishlist();
   const [size, setSize] = useState<string | null>(product.sizes[0] ?? null);
   const [qty, setQty] = useState(1);
+  const hasVariants = product.variants.length > 0;
+  const [selectedVariant, setSelectedVariant] = useState(hasVariants ? product.variants[0].label : '');
+  const activeVariant = product.variants.find(v => v.label === selectedVariant);
+  const activePrice = activeVariant?.price ?? product.price;
   const [added, setAdded] = useState(false);
   const [openSection, setOpenSection] = useState<string | null>('details');
   const [reviews, setReviews] = useState(initialReviews);
@@ -30,7 +34,7 @@ export default function ProductDetail({ product, initialReviews, related }: { pr
 
   const addToCart = () => {
     if (!size) return;
-    for (let i = 0; i < qty; i++) add(product, size);
+    for (let i = 0; i < qty; i++) add(product, size, selectedVariant || undefined, activeVariant?.price);
     setAdded(true);
     setTimeout(() => setAdded(false), 1600);
   };
@@ -96,12 +100,12 @@ export default function ProductDetail({ product, initialReviews, related }: { pr
           </div>
 
           <div className="mt-5 flex items-baseline gap-3">
-            <span className="text-3xl font-semibold tabular">{formatCurrency(product.price, currency)}</span>
+            <span className="text-3xl font-semibold tabular">{formatCurrency(activePrice, currency)}</span>
             {product.compareAt && (
               <>
                 <span className="text-steel line-through tabular">{formatCurrency(product.compareAt, currency)}</span>
                 <span className="text-crimson text-sm font-medium">
-                  −{Math.round((1 - product.price / product.compareAt) * 100)}%
+                  −{Math.round((1 - activePrice / product.compareAt) * 100)}%
                 </span>
               </>
             )}
@@ -117,6 +121,25 @@ export default function ProductDetail({ product, initialReviews, related }: { pr
               >{t}</Link>
             ))}
           </div>
+
+          {/* Variant — e.g. Jersey vs Jersey + Shorts */}
+          {hasVariants && (
+            <div className="mt-6">
+              <p className="text-sm font-medium mb-2">Option</p>
+              <div className="flex flex-wrap gap-2">
+                {product.variants.map(v => (
+                  <button
+                    key={v.label}
+                    onClick={() => setSelectedVariant(v.label)}
+                    className={`px-4 py-2.5 rounded-full border text-sm btn-press
+                      ${selectedVariant === v.label ? 'bg-ink text-chalk dark:bg-chalk dark:text-ink border-transparent' : 'border-black/15 dark:border-white/20'}`}
+                  >
+                    {v.label} · {formatCurrency(v.price, currency)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Size */}
           <div className="mt-8">
@@ -163,7 +186,7 @@ export default function ProductDetail({ product, initialReviews, related }: { pr
               >
                 {outOfStock ? 'Out of stock in this size' : added ? (
                   <span className="inline-flex items-center gap-1.5">Added <CheckIcon className="w-4 h-4" /></span>
-                ) : `Add to cart · ${formatCurrency(product.price * qty, currency)}`}
+                ) : `Add to cart · ${formatCurrency(activePrice * qty, currency)}`}
               </button>
             )}
             <button

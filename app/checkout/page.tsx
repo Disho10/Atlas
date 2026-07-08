@@ -88,10 +88,10 @@ export default function CheckoutPage() {
     const itemRows = lines.map(l => ({
       order_id: order.id,
       product_id: l.product.id,
-      product_name: l.product.name,
+      product_name: l.variant ? `${l.product.name} (${l.variant})` : l.product.name,
       size: l.size,
       qty: l.qty,
-      unit_price_usd: l.product.price,
+      unit_price_usd: l.variantPrice ?? l.product.price,
     }));
     await supabase.from('order_items').insert(itemRows);
 
@@ -161,7 +161,7 @@ export default function CheckoutPage() {
           {lines.map(l => (
             <div key={l.product.id + l.size} className="flex justify-between text-sm mb-2">
               <span>{l.product.name} × {l.qty} ({l.size})</span>
-              <span className="tabular">{formatCurrency(l.product.price * l.qty, currency)}</span>
+              <span className="tabular">{formatCurrency((l.variantPrice ?? l.product.price) * l.qty, currency)}</span>
             </div>
           ))}
           <div className="pt-3 mt-3 border-t border-black/10 dark:border-white/10">

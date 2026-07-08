@@ -32,9 +32,9 @@ export default function CartPage() {
               <div className="flex justify-between">
                 <div>
                   <p className="font-medium">{l.product.name}</p>
-                  <p className="text-sm text-steel">Size {l.size}</p>
+                  <p className="text-sm text-steel">Size {l.size}{l.variant ? ` · ${l.variant}` : ''}</p>
                 </div>
-                <p className="font-semibold tabular">{formatCurrency(l.product.price * l.qty, currency)}</p>
+                <p className="font-semibold tabular">{formatCurrency((l.variantPrice ?? l.product.price) * l.qty, currency)}</p>
               </div>
               <div className="flex items-center gap-3 mt-3">
                 <div className="flex items-center border border-black/15 dark:border-white/20 rounded-full">

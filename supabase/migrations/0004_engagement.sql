@@ -371,3 +371,10 @@ create policy "Public reads published pages" on custom_pages
 drop policy if exists "Manager/owner manage pages" on custom_pages;
 create policy "Manager/owner manage pages" on custom_pages
   for all using (is_manager_or_owner()) with check (is_manager_or_owner());
+
+-- ---------------------------------------------------------------------------
+-- PRODUCT VARIANTS — e.g. "Jersey" vs "Jersey + Shorts" with different prices.
+-- Stored as JSONB array: [{label: "Jersey", price: 89}, {label: "Jersey + Shorts", price: 119}]
+-- When empty/null, the product uses its single price_usd as before.
+-- ---------------------------------------------------------------------------
+alter table products add column if not exists variants jsonb not null default '[]';
