@@ -36,6 +36,7 @@ export default function AdminPanel({
   const [tab, setTab] = useState('overview');
   const [query, setQuery] = useState('');
   const [salaries, setSalaries] = useState(1200);
+  const [otherCosts, setOtherCosts] = useState(0);
   const [editing, setEditing] = useState<Product | 'new' | null>(null);
   const [loggingOrder, setLoggingOrder] = useState(false);
   const [editingPage, setEditingPage] = useState<PageData | 'new' | null>(null);
@@ -43,8 +44,30 @@ export default function AdminPanel({
 
   const canEditProducts = role === 'owner' || role === 'manager';
 
-  const revenue = orders.reduce((s, o) => s + o.total, 0);
+  const activeOrders = orders.filter(o => o.status !== 'cancelled');
+  const cancelledOrders = orders.filter(o => o.status === 'cancelled');
+  const revenue = activeOrders.reduce((s, o) => s + o.total, 0);
+  const cancelledRevenue = cancelledOrders.reduce((s, o) => s + o.total, 0);
   const lowStock = products.filter(p => p.stock > 0 && p.stock <= 6);
+
+  // Channel breakdown
+  const byChannel = { website: 0, instagram: 0, whatsapp: 0 };
+  activeOrders.forEach(o => { if (o.channel in byChannel) byChannel[o.channel as keyof typeof byChannel] += o.total; });
+
+  // Status breakdown
+  const byStatus = { placed: 0, confirmed: 0, shipped: 0, delivered: 0 };
+  activeOrders.forEach(o => { if (o.status in byStatus) byStatus[o.status as keyof typeof byStatus]++; });
+
+  // Product cost/margin (products with cost data)
+  const totalCost = products.reduce((s, p) => {
+    if (!p.cost) return s;
+    const sold = activeOrders.flatMap(o => o.items).filter(it => it.name.includes(p.name)).reduce((ss, it) => ss + it.qty, 0);
+    return s + (p.cost * sold);
+  }, 0);
+  const grossMargin = revenue > 0 ? Math.round(((revenue - totalCost) / revenue) * 100) : 0;
+
+  // Average order value
+  const avgOrderValue = activeOrders.length > 0 ? revenue / activeOrders.length : 0;
   const mostRequested = [...products].sort((a, b) => b.reviewCount - a.reviewCount).slice(0, 5);
 
   const searchResults = useMemo(() => {
@@ -114,8 +137,8 @@ export default function AdminPanel({
 
       {tab === 'overview' && (
         <div className="grid sm:grid-cols-3 gap-4 mb-10">
-          <Stat label="Revenue (30d)" value={formatCurrency(revenue, 'USD')} />
-          <Stat label="Orders (30d)" value={String(orders.length)} />
+          <Stat label="Revenue" value={formatCurrency(revenue, 'USD')} />
+          <Stat label="Active orders" value={String(activeOrders.length)} />
           <Stat label="Low-stock items" value={String(lowStock.length)} tone={lowStock.length > 0 ? 'crimson' : undefined} />
         </div>
       )}
@@ -259,22 +282,109 @@ export default function AdminPanel({
       {tab === 'finance' && (
         <>
           <ExchangeRateEditor initialRate={initialRate} demoMode={demoMode} onDone={flash} />
-          <Section title="Real profit" desc="Owner-only — subtract employee salaries from gross profit">
-          <div className="flex items-center gap-4 mb-4">
-            <label className="text-sm">Monthly salaries ($)</label>
-            <input
-              type="number"
-              value={salaries}
-              onChange={e => setSalaries(Number(e.target.value))}
-              className="border border-black/15 dark:border-white/20 bg-transparent rounded-lg px-3 py-2 w-32 text-sm"
-            />
+
+          {/* Key metrics */}
+          <div className="grid sm:grid-cols-4 gap-3 mb-8">
+            <Stat label="Revenue" value={formatCurrency(revenue, 'USD')} />
+            <Stat label="Orders (active)" value={String(activeOrders.length)} />
+            <Stat label="Avg. order value" value={formatCurrency(avgOrderValue, 'USD')} />
+            <Stat label="Gross margin" value={grossMargin > 0 ? `${grossMargin}%` : '—'} tone={grossMargin < 30 ? 'crimson' : undefined} />
           </div>
-          <div className="space-y-2 text-sm">
-            <Row><span className="flex-1">Gross revenue</span><span className="tabular">{formatCurrency(revenue, 'USD')}</span></Row>
-            <Row><span className="flex-1">Salaries</span><span className="tabular text-crimson">−{formatCurrency(salaries, 'USD')}</span></Row>
-            <Row><span className="flex-1 font-medium">Real profit</span><span className="tabular font-semibold">{formatCurrency(revenue - salaries, 'USD')}</span></Row>
-          </div>
-        </Section>
+
+          {/* Cancelled orders impact */}
+          {cancelledOrders.length > 0 && (
+            <div className="rounded-2xl bg-crimson/10 border border-crimson/30 p-5 mb-8">
+              <p className="text-sm font-medium text-crimson mb-1">Cancelled orders</p>
+              <p className="text-xs text-steel">{cancelledOrders.length} order{cancelledOrders.length === 1 ? '' : 's'} cancelled — {formatCurrency(cancelledRevenue, 'USD')} excluded from revenue.</p>
+            </div>
+          )}
+
+          {/* Revenue by channel */}
+          <Section title="Revenue by channel" desc="Where the money is coming from">
+            <div className="grid sm:grid-cols-3 gap-3">
+              {[
+                { label: 'Website', value: byChannel.website, color: 'bg-volt' },
+                { label: 'WhatsApp', value: byChannel.whatsapp, color: 'bg-[#25D366]' },
+                { label: 'Instagram', value: byChannel.instagram, color: 'bg-[#E1306C]' },
+              ].map(ch => (
+                <div key={ch.label} className="border border-black/10 dark:border-white/10 rounded-2xl p-5">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className={`w-2.5 h-2.5 rounded-full ${ch.color}`} />
+                    <span className="text-xs uppercase tracking-wide text-steel">{ch.label}</span>
+                  </div>
+                  <p className="font-display text-2xl tabular">{formatCurrency(ch.value, 'USD')}</p>
+                  {revenue > 0 && <p className="text-xs text-steel mt-1">{Math.round((ch.value / revenue) * 100)}% of total</p>}
+                </div>
+              ))}
+            </div>
+          </Section>
+
+          {/* Order pipeline */}
+          <Section title="Order pipeline" desc="Where orders currently stand">
+            <div className="grid grid-cols-4 gap-2 text-center">
+              {Object.entries(byStatus).map(([status, count]) => (
+                <div key={status} className="border border-black/10 dark:border-white/10 rounded-xl p-4">
+                  <p className="font-display text-2xl tabular">{count}</p>
+                  <p className="text-xs text-steel capitalize mt-1">{status}</p>
+                </div>
+              ))}
+            </div>
+          </Section>
+
+          {/* Top sellers */}
+          <Section title="Top sellers" desc="Products generating the most revenue from active orders">
+            {(() => {
+              const productRevenue = new Map<string, { name: string; qty: number; revenue: number }>();
+              activeOrders.flatMap(o => o.items).forEach(it => {
+                const existing = productRevenue.get(it.name) ?? { name: it.name, qty: 0, revenue: 0 };
+                existing.qty += it.qty;
+                existing.revenue += it.price * it.qty;
+                productRevenue.set(it.name, existing);
+              });
+              const sorted = Array.from(productRevenue.values()).sort((a, b) => b.revenue - a.revenue).slice(0, 8);
+              return sorted.length === 0 ? (
+                <p className="text-steel text-sm">No sales data yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {sorted.map((s, i) => (
+                    <Row key={s.name}>
+                      <span className="text-xs text-steel w-5 tabular">{i + 1}</span>
+                      <span className="flex-1 text-sm">{s.name}</span>
+                      <span className="text-xs text-steel tabular w-14">{s.qty} sold</span>
+                      <span className="text-sm font-medium tabular w-20 text-right">{formatCurrency(s.revenue, 'USD')}</span>
+                    </Row>
+                  ))}
+                </div>
+              );
+            })()}
+          </Section>
+
+          {/* Profit calculator */}
+          <Section title="Profit calculator" desc="Subtract your costs to see real profit — only you see this">
+            <div className="space-y-3 mb-4">
+              <div className="flex items-center gap-3">
+                <label className="text-sm w-40">Monthly salaries ($)</label>
+                <input type="number" value={salaries} onChange={e => setSalaries(Number(e.target.value))} className="border border-black/15 dark:border-white/20 bg-transparent rounded-lg px-3 py-2 w-32 text-sm tabular" />
+              </div>
+              <div className="flex items-center gap-3">
+                <label className="text-sm w-40">Other monthly costs ($)</label>
+                <input type="number" value={otherCosts} onChange={e => setOtherCosts(Number(e.target.value))} className="border border-black/15 dark:border-white/20 bg-transparent rounded-lg px-3 py-2 w-32 text-sm tabular" />
+              </div>
+            </div>
+            <div className="space-y-2 text-sm border-t border-black/10 dark:border-white/10 pt-4">
+              <Row><span className="flex-1">Gross revenue</span><span className="tabular">{formatCurrency(revenue, 'USD')}</span></Row>
+              {totalCost > 0 && <Row><span className="flex-1">Product costs (from cost field)</span><span className="tabular text-crimson">−{formatCurrency(totalCost, 'USD')}</span></Row>}
+              <Row><span className="flex-1">Salaries</span><span className="tabular text-crimson">−{formatCurrency(salaries, 'USD')}</span></Row>
+              <Row><span className="flex-1">Other costs</span><span className="tabular text-crimson">−{formatCurrency(otherCosts, 'USD')}</span></Row>
+              {cancelledRevenue > 0 && <Row><span className="flex-1">Cancelled (already excluded)</span><span className="tabular text-steel">{formatCurrency(cancelledRevenue, 'USD')}</span></Row>}
+              <div className="flex items-center justify-between border border-black/10 dark:border-white/10 rounded-xl px-4 py-3 bg-black/5 dark:bg-white/5">
+                <span className="flex-1 font-semibold">Net profit</span>
+                <span className={`tabular font-bold text-lg ${(revenue - totalCost - salaries - otherCosts) >= 0 ? 'text-pitch dark:text-volt' : 'text-crimson'}`}>
+                  {formatCurrency(revenue - totalCost - salaries - otherCosts, 'USD')}
+                </span>
+              </div>
+            </div>
+          </Section>
         </>
       )}
 

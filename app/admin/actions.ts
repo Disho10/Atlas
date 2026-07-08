@@ -2,6 +2,19 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { createClient as createRawClient } from '@supabase/supabase-js';
+
+// Service role client for writes — bypasses RLS. Falls back to null if the
+// service role key isn't configured (the action will use the session client).
+function serviceClient() {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!key) return null;
+  return createRawClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    key,
+    { auth: { persistSession: false } }
+  );
+}
 
 // Every action re-checks the caller's role server-side. The RLS policies in the
 // database are the real enforcement, but checking here too lets us return clean
@@ -230,19 +243,57 @@ export async function setExchangeRate(rate: number): Promise<ActionResult> {
 export async function updateOrderStatus(orderId: string, newStatus: string): Promise<ActionResult> {
   const auth = await getRole();
   if (!auth) return { ok: false, error: 'Not signed in.' };
-  if (!isStaff(auth.role)) return { ok: false, error: 'Staff only.' };
+  if (!isStaff(auth.role)) return { ok: false, error: `Staff only. Your role: ${auth.role}` };
   if (newStatus === 'cancelled' && !canEditProducts(auth.role)) {
     return { ok: false, error: 'Only Owner and Manager can cancel orders.' };
   }
 
   const valid = ['placed', 'confirmed', 'shipped', 'delivered', 'cancelled'];
-  if (!valid.includes(newStatus)) return { ok: false, error: 'Invalid status.' };
+  if (!valid.includes(newStatus)) return { ok: false, error: `Invalid status: ${newStatus}` };
+  if (!orderId) return { ok: false, error: 'No order ID provided.' };
 
-  const supabase = await createClient();
-  const { error } = await supabase.from('orders').update({ status: newStatus }).eq('id', orderId);
-  if (error) return { ok: false, error: error.message };
-  revalidatePath('/admin');
-  return { ok: true };
+  // Try service role client first (bypasses RLS), fall back to session client
+  const svc = serviceClient();
+  const session = await createClient();
+  const supabase = svc ?? session;
+  const method = svc ? 'service-role' : 'session';
+
+  try {
+    // Verify the order exists
+    const { data: existing, error: findErr } = await supabase
+      .from('orders')
+      .select('id, status')
+      .eq('id', orderId)
+      .maybeSingle();
+
+    if (findErr) return { ok: false, error: `Find error (${method}): ${findErr.message}` };
+    if (!existing) return { ok: false, error: `Order not found. ID: ${orderId.slice(0, 12)}…` };
+    if (existing.status === newStatus) return { ok: true }; // already at target status
+
+    // Perform the update
+    const { error: updateErr } = await supabase
+      .from('orders')
+      .update({ status: newStatus })
+      .eq('id', orderId);
+
+    if (updateErr) return { ok: false, error: `Update error (${method}): ${updateErr.message}` };
+
+    // Verify it actually changed
+    const { data: check } = await supabase
+      .from('orders')
+      .select('status')
+      .eq('id', orderId)
+      .single();
+
+    if (check?.status !== newStatus) {
+      return { ok: false, error: `Update didn't persist. Still "${check?.status ?? 'unknown'}". ${!svc ? 'Add SUPABASE_SERVICE_ROLE_KEY to .env.local to fix RLS issues.' : ''}` };
+    }
+
+    revalidatePath('/admin');
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: `Exception: ${String(e)}` };
+  }
 }
 
 // ---------------------------------------------------------------------------
