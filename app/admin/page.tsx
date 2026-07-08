@@ -15,7 +15,7 @@ const HAS_SUPABASE = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 export default async function AdminPage() {
   // Prototype mode — no Supabase yet: keep the demo panel with a role switcher.
   if (!HAS_SUPABASE) {
-    return <AdminPanel role="owner" products={mockProducts} orders={mockOrders} zeroResultSearches={mockZero} leagues={[]} staff={[]} restockScores={[]} exchangeRate={89500} pages={[]} demoMode />;
+    return <AdminPanel role="owner" products={mockProducts} orders={mockOrders} zeroResultSearches={mockZero} leagues={[]} staff={[]} restockScores={[]} exchangeRate={89500} heroSlides={null} pages={[]} demoMode />;
   }
 
   const supabase = await createClient();
@@ -148,6 +148,7 @@ export default async function AdminPage() {
       staff={staff}
       restockScores={restockScores}
       exchangeRate={Number((settingsRows ?? []).find((s: any) => s.key === 'usd_to_lbp')?.value ?? 89500)}
+      heroSlides={(settingsRows ?? []).find((s: any) => s.key === 'hero_slides')?.value ? JSON.parse((settingsRows ?? []).find((s: any) => s.key === 'hero_slides')!.value) : null}
       pages={pages}
     />
   );

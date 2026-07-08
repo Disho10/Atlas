@@ -10,8 +10,10 @@ type LeagueRow = Database['public']['Tables']['leagues']['Row'];
 // which stay owner/manager/admin-only per the spec even though RLS can't hide
 // individual columns (only whole rows). Always select through this, not '*'.
 export const PUBLIC_PRODUCT_COLUMNS =
-  'id, name, category, league_slug, team, description, price_usd, compare_at_usd, gender, sizes, out_of_stock_sizes, stock, coming_soon, hot, status, image_url, images, variants, rating, review_count, created_at';
+  'id, name, category, league_slug, team, description, price_usd, compare_at_usd, gender, sizes, out_of_stock_sizes, stock, coming_soon, hot, status, image_url, rating, review_count, created_at';
 
+// Full columns, for /admin only — call this exclusively from code gated by
+// a staff role check (see app/admin/page.tsx once wired to real auth).
 export const STAFF_PRODUCT_COLUMNS = PUBLIC_PRODUCT_COLUMNS + ', code, cost_usd, low_stock_threshold';
 
 export function mapProductRow(row: ProductRow): Product {

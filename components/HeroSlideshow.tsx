@@ -3,12 +3,13 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
-const SLIDES = [
+const DEFAULT_SLIDES = [
   {
     tag: 'Matchday drop · 6 leagues live now',
     titleTop: 'WEAR THE',
     titleAccent: 'RESULT.',
     body: 'Kits, boots-up gear, and match essentials from LaLiga to the Lebanese Premier League — carried to your door.',
+    image: '',
     ctaLabel: 'Shop Premier League',
     ctaHref: '/leagues/premier-league',
     secondaryLabel: 'Browse all leagues',
@@ -19,6 +20,7 @@ const SLIDES = [
     titleTop: 'NEW KITS',
     titleAccent: 'JUST LANDED.',
     body: 'Home and away shirts for the new season, from Madrid to Manchester — sized S to XXL, delivered across Lebanon.',
+    image: '',
     ctaLabel: 'Shop new kits',
     ctaHref: '/search?q=Home%20Kit',
     secondaryLabel: 'View LaLiga',
@@ -29,6 +31,7 @@ const SLIDES = [
     titleTop: 'TRAIN LIKE',
     titleAccent: 'YOU MEAN IT.',
     body: 'Hoodies, track jackets, grip socks, and everyday sportswear built for training and styled for the terrace.',
+    image: '',
     ctaLabel: 'Shop sportswear',
     ctaHref: '/shop/sportswear',
     secondaryLabel: 'Match essentials',
@@ -38,19 +41,26 @@ const SLIDES = [
 
 const INTERVAL_MS = 6000;
 
-export default function HeroSlideshow() {
+export default function HeroSlideshow({ slides: serverSlides }: { slides?: any[] }) {
+  const slides = (serverSlides && serverSlides.length > 0) ? serverSlides : DEFAULT_SLIDES;
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
-    const id = setInterval(() => setIndex(i => (i + 1) % SLIDES.length), INTERVAL_MS);
+    const id = setInterval(() => setIndex(i => (i + 1) % slides.length), INTERVAL_MS);
     return () => clearInterval(id);
-  }, []);
+  }, [slides.length]);
 
-  const slide = SLIDES[index];
+  const slide = slides[Math.min(index, slides.length - 1)];
 
   return (
-    <div className="max-w-7xl mx-auto px-6 pt-16 pb-4 md:pt-24">
-      {/* key on index re-triggers the rise animation on each slide change */}
+    <div
+      className="max-w-7xl mx-auto px-6 pt-16 pb-4 md:pt-24 relative"
+      style={slide.image ? {
+        backgroundImage: `linear-gradient(rgba(11,13,16,0.75), rgba(11,13,16,0.9)), url(${slide.image})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      } : {}}
+    >
       <div key={index}>
         <div className="flex items-center gap-2 text-volt text-xs uppercase tracking-widest2 mb-6 animate-rise">
           <span className="w-2 h-2 rounded-full bg-volt inline-block" />
@@ -74,9 +84,8 @@ export default function HeroSlideshow() {
         </div>
       </div>
 
-      {/* Slide indicators */}
       <div className="flex gap-2 mt-10">
-        {SLIDES.map((_, i) => (
+        {slides.map((_, i) => (
           <button
             key={i}
             onClick={() => setIndex(i)}

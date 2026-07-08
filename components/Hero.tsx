@@ -2,20 +2,14 @@ import { leagues } from '@/lib/mockData';
 import LeagueCrest from './LeagueCrest';
 import HeroSlideshow from './HeroSlideshow';
 
-export default function Hero() {
+export default function Hero({ slides }: { slides?: any[] }) {
   return (
     <section className="relative overflow-hidden bg-ink text-chalk grain">
-      {/* Cinematic backdrop: drifting glow orbs in brand colors behind the content */}
       <div className="glow-orb w-[40rem] h-[40rem] bg-volt -top-48 -right-40" />
       <div className="glow-orb w-[32rem] h-[32rem] bg-crimson -bottom-40 -left-32 [animation-delay:-7s]" />
 
       <div className="relative">
-        {/* Rotating hero: multiple campaign slides with their own CTAs,
-            auto-advancing, with manual dot navigation. */}
-        <HeroSlideshow />
-
-        {/* Scoreboard strip — the signature element: a live-look ticker of league
-            identities, echoing a stadium scoreboard. Pauses on hover. */}
+        <HeroSlideshow slides={slides} />
         <div className="max-w-7xl mx-auto px-6 pb-14 md:pb-20">
           <div className="mt-10 border-t border-chalk/15 pt-8 overflow-hidden">
             <div className="flex gap-14 animate-marquee w-max">

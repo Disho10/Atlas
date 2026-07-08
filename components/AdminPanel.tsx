@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import { formatCurrency, type Product, type Order } from '@/lib/mockData';
-import { saveProduct, deleteProduct, logManualOrder, logManualOrderMulti, updateOrderStatus, setStaffRole, createPromo, setExchangeRate, savePage, deletePage } from '@/app/admin/actions';
+import { saveProduct, deleteProduct, logManualOrder, logManualOrderMulti, updateOrderStatus, setStaffRole, createPromo, setExchangeRate, savePage, deletePage, saveHeroSlides } from '@/app/admin/actions';
 
 type Role = 'owner' | 'manager' | 'admin';
 type LeagueOpt = { slug: string; name: string };
@@ -18,6 +18,7 @@ export default function AdminPanel({
   staff,
   restockScores,
   exchangeRate: initialRate,
+  heroSlides: initialHeroSlides,
   pages,
   demoMode = false,
 }: {
@@ -29,6 +30,7 @@ export default function AdminPanel({
   staff: StaffMember[];
   restockScores: { id: string; name: string; stock: number; sold: number; searchHits: number; score: number }[];
   exchangeRate: number;
+  heroSlides: any[] | null;
   pages: PageData[];
   demoMode?: boolean;
 }) {
@@ -83,6 +85,7 @@ export default function AdminPanel({
     { id: 'requests', label: 'Restock priority', roles: ['owner', 'manager'] },
     { id: 'analytics', label: 'Search analytics', roles: ['owner', 'manager'] },
     { id: 'promos', label: 'Promo codes', roles: ['owner', 'manager'] },
+    { id: 'hero', label: 'Hero slides', roles: ['owner', 'manager'] },
     { id: 'pages', label: 'Pages', roles: ['owner', 'manager'] },
     { id: 'team', label: 'Team', roles: ['owner'] },
     { id: 'finance', label: 'Finance', roles: ['owner'] },
@@ -269,6 +272,10 @@ export default function AdminPanel({
 
       {tab === 'promos' && (
         <PromosTab demoMode={demoMode} onDone={flash} />
+      )}
+
+      {tab === 'hero' && (
+        <HeroSlidesTab initialSlides={initialHeroSlides} demoMode={demoMode} onDone={flash} />
       )}
 
       {tab === 'pages' && (
@@ -567,45 +574,17 @@ function ProductEditor({ product, leagues, onClose, onSaved, onDeleted }: {
           <p className="text-xs text-steel">Click + to upload more shots. Hover and × to remove. These show as a gallery on the product page.</p>
         </Field>
         <Field label="Product variants (e.g. Jersey / Jersey + Shorts)" className="sm:col-span-2">
-          <div className="space-y-2 mb-3">
-            {f.variants.length > 0 && (
-              <div className="grid grid-cols-[1fr_120px_32px] gap-2">
-                <span className="text-xs text-steel">Option name</span>
-                <span className="text-xs text-steel">Price (USD)</span>
-                <span />
-              </div>
-            )}
+          <div className="space-y-2 mb-2">
             {f.variants.map((v, i) => (
-              <div key={i} className="grid grid-cols-[1fr_120px_32px] gap-2 items-center">
-                <input
-                  value={v.label}
-                  onChange={e => setF(prev => ({ ...prev, variants: prev.variants.map((vv, j) => j === i ? { ...vv, label: e.target.value } : vv) }))}
-                  placeholder="e.g. Jersey"
-                  className="w-full border border-black/15 dark:border-white/20 bg-transparent rounded-lg px-3 py-2 text-sm"
-                />
-                <input
-                  type="number"
-                  value={v.price}
-                  onChange={e => setF(prev => ({ ...prev, variants: prev.variants.map((vv, j) => j === i ? { ...vv, price: Number(e.target.value) } : vv) }))}
-                  placeholder="0"
-                  className="w-full border border-black/15 dark:border-white/20 bg-transparent rounded-lg px-3 py-2 text-sm"
-                />
-                <button
-                  type="button"
-                  onClick={() => setF(prev => ({ ...prev, variants: prev.variants.filter((_, j) => j !== i) }))}
-                  className="text-crimson text-xl leading-none"
-                >×</button>
+              <div key={i} className="flex gap-2 items-center">
+                <input value={v.label} onChange={e => setF(prev => ({ ...prev, variants: prev.variants.map((vv, j) => j === i ? { ...vv, label: e.target.value } : vv) }))} placeholder="Label (e.g. Jersey)" className={`flex-1 ${inputCls}`} />
+                <input type="number" value={v.price} onChange={e => setF(prev => ({ ...prev, variants: prev.variants.map((vv, j) => j === i ? { ...vv, price: Number(e.target.value) } : vv) }))} placeholder="Price" className={`w-24 ${inputCls}`} />
+                <button onClick={() => setF(prev => ({ ...prev, variants: prev.variants.filter((_, j) => j !== i) }))} className="text-crimson text-lg">×</button>
               </div>
             ))}
           </div>
-          <button
-            type="button"
-            onClick={() => setF(prev => ({ ...prev, variants: [...prev.variants, { label: '', price: Number(prev.price_usd) }] }))}
-            className="text-xs border border-black/10 dark:border-white/20 rounded-full px-3 py-1.5 btn-press"
-          >
-            + Add variant
-          </button>
-          <p className="text-xs text-steel mt-2">Leave empty for a single price. When variants exist, customers pick one on the product page.</p>
+          <button type="button" onClick={() => setF(prev => ({ ...prev, variants: [...prev.variants, { label: '', price: Number(prev.price_usd) }] }))} className="text-xs border border-black/10 dark:border-white/20 rounded-full px-3 py-1.5 btn-press">+ Add variant</button>
+          <p className="text-xs text-steel mt-1.5">Leave empty for products with a single price. When variants exist, customers choose one on the product page.</p>
         </Field>
         <Field label="Status">
           <select value={f.status} onChange={e => set('status', e.target.value as any)} className={inputCls}>
@@ -1095,6 +1074,21 @@ function PageEditor({ page, onClose, onSaved, onDeleted }: {
         </div>
       </div>
 
+      {/* Live miniature preview */}
+      {blocks.length > 0 && (
+        <div className="border border-black/10 dark:border-white/10 rounded-2xl overflow-hidden mb-4">
+          <div className="px-3 py-2 border-b border-black/10 dark:border-white/10 flex items-center justify-between">
+            <span className="text-xs uppercase tracking-widest2 text-steel">Live preview — /p/{slug || '…'}</span>
+            <span className="text-[10px] text-steel">{blocks.length} block{blocks.length === 1 ? '' : 's'}</span>
+          </div>
+          <div className="bg-chalk dark:bg-ink max-h-56 overflow-y-auto">
+            {blocks.map((b, i) => (
+              <MiniBlockPreview key={i} block={b} />
+            ))}
+          </div>
+        </div>
+      )}
+
       <label className="flex items-center gap-2 text-sm mb-4">
         <input type="checkbox" checked={published} onChange={e => setPublished(e.target.checked)} className="w-4 h-4 accent-[#D6FF3F]" />
         Published (visible at /p/{slug || '...'})
@@ -1112,6 +1106,174 @@ function PageEditor({ page, onClose, onSaved, onDeleted }: {
         </div>
       </div>
     </Modal>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// MINI BLOCK PREVIEW — renders blocks inside the page editor modal
+// ---------------------------------------------------------------------------
+function MiniBlockPreview({ block: b }: { block: any }) {
+  switch (b.type) {
+    case 'heading':
+      return <div className="px-4 py-2"><p className="font-display text-xl text-ink dark:text-chalk leading-tight">{b.content || <span className="opacity-30">Heading text</span>}</p></div>;
+    case 'text':
+      return <div className="px-4 py-2"><p className="text-sm text-ink/70 dark:text-chalk/70 leading-relaxed whitespace-pre-line">{b.content || <span className="opacity-30">Text content</span>}</p></div>;
+    case 'image':
+      return b.src ? (
+        <div className="px-4 py-2"><img src={b.src} alt="" className="w-full rounded-lg max-h-28 object-cover" /></div>
+      ) : <div className="mx-4 my-2 h-16 rounded-lg bg-black/5 dark:bg-white/5 flex items-center justify-center text-xs text-steel">Image</div>;
+    case 'logo':
+      return b.src ? (
+        <div className="px-4 py-2 flex justify-center"><img src={b.src} alt="" className="max-h-10 object-contain" /></div>
+      ) : <div className="mx-4 my-2 h-10 rounded-lg bg-black/5 dark:bg-white/5 flex items-center justify-center text-xs text-steel">Logo</div>;
+    case 'banner':
+      return (
+        <div className="py-6 px-4 text-center" style={{ background: b.src ? `linear-gradient(rgba(0,0,0,0.5),rgba(0,0,0,0.5)), url(${b.src}) center/cover` : (b.bg ?? '#0B0D10') }}>
+          <p className="font-display text-lg text-white">{b.content || 'Banner text'}</p>
+        </div>
+      );
+    case 'spacer':
+      return <div className="h-6 border-t border-dashed border-black/10 dark:border-white/10 mx-4" />;
+    default:
+      return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// HERO SLIDES TAB — edit homepage slideshow with live miniature preview
+// ---------------------------------------------------------------------------
+const DEFAULT_SLIDE = { tag: '', titleTop: '', titleAccent: '', body: '', image: '', ctaLabel: '', ctaHref: '/', secondaryLabel: '', secondaryHref: '/' };
+
+function HeroSlidesTab({ initialSlides, demoMode, onDone }: { initialSlides: any[] | null; demoMode: boolean; onDone: (m: string) => void }) {
+  const [pending, start] = useTransition();
+  const [slides, setSlides] = useState<any[]>(initialSlides ?? [
+    { tag: 'Matchday drop · 6 leagues live now', titleTop: 'WEAR THE', titleAccent: 'RESULT.', body: 'Kits, boots-up gear, and match essentials from LaLiga to the Lebanese Premier League — carried to your door.', image: '', ctaLabel: 'Shop Premier League', ctaHref: '/leagues/premier-league', secondaryLabel: 'Browse all leagues', secondaryHref: '/leagues' },
+    { tag: 'New season · 25/26 kits in stock', titleTop: 'NEW KITS', titleAccent: 'JUST LANDED.', body: 'Home and away shirts for the new season, from Madrid to Manchester — sized S to XXL, delivered across Lebanon.', image: '', ctaLabel: 'Shop new kits', ctaHref: '/search?q=Home%20Kit', secondaryLabel: 'View LaLiga', secondaryHref: '/leagues/la-liga' },
+    { tag: 'Off the pitch · men & women', titleTop: 'TRAIN LIKE', titleAccent: 'YOU MEAN IT.', body: 'Hoodies, track jackets, grip socks, and everyday sportswear built for training and styled for the terrace.', image: '', ctaLabel: 'Shop sportswear', ctaHref: '/shop/sportswear', secondaryLabel: 'Match essentials', secondaryHref: '/leagues' },
+  ]);
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const slide = slides[activeIdx] ?? DEFAULT_SLIDE;
+
+  const setSlide = (k: string, v: string) => setSlides(prev => prev.map((s, i) => i === activeIdx ? { ...s, [k]: v } : s));
+
+  const addSlide = () => { setSlides(prev => [...prev, { ...DEFAULT_SLIDE }]); setActiveIdx(slides.length); };
+  const removeSlide = (i: number) => { setSlides(prev => prev.filter((_, j) => j !== i)); setActiveIdx(Math.max(0, activeIdx - 1)); };
+
+  const uploadBg = async () => {
+    const input = document.createElement('input');
+    input.type = 'file'; input.accept = 'image/*';
+    input.onchange = async () => {
+      const file = input.files?.[0]; if (!file) return;
+      setUploading(true);
+      const { createClient } = await import('@/lib/supabase/client');
+      const supabase = createClient();
+      const path = `hero/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      const { data, err } = await supabase.storage.from('product-images').upload(path, file) as any;
+      if (data) setSlide('image', supabase.storage.from('product-images').getPublicUrl(data.path).data.publicUrl);
+      else if (err) setError(err.message);
+      setUploading(false);
+    };
+    input.click();
+  };
+
+  const save = () => {
+    start(async () => {
+      const res = await saveHeroSlides(slides);
+      if (res.ok) onDone('Hero slides saved.');
+      else setError(res.error);
+    });
+  };
+
+  return (
+    <div className="grid lg:grid-cols-2 gap-8">
+      {/* Editor panel */}
+      <div>
+        <Section title="Homepage hero slides" desc="Edit each slide — changes reflect in the preview instantly.">
+          {/* Slide tabs */}
+          <div className="flex gap-2 mb-4 flex-wrap">
+            {slides.map((_, i) => (
+              <button key={i} onClick={() => setActiveIdx(i)} className={`text-xs px-3 py-1.5 rounded-full border ${i === activeIdx ? 'bg-volt text-ink border-transparent' : 'border-black/15 dark:border-white/20'}`}>
+                Slide {i + 1}
+              </button>
+            ))}
+            <button onClick={addSlide} className="text-xs px-3 py-1.5 rounded-full border border-dashed border-black/20 dark:border-white/20">+ Add slide</button>
+          </div>
+
+          <div className="space-y-3">
+            <Field label="Tag line (small text above title)">
+              <input value={slide.tag} onChange={e => setSlide('tag', e.target.value)} className={inputCls} />
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Title — first line">
+                <input value={slide.titleTop} onChange={e => setSlide('titleTop', e.target.value)} className={inputCls} />
+              </Field>
+              <Field label="Title — accent line (volt)">
+                <input value={slide.titleAccent} onChange={e => setSlide('titleAccent', e.target.value)} className={inputCls} />
+              </Field>
+            </div>
+            <Field label="Body text">
+              <textarea value={slide.body} onChange={e => setSlide('body', e.target.value)} rows={2} className={inputCls} />
+            </Field>
+            <Field label="Background image (optional)">
+              <div className="flex gap-2">
+                <input value={slide.image} onChange={e => setSlide('image', e.target.value)} placeholder="Paste URL or upload →" className={`flex-1 ${inputCls}`} />
+                <button onClick={uploadBg} disabled={uploading} className="text-xs border border-black/15 dark:border-white/20 rounded-lg px-3 py-2 btn-press disabled:opacity-50">{uploading ? '…' : 'Upload'}</button>
+              </div>
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Primary CTA label"><input value={slide.ctaLabel} onChange={e => setSlide('ctaLabel', e.target.value)} className={inputCls} /></Field>
+              <Field label="Primary CTA link"><input value={slide.ctaHref} onChange={e => setSlide('ctaHref', e.target.value)} className={inputCls} /></Field>
+              <Field label="Secondary CTA label"><input value={slide.secondaryLabel} onChange={e => setSlide('secondaryLabel', e.target.value)} className={inputCls} /></Field>
+              <Field label="Secondary CTA link"><input value={slide.secondaryHref} onChange={e => setSlide('secondaryHref', e.target.value)} className={inputCls} /></Field>
+            </div>
+            {slides.length > 1 && (
+              <button onClick={() => removeSlide(activeIdx)} className="text-xs text-crimson underline underline-offset-2">Delete this slide</button>
+            )}
+          </div>
+
+          {error && <p className="text-crimson text-sm mt-3">{error}</p>}
+          <button onClick={save} disabled={pending || demoMode} className="mt-5 text-sm bg-volt text-ink rounded-full px-6 py-2.5 font-medium btn-press disabled:opacity-40">
+            {pending ? 'Saving…' : 'Save all slides'}
+          </button>
+        </Section>
+      </div>
+
+      {/* Live miniature preview */}
+      <div className="lg:sticky lg:top-28 self-start">
+        <p className="text-xs uppercase tracking-widest2 text-steel mb-3">Preview — slide {activeIdx + 1}</p>
+        <div
+          className="relative rounded-2xl overflow-hidden bg-ink text-chalk"
+          style={{ aspectRatio: '16/9', background: slide.image ? `linear-gradient(rgba(11,13,16,0.7),rgba(11,13,16,0.85)), url(${slide.image}) center/cover no-repeat` : '#0B0D10' }}
+        >
+          <div className="absolute inset-0 p-5 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center gap-1.5 mb-3">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#D6FF3F]" />
+                <span className="text-[#D6FF3F] text-[9px] uppercase tracking-widest">{slide.tag || 'Tag line here'}</span>
+              </div>
+              <div className="font-display text-xl leading-tight">
+                <div className="text-chalk">{slide.titleTop || 'FIRST LINE'}</div>
+                <div className="text-[#D6FF3F]">{slide.titleAccent || 'ACCENT LINE'}</div>
+              </div>
+              <p className="text-chalk/60 text-[9px] mt-2 max-w-[60%] leading-relaxed">{slide.body || 'Body text appears here'}</p>
+            </div>
+            <div className="flex gap-2">
+              <span className="bg-[#D6FF3F] text-[#0B0D10] text-[9px] px-2.5 py-1 rounded-full font-medium">{slide.ctaLabel || 'Primary CTA'}</span>
+              <span className="border border-chalk/30 text-[9px] px-2.5 py-1 rounded-full">{slide.secondaryLabel || 'Secondary'}</span>
+            </div>
+          </div>
+          {/* Slide dots */}
+          <div className="absolute bottom-3 left-5 flex gap-1">
+            {slides.map((_, i) => (
+              <span key={i} className={`h-1 rounded-full ${i === activeIdx ? 'w-5 bg-[#D6FF3F]' : 'w-2 bg-chalk/30'}`} />
+            ))}
+          </div>
+        </div>
+        <p className="text-xs text-steel mt-2 text-center">Actual size on site is much larger — this is a 16:9 miniature</p>
+      </div>
+    </div>
   );
 }
 

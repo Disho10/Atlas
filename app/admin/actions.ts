@@ -24,7 +24,7 @@ function serviceClient() {
 type ActionResult = { ok: true } | { ok: false; error: string };
 
 async function getRole(): Promise<{ userId: string; role: string } | null> {
-  const supabase = await createClient(); // must use session client to identify the caller
+  const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
   const { data } = await supabase.from('profiles').select('role').eq('id', user.id).single();
@@ -60,7 +60,7 @@ export async function saveProduct(input: {
   if (!auth) return { ok: false, error: 'Not signed in.' };
   if (!canEditProducts(auth.role)) return { ok: false, error: 'Only Owner and Manager can edit products.' };
 
-  const supabase = serviceClient() ?? await createClient();
+  const supabase = await createClient();
   const row = {
     name: input.name,
     category: input.category,
@@ -95,7 +95,7 @@ export async function deleteProduct(id: string): Promise<ActionResult> {
   if (!auth) return { ok: false, error: 'Not signed in.' };
   if (!canEditProducts(auth.role)) return { ok: false, error: 'Only Owner and Manager can delete products.' };
 
-  const supabase = serviceClient() ?? await createClient();
+  const supabase = await createClient();
   const { error } = await supabase.from('products').delete().eq('id', id);
   if (error) return { ok: false, error: error.message };
   revalidatePath('/admin');
@@ -122,7 +122,7 @@ export async function logManualOrder(input: {
   if (!auth) return { ok: false, error: 'Not signed in.' };
   if (!isStaff(auth.role)) return { ok: false, error: 'Staff only.' };
 
-  const supabase = serviceClient() ?? await createClient();
+  const supabase = await createClient();
   const subtotal = input.unit_price_usd * input.qty;
 
   const { data: order, error: orderErr } = await supabase
@@ -167,7 +167,7 @@ export async function setStaffRole(input: {
   if (!auth) return { ok: false, error: 'Not signed in.' };
   if (auth.role !== 'owner') return { ok: false, error: 'Only the Owner can manage the team.' };
 
-  const supabase = serviceClient() ?? await createClient();
+  const supabase = await createClient();
   // The person must already have an account (signed up on the site). We match
   // their profile by the email stored on it.
   const { data: profile, error: findErr } = await supabase
@@ -203,7 +203,7 @@ export async function createPromo(input: {
   if (!auth) return { ok: false, error: 'Not signed in.' };
   if (!canEditProducts(auth.role)) return { ok: false, error: 'Only Owner and Manager can create promo codes.' };
 
-  const supabase = serviceClient() ?? await createClient();
+  const supabase = await createClient();
   const { error } = await supabase.from('promo_codes').insert({
     code: input.code.trim().toUpperCase(),
     description: input.description.trim() || null,
@@ -229,7 +229,7 @@ export async function setExchangeRate(rate: number): Promise<ActionResult> {
   if (!canEditProducts(auth.role)) return { ok: false, error: 'Only Owner and Manager can set the rate.' };
   if (rate <= 0) return { ok: false, error: 'Rate must be positive.' };
 
-  const supabase = serviceClient() ?? await createClient();
+  const supabase = await createClient();
   const { error } = await supabase.from('site_settings').upsert({ key: 'usd_to_lbp', value: String(rate) });
   if (error) return { ok: false, error: error.message };
   revalidatePath('/');
@@ -313,7 +313,7 @@ export async function logManualOrderMulti(input: {
   if (!isStaff(auth.role)) return { ok: false, error: 'Staff only.' };
   if (input.items.length === 0) return { ok: false, error: 'Add at least one item.' };
 
-  const supabase = serviceClient() ?? await createClient();
+  const supabase = await createClient();
   const subtotal = input.items.reduce((s, i) => s + i.unit_price_usd * i.qty, 0);
 
   const { data: order, error: orderErr } = await supabase
@@ -362,7 +362,7 @@ export async function savePage(input: {
   if (!auth) return { ok: false, error: 'Not signed in.' };
   if (!canEditProducts(auth.role)) return { ok: false, error: 'Only Owner and Manager can manage pages.' };
 
-  const supabase = serviceClient() ?? await createClient();
+  const supabase = await createClient();
   const row = {
     slug: input.slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-'),
     title: input.title.trim(),
@@ -386,9 +386,27 @@ export async function deletePage(id: string): Promise<ActionResult> {
   if (!auth) return { ok: false, error: 'Not signed in.' };
   if (!canEditProducts(auth.role)) return { ok: false, error: 'Only Owner and Manager can delete pages.' };
 
-  const supabase = serviceClient() ?? await createClient();
+  const supabase = await createClient();
   const { error } = await supabase.from('custom_pages').delete().eq('id', id);
   if (error) return { ok: false, error: error.message };
   revalidatePath('/admin');
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// HERO SLIDES — owner/manager edits the homepage slideshow content + images
+// ---------------------------------------------------------------------------
+export async function saveHeroSlides(slides: {
+  tag: string; titleTop: string; titleAccent: string; body: string;
+  image?: string; ctaLabel: string; ctaHref: string; secondaryLabel: string; secondaryHref: string;
+}[]): Promise<ActionResult> {
+  const auth = await getRole();
+  if (!auth) return { ok: false, error: 'Not signed in.' };
+  if (!canEditProducts(auth.role)) return { ok: false, error: 'Only Owner and Manager can edit hero slides.' };
+
+  const supabase = serviceClient() ?? await createClient();
+  const { error } = await supabase.from('site_settings').upsert({ key: 'hero_slides', value: JSON.stringify(slides) });
+  if (error) return { ok: false, error: error.message };
+  revalidatePath('/');
   return { ok: true };
 }
