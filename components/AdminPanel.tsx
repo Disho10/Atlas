@@ -1109,9 +1109,32 @@ function OrderRow({ order: o, role, demoMode, onDone }: { order: Order; role: st
   const changeStatus = (newStatus: string) => {
     setStatusError(null);
     start(async () => {
-      const res = await updateOrderStatus(o.dbId, newStatus);
-      if (res.ok) { setLocalStatus(newStatus as any); onDone(`${o.id} → ${newStatus}`); }
-      else setStatusError(res.error);
+      try {
+        const { createClient } = await import('@/lib/supabase/client');
+        const supabase = createClient();
+
+        // Confirm we actually have a logged-in session in the browser client
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { setStatusError('Not signed in (browser session missing).'); return; }
+
+        const { data, error } = await supabase
+          .from('orders')
+          .update({ status: newStatus })
+          .eq('id', o.dbId)
+          .select('id, status');
+
+        if (error) { setStatusError(`DB error: ${error.message}`); return; }
+        if (!data || data.length === 0) {
+          setStatusError('No rows updated — RLS is blocking this write for your account. Check that your profile role is set correctly in the database.');
+          return;
+        }
+        if (data[0].status !== newStatus) { setStatusError(`Still "${data[0].status}" after update.`); return; }
+
+        setLocalStatus(newStatus as any);
+        onDone(`${o.id} → ${newStatus}`);
+      } catch (e) {
+        setStatusError(`Exception: ${String(e)}`);
+      }
     });
   };
 
