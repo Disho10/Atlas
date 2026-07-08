@@ -567,17 +567,45 @@ function ProductEditor({ product, leagues, onClose, onSaved, onDeleted }: {
           <p className="text-xs text-steel">Click + to upload more shots. Hover and × to remove. These show as a gallery on the product page.</p>
         </Field>
         <Field label="Product variants (e.g. Jersey / Jersey + Shorts)" className="sm:col-span-2">
-          <div className="space-y-2 mb-2">
+          <div className="space-y-2 mb-3">
+            {f.variants.length > 0 && (
+              <div className="grid grid-cols-[1fr_120px_32px] gap-2">
+                <span className="text-xs text-steel">Option name</span>
+                <span className="text-xs text-steel">Price (USD)</span>
+                <span />
+              </div>
+            )}
             {f.variants.map((v, i) => (
-              <div key={i} className="flex gap-2 items-center">
-                <input value={v.label} onChange={e => setF(prev => ({ ...prev, variants: prev.variants.map((vv, j) => j === i ? { ...vv, label: e.target.value } : vv) }))} placeholder="Label (e.g. Jersey)" className={`flex-1 ${inputCls}`} />
-                <input type="number" value={v.price} onChange={e => setF(prev => ({ ...prev, variants: prev.variants.map((vv, j) => j === i ? { ...vv, price: Number(e.target.value) } : vv) }))} placeholder="Price" className={`w-24 ${inputCls}`} />
-                <button onClick={() => setF(prev => ({ ...prev, variants: prev.variants.filter((_, j) => j !== i) }))} className="text-crimson text-lg">×</button>
+              <div key={i} className="grid grid-cols-[1fr_120px_32px] gap-2 items-center">
+                <input
+                  value={v.label}
+                  onChange={e => setF(prev => ({ ...prev, variants: prev.variants.map((vv, j) => j === i ? { ...vv, label: e.target.value } : vv) }))}
+                  placeholder="e.g. Jersey"
+                  className="w-full border border-black/15 dark:border-white/20 bg-transparent rounded-lg px-3 py-2 text-sm"
+                />
+                <input
+                  type="number"
+                  value={v.price}
+                  onChange={e => setF(prev => ({ ...prev, variants: prev.variants.map((vv, j) => j === i ? { ...vv, price: Number(e.target.value) } : vv) }))}
+                  placeholder="0"
+                  className="w-full border border-black/15 dark:border-white/20 bg-transparent rounded-lg px-3 py-2 text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => setF(prev => ({ ...prev, variants: prev.variants.filter((_, j) => j !== i) }))}
+                  className="text-crimson text-xl leading-none"
+                >×</button>
               </div>
             ))}
           </div>
-          <button type="button" onClick={() => setF(prev => ({ ...prev, variants: [...prev.variants, { label: '', price: Number(prev.price_usd) }] }))} className="text-xs border border-black/10 dark:border-white/20 rounded-full px-3 py-1.5 btn-press">+ Add variant</button>
-          <p className="text-xs text-steel mt-1.5">Leave empty for products with a single price. When variants exist, customers choose one on the product page.</p>
+          <button
+            type="button"
+            onClick={() => setF(prev => ({ ...prev, variants: [...prev.variants, { label: '', price: Number(prev.price_usd) }] }))}
+            className="text-xs border border-black/10 dark:border-white/20 rounded-full px-3 py-1.5 btn-press"
+          >
+            + Add variant
+          </button>
+          <p className="text-xs text-steel mt-2">Leave empty for a single price. When variants exist, customers pick one on the product page.</p>
         </Field>
         <Field label="Status">
           <select value={f.status} onChange={e => set('status', e.target.value as any)} className={inputCls}>
