@@ -61,7 +61,7 @@ export default async function AdminPage() {
     id: o.order_number ?? o.id,
     dbId: o.id,
     date: (o.created_at ?? '').slice(0, 10),
-    status: o.status === 'cancelled' ? 'placed' : o.status,
+    status: o.status as any,
     total: Number(o.subtotal_usd),
     channel: o.channel,
     paymentMethod: ({ whish_pay: 'Whish Pay', omt: 'OMT', card: 'Card', cod: 'Cash on Delivery' } as const)[o.payment_method as string] ?? 'Cash on Delivery',
