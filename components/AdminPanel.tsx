@@ -1006,7 +1006,10 @@ function OrderRow({ order: o, role, demoMode, onDone }: { order: Order; role: st
     <div className="border border-black/10 dark:border-white/10 rounded-xl overflow-hidden">
       <button onClick={() => setExpanded(e => !e)} className="w-full flex items-center gap-3 px-4 py-3 text-left">
         <span className="w-24 text-sm tabular font-mono">{o.id}</span>
-        <span className="flex-1 text-sm truncate">{o.customer}</span>
+        <span className="flex-1 text-sm truncate">
+          {o.customer}
+          <span className="text-steel"> · {o.items.length} item{o.items.length === 1 ? '' : 's'}</span>
+        </span>
         <span className="text-xs uppercase text-steel w-16 shrink-0">{o.channel}</span>
         <span className={`text-[11px] capitalize px-2 py-1 rounded-full shrink-0 ${STATUS_COLORS[localStatus] ?? ''}`}>{localStatus}</span>
         <span className="text-sm font-medium w-16 text-right tabular shrink-0">{formatCurrency(o.total, 'USD')}</span>
@@ -1015,11 +1018,15 @@ function OrderRow({ order: o, role, demoMode, onDone }: { order: Order; role: st
       {expanded && (
         <div className="px-4 pb-4 space-y-3 border-t border-black/5 dark:border-white/5 pt-3">
           <div className="text-xs text-steel">{o.date} · {o.paymentMethod} · {o.address}</div>
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             {o.items.map((it, i) => (
-              <div key={i} className="flex justify-between text-sm">
-                <span>{it.name}{it.size ? ` · ${it.size}` : ''} ×{it.qty}</span>
-                <span className="tabular">${it.price * it.qty}</span>
+              <div key={i} className="flex items-center justify-between text-sm border border-black/5 dark:border-white/5 rounded-lg px-3 py-2">
+                <div>
+                  <span className="font-medium">{it.name}</span>
+                  {it.size && <span className="text-steel"> · Size {it.size}</span>}
+                  <span className="text-steel"> · ×{it.qty}</span>
+                </div>
+                <span className="tabular font-medium">${it.price * it.qty}</span>
               </div>
             ))}
           </div>
