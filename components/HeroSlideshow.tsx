@@ -56,24 +56,23 @@ export default function HeroSlideshow({ slides: serverSlides }: { slides?: any[]
   return (
     <div className="relative w-full min-h-[70vh] flex flex-col justify-between pt-16 pb-6 md:pt-24">
 
-      {/* Background image — plain img, full quality, with admin-controlled transforms */}
+      {/* Background image — implemented as a CSS background so zoom/position/rotation
+          work naturally without ever revealing the section background.
+          background-size controls zoom: 100% = fit, 150% = zoomed in.
+          We don't allow zooming below 100% (fit) to prevent black edges. */}
       {hasImage && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <div
           key={slide.image}
-          src={slide.image}
-          alt=""
-          aria-hidden="true"
-          className="absolute inset-0 w-full h-full"
+          className="absolute inset-0"
           style={{
             zIndex: 0,
-            objectFit: 'cover',
-            objectPosition: `${slide.imageX ?? 50}% ${slide.imageY ?? 50}%`,
-            transform: `scale(${(slide.imageScale ?? 100) / 100}) rotate(${slide.imageRotation ?? 0}deg)`,
-            transformOrigin: `${slide.imageX ?? 50}% ${slide.imageY ?? 50}%`,
+            backgroundImage: `url(${slide.image})`,
+            backgroundSize: `${Math.max(100, slide.imageScale ?? 100)}%`,
+            backgroundPosition: `${slide.imageX ?? 50}% ${slide.imageY ?? 50}%`,
+            backgroundRepeat: 'no-repeat',
+            transform: `rotate(${slide.imageRotation ?? 0}deg)`,
+            transformOrigin: 'center center',
           }}
-          loading="eager"
-          decoding="sync"
         />
       )}
 

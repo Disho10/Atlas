@@ -1228,7 +1228,7 @@ function HeroSlidesTab({ initialSlides, demoMode, onDone }: { initialSlides: any
                 <div className="space-y-2">
                   <div className="flex items-center gap-3">
                     <label className="text-xs text-steel w-20 shrink-0">Zoom {slide.imageScale ?? 100}%</label>
-                    <input type="range" min="50" max="200" step="1" value={slide.imageScale ?? 100} onChange={e => setSlide('imageScale', e.target.value)} className="flex-1 accent-[#D6FF3F]" />
+                    <input type="range" min="100" max="200" step="1" value={Math.max(100, slide.imageScale ?? 100)} onChange={e => setSlide('imageScale', e.target.value)} className="flex-1 accent-[#D6FF3F]" />
                     <button onClick={() => setSlide('imageScale', '100')} className="text-xs text-steel hover:text-ink dark:hover:text-chalk">↺</button>
                   </div>
                   <div className="flex items-center gap-3">
@@ -1275,16 +1275,15 @@ function HeroSlidesTab({ initialSlides, demoMode, onDone }: { initialSlides: any
           style={{ aspectRatio: '16/9' }}
         >
           {slide.image && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={slide.image}
-              alt=""
-              className="absolute inset-0 w-full h-full"
+            <div
+              className="absolute inset-0"
               style={{
-                objectFit: 'cover',
-                objectPosition: `${slide.imageX ?? 50}% ${slide.imageY ?? 50}%`,
-                transform: `scale(${(slide.imageScale ?? 100) / 100}) rotate(${slide.imageRotation ?? 0}deg)`,
-                transformOrigin: `${slide.imageX ?? 50}% ${slide.imageY ?? 50}%`,
+                backgroundImage: `url(${slide.image})`,
+                backgroundSize: `${Math.max(100, slide.imageScale ?? 100)}%`,
+                backgroundPosition: `${slide.imageX ?? 50}% ${slide.imageY ?? 50}%`,
+                backgroundRepeat: 'no-repeat',
+                transform: `rotate(${slide.imageRotation ?? 0}deg)`,
+                transformOrigin: 'center center',
               }}
             />
           )}
