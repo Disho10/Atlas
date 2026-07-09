@@ -63,8 +63,8 @@ export default function HeroSlideshow({ slides: serverSlides }: { slides?: any[]
     : 'cover'; // always fills at 100% — matches desktop feel on any screen
 
   return (
-    <div className="relative w-full flex flex-col justify-between"
-      style={{ minHeight: 'clamp(420px, 70vh, 700px)' }}>
+    <div className="relative w-full flex flex-col"
+      style={{ height: 'clamp(480px, 75vh, 720px)' }}>
 
       {/* Background image — `cover` as baseline so it always fills edge-to-edge
           on every screen size. Admin zoom slider adds extra zoom on top of cover. */}
@@ -101,8 +101,8 @@ export default function HeroSlideshow({ slides: serverSlides }: { slides?: any[]
         />
       )}
 
-      {/* Text content */}
-      <div className="relative flex-1 flex flex-col justify-center px-5 sm:px-8 md:px-12 py-16 md:py-24"
+      {/* Text content — absolutely positioned so it doesn't affect height */}
+      <div className="absolute inset-0 flex flex-col justify-center px-5 sm:px-8 md:px-12 pb-16"
         style={{ zIndex: 2 }}>
         <div key={index} className={hasImage ? 'max-w-xs sm:max-w-sm md:max-w-xl' : 'max-w-7xl mx-auto w-full'}>
 
@@ -135,20 +135,18 @@ export default function HeroSlideshow({ slides: serverSlides }: { slides?: any[]
         </div>
       </div>
 
-      {/* Slide dots */}
-      <div className="relative px-5 sm:px-8 md:px-12 pb-6" style={{ zIndex: 2 }}>
-        <div className={!hasImage ? 'max-w-7xl mx-auto' : ''}>
-          {slides.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setIndex(i)}
-              aria-label={`Go to slide ${i + 1}`}
-              className={`inline-block mr-2 h-1.5 rounded-full transition-all duration-300 ${
-                i === index ? 'w-8 bg-volt' : 'w-3 bg-white/40'
-              }`}
-            />
-          ))}
-        </div>
+      {/* Slide dots — pinned to bottom of the fixed-height container */}
+      <div className="absolute bottom-5 left-5 sm:left-8 md:left-12" style={{ zIndex: 2 }}>
+        {slides.map((_, i) => (
+          <button
+            key={i}
+            onClick={() => setIndex(i)}
+            aria-label={`Go to slide ${i + 1}`}
+            className={`inline-block mr-2 h-1.5 rounded-full transition-all duration-300 ${
+              i === index ? 'w-8 bg-volt' : 'w-3 bg-white/40'
+            }`}
+          />
+        ))}
       </div>
     </div>
   );
