@@ -10,6 +10,7 @@ const DEFAULT_SLIDES = [
     titleAccent: 'RESULT.',
     body: 'Kits, boots-up gear, and match essentials from LaLiga to the Lebanese Premier League — carried to your door.',
     image: '',
+    imageScale: 100, imageX: 50, imageY: 50, imageRotation: 0,
     ctaLabel: 'Shop Premier League',
     ctaHref: '/leagues/premier-league',
     secondaryLabel: 'Browse all leagues',
@@ -21,6 +22,7 @@ const DEFAULT_SLIDES = [
     titleAccent: 'JUST LANDED.',
     body: 'Home and away shirts for the new season, from Madrid to Manchester — sized S to XXL, delivered across Lebanon.',
     image: '',
+    imageScale: 100, imageX: 50, imageY: 50, imageRotation: 0,
     ctaLabel: 'Shop new kits',
     ctaHref: '/search?q=Home%20Kit',
     secondaryLabel: 'View LaLiga',
@@ -32,6 +34,7 @@ const DEFAULT_SLIDES = [
     titleAccent: 'YOU MEAN IT.',
     body: 'Hoodies, track jackets, grip socks, and everyday sportswear built for training and styled for the terrace.',
     image: '',
+    imageScale: 100, imageX: 50, imageY: 50, imageRotation: 0,
     ctaLabel: 'Shop sportswear',
     ctaHref: '/shop/sportswear',
     secondaryLabel: 'Match essentials',
@@ -53,13 +56,18 @@ export default function HeroSlideshow({ slides: serverSlides }: { slides?: any[]
   const slide = slides[Math.min(index, slides.length - 1)];
   const hasImage = !!slide.image;
 
-  return (
-    <div className="relative w-full min-h-[70vh] flex flex-col justify-between pt-16 pb-6 md:pt-24">
+  // Zoom above 100% scales from cover (e.g. 130% = 30% larger than cover)
+  const scale = Number(slide.imageScale ?? 100);
+  const bgSize = scale > 100
+    ? `calc(${scale}% * (100vw / max(100vw, 1px)))` // keep it relative
+    : 'cover'; // always fills at 100% — matches desktop feel on any screen
 
-      {/* Background image — implemented as a CSS background so zoom/position/rotation
-          work naturally without ever revealing the section background.
-          background-size controls zoom: 100% = fit, 150% = zoomed in.
-          We don't allow zooming below 100% (fit) to prevent black edges. */}
+  return (
+    <div className="relative w-full flex flex-col justify-between"
+      style={{ minHeight: 'clamp(420px, 70vh, 700px)' }}>
+
+      {/* Background image — `cover` as baseline so it always fills edge-to-edge
+          on every screen size. Admin zoom slider adds extra zoom on top of cover. */}
       {hasImage && (
         <div
           key={slide.image}
@@ -67,7 +75,7 @@ export default function HeroSlideshow({ slides: serverSlides }: { slides?: any[]
           style={{
             zIndex: 0,
             backgroundImage: `url(${slide.image})`,
-            backgroundSize: `${Math.max(100, slide.imageScale ?? 100)}%`,
+            backgroundSize: scale > 100 ? `${scale}%` : 'cover',
             backgroundPosition: `${slide.imageX ?? 50}% ${slide.imageY ?? 50}%`,
             backgroundRepeat: 'no-repeat',
             transform: `rotate(${slide.imageRotation ?? 0}deg)`,
@@ -76,45 +84,51 @@ export default function HeroSlideshow({ slides: serverSlides }: { slides?: any[]
         />
       )}
 
-      {/* Dark scrim — ONLY on the left third where text sits, leaves the right
-          side of the image clean and fully visible */}
+      {/* Left-side scrim — gives text readability without darkening the whole image.
+          On mobile where the image fills the whole width, scrim covers more of the
+          image so text is always readable. */}
       {hasImage && (
         <div
           className="absolute inset-0"
           style={{
             zIndex: 1,
-            background: 'linear-gradient(to right, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.1) 60%, transparent 80%)',
+            background: [
+              // Mobile: darker scrim bottom-to-top so text on left half is readable
+              'linear-gradient(to top, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.3) 60%, transparent 100%)',
+              'linear-gradient(to right, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.4) 45%, rgba(0,0,0,0.05) 70%, transparent 90%)',
+            ].join(', '),
           }}
         />
       )}
 
       {/* Text content */}
-      <div className="relative px-6 md:px-12" style={{ zIndex: 2 }}>
-        <div key={index} className={hasImage ? 'max-w-xl' : 'max-w-7xl mx-auto'}>
+      <div className="relative flex-1 flex flex-col justify-center px-5 sm:px-8 md:px-12 py-16 md:py-24"
+        style={{ zIndex: 2 }}>
+        <div key={index} className={hasImage ? 'max-w-xs sm:max-w-sm md:max-w-xl' : 'max-w-7xl mx-auto w-full'}>
 
-          <div className="flex items-center gap-2 text-volt text-xs uppercase tracking-widest2 mb-6 animate-rise">
-            <span className="w-2 h-2 rounded-full bg-volt inline-block" />
+          <div className="flex items-center gap-2 text-volt text-[10px] sm:text-xs uppercase tracking-widest2 mb-4 sm:mb-6 animate-rise">
+            <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-volt inline-block" />
             {slide.tag}
           </div>
 
-          <h1 className="font-display text-[15vw] sm:text-7xl md:text-8xl leading-[0.9] tracking-tight text-balance animate-rise [animation-delay:100ms] opacity-0 text-white">
+          <h1 className="font-display leading-[0.9] tracking-tight text-white animate-rise [animation-delay:100ms] opacity-0"
+            style={{ fontSize: 'clamp(2.8rem, 12vw, 6rem)' }}>
             {slide.titleTop}
             <br />
             <span className="text-volt shimmer-text">{slide.titleAccent}</span>
           </h1>
 
-          <p className="mt-6 max-w-md text-white/85 animate-rise [animation-delay:200ms] opacity-0">
+          <p className="mt-4 sm:mt-6 text-sm sm:text-base text-white/85 animate-rise [animation-delay:200ms] opacity-0 max-w-sm">
             {slide.body}
           </p>
 
-          <div className="mt-8 flex flex-wrap gap-3 animate-rise [animation-delay:300ms] opacity-0">
-            <Link href={slide.ctaHref} className="bg-volt text-ink px-6 py-3 rounded-full font-medium text-sm btn-press">
+          <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row flex-wrap gap-3 animate-rise [animation-delay:300ms] opacity-0">
+            <Link href={slide.ctaHref}
+              className="bg-volt text-ink px-5 sm:px-6 py-3 rounded-full font-medium text-sm btn-press text-center">
               {slide.ctaLabel}
             </Link>
-            <Link
-              href={slide.secondaryHref}
-              className="border border-white/50 text-white px-6 py-3 rounded-full text-sm hover:border-volt hover:text-volt transition-colors bg-black/20 backdrop-blur-sm"
-            >
+            <Link href={slide.secondaryHref}
+              className="border border-white/50 text-white px-5 sm:px-6 py-3 rounded-full text-sm hover:border-volt hover:text-volt transition-colors bg-black/20 backdrop-blur-sm text-center">
               {slide.secondaryLabel}
             </Link>
           </div>
@@ -122,14 +136,16 @@ export default function HeroSlideshow({ slides: serverSlides }: { slides?: any[]
       </div>
 
       {/* Slide dots */}
-      <div className="relative px-6 md:px-12 mt-6" style={{ zIndex: 2 }}>
+      <div className="relative px-5 sm:px-8 md:px-12 pb-6" style={{ zIndex: 2 }}>
         <div className={!hasImage ? 'max-w-7xl mx-auto' : ''}>
           {slides.map((_, i) => (
             <button
               key={i}
               onClick={() => setIndex(i)}
               aria-label={`Go to slide ${i + 1}`}
-              className={`inline-block mr-2 h-1.5 rounded-full transition-all duration-300 ${i === index ? 'w-8 bg-volt' : 'w-3 bg-white/40'}`}
+              className={`inline-block mr-2 h-1.5 rounded-full transition-all duration-300 ${
+                i === index ? 'w-8 bg-volt' : 'w-3 bg-white/40'
+              }`}
             />
           ))}
         </div>

@@ -1279,7 +1279,7 @@ function HeroSlidesTab({ initialSlides, demoMode, onDone }: { initialSlides: any
               className="absolute inset-0"
               style={{
                 backgroundImage: `url(${slide.image})`,
-                backgroundSize: `${Math.max(100, slide.imageScale ?? 100)}%`,
+                backgroundSize: Number(slide.imageScale ?? 100) > 100 ? `${slide.imageScale}%` : 'cover',
                 backgroundPosition: `${slide.imageX ?? 50}% ${slide.imageY ?? 50}%`,
                 backgroundRepeat: 'no-repeat',
                 transform: `rotate(${slide.imageRotation ?? 0}deg)`,
