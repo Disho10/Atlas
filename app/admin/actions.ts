@@ -180,6 +180,18 @@ export async function setStaffRole(input: {
     return { ok: false, error: 'No account found with that email. Ask them to sign up on the site first.' };
   }
 
+  // Guard against locking the store out of the admin panel entirely: if this
+  // change would demote the last remaining owner, block it.
+  if ((profile as any).id === auth.userId && input.role !== 'owner') {
+    const { count } = await supabase
+      .from('profiles')
+      .select('id', { count: 'exact', head: true })
+      .eq('role', 'owner');
+    if ((count ?? 0) <= 1) {
+      return { ok: false, error: 'You are the last Owner — promote another account to Owner first.' };
+    }
+  }
+
   const { error } = await supabase.from('profiles').update({ role: input.role }).eq('id', profile.id);
   if (error) return { ok: false, error: error.message };
   revalidatePath('/admin');

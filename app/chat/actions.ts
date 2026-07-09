@@ -41,12 +41,8 @@ export async function chatbotReply(message: string): Promise<{ text: string; fal
 async function lookupOrder(orderNumber: string): Promise<string | null> {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return null;
   const supabase = await createClient();
-  const { data } = await supabase
-    .from('orders')
-    .select('status, created_at, order_items(product_name, qty)')
-    .eq('order_number', orderNumber)
-    .single();
-  if (!data) return null;
+  const { data } = await supabase.rpc('track_order_public', { p_order_number: orderNumber });
+  if (!data || data.length === 0) return null;
 
   const labels: Record<string, string> = {
     placed: 'received and being prepared',
@@ -55,10 +51,11 @@ async function lookupOrder(orderNumber: string): Promise<string | null> {
     delivered: 'delivered',
     cancelled: 'cancelled',
   };
-  const items = (data.order_items ?? []).map((i: any) => `${i.product_name} ×${i.qty}`).join(', ');
-  const statusText = labels[data.status] ?? data.status;
+  const status = data[0].status as string;
+  const items = data.map((row: any) => `${row.item_name} ×${row.item_qty}`).join(', ');
+  const statusText = labels[status] ?? status;
 
-  if (data.status === 'delivered') {
+  if (status === 'delivered') {
     return `Order ${orderNumber} has been delivered. If something isn't right, you can start a return or exchange within 14 days from the tracking page. (${items})`;
   }
   return `Order ${orderNumber} is ${statusText}. ${items ? `Items: ${items}.` : ''} You can see the full tracker on the Track page.`;

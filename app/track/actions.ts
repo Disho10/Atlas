@@ -18,24 +18,25 @@ export async function trackOrder(orderNumber: string): Promise<TrackResult> {
   if (!number) return { ok: false, error: 'Enter your order number.' };
 
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from('orders')
-    .select('status, created_at, order_items(product_name, qty, size)')
-    .eq('order_number', number)
-    .single();
+  // track_order_public() is a narrow SECURITY DEFINER function — it returns
+  // only status/date/items for the one matching order number, never the
+  // whole orders table (see 0005_security_hardening.sql for why that
+  // distinction matters).
+  const { data, error } = await supabase.rpc('track_order_public', { p_order_number: number });
 
-  if (error || !data) return { ok: false, error: 'No order found with that number. Check it and try again.' };
+  if (error || !data || data.length === 0) return { ok: false, error: 'No order found with that number. Check it and try again.' };
 
-  const delivered = data.status === 'delivered';
+  const first = data[0];
+  const delivered = first.status === 'delivered';
   return {
     ok: true,
-    status: data.status,
-    date: (data.created_at ?? '').slice(0, 10),
+    status: first.status,
+    date: (first.created_at ?? '').slice(0, 10),
     delivered,
     // "Expires at delivery": once delivered, live tracking is closed. The UI
     // shows a completed state rather than an active tracker.
     expired: delivered,
-    items: (data.order_items ?? []).map((it: any) => ({ name: it.product_name, qty: it.qty, size: it.size })),
+    items: data.map((row: any) => ({ name: row.item_name, qty: row.item_qty, size: row.item_size })),
   };
 }
 
@@ -53,11 +54,8 @@ export async function fileReturn(input: {
   if (!input.reason.trim()) return { ok: false, error: 'Tell us the reason so we can help.' };
 
   const supabase = await createClient();
-  const { data: order, error } = await supabase
-    .from('orders')
-    .select('id, status, created_at, user_id')
-    .eq('order_number', number)
-    .single();
+  const { data: orders, error } = await supabase.rpc('get_order_for_return', { p_order_number: number });
+  const order = orders?.[0];
 
   if (error || !order) return { ok: false, error: 'No order found with that number.' };
 

@@ -120,43 +120,32 @@ export default function CheckoutPage() {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    // COD goes straight to 'confirmed'; all other methods stay 'placed'
-    // until we manually verify payment from the admin panel.
-    const initialStatus = method === 'cod' ? 'confirmed' : 'placed';
+    // Order creation (and all price math) happens server-side in the
+    // place_order() Postgres function — it re-reads price_usd/variants from
+    // the products table itself rather than trusting anything computed here
+    // in the browser (subtotal/discount/promo above are for display only).
+    const { data: result, error: orderError } = await supabase.rpc('place_order', {
+      p_user_id: user?.id ?? null,
+      p_customer_name: form.name.trim(),
+      p_customer_phone: form.phone.trim(),
+      p_customer_email: form.email.trim() || user?.email || null,
+      p_address: form.address.trim(),
+      p_city: form.city.trim(),
+      p_payment_method: method,
+      p_promo_code: promoCode || null,
+      p_items: lines.map(l => ({
+        product_id: l.product.id,
+        size: l.size,
+        qty: l.qty,
+        variant_label: l.variant ?? null,
+      })),
+    });
 
-    const { data: order, error: orderError } = await supabase
-      .from('orders')
-      .insert({
-        user_id: user?.id ?? null,
-        status: initialStatus,
-        payment_method: method,
-        customer_name: form.name.trim(),
-        customer_phone: form.phone.trim(),
-        customer_email: form.email.trim() || user?.email || null,
-        address: form.address.trim(),
-        city: form.city.trim(),
-        subtotal_usd: finalTotal,
-        channel: 'website',
-      })
-      .select()
-      .single();
-
-    if (orderError || !order) {
+    if (orderError || !result) {
       setError('Something went wrong. Please try again.');
       setSubmitting(false);
       return;
     }
-
-    await supabase.from('order_items').insert(
-      lines.map(l => ({
-        order_id: order.id,
-        product_id: l.product.id,
-        product_name: l.variant ? `${l.product.name} (${l.variant})` : l.product.name,
-        size: l.size,
-        qty: l.qty,
-        unit_price_usd: l.variantPrice ?? l.product.price,
-      }))
-    );
 
     if (user) {
       await supabase.from('abandoned_carts')
@@ -165,7 +154,7 @@ export default function CheckoutPage() {
         .is('recovered_at', null);
     }
 
-    setOrderNumber(order.order_number ?? order.id);
+    setOrderNumber(result.order_number ?? result.order_id);
     // COD: confirmed immediately. Others: show payment instructions first.
     setStage(method === 'cod' ? 'confirmed' : 'payment');
     setSubmitting(false);

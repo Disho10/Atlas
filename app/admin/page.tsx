@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { STAFF_PRODUCT_COLUMNS, mapProductRow } from '@/lib/supabase/queries';
 import AdminPanel from '@/components/AdminPanel';
 import {
@@ -37,8 +37,14 @@ export default async function AdminPage() {
   }
 
   // Live data — RLS policies (is_staff) authorize these reads for staff sessions.
+  // Products specifically use the service-role client: cost_usd/code are
+  // business-sensitive (margins, internal SKUs), so column-level grants now
+  // block the authenticated/anon roles from selecting them directly over
+  // REST — the service-role key is the only way to read them, and we only
+  // reach this line after the staff role check above.
+  const svc = createServiceRoleClient();
   const [{ data: productRows }, { data: orderRows }, { data: zeroRows }, { data: leagueRows }, { data: staffRows }, { data: settingsRows }, { data: pagesRows }] = await Promise.all([
-    supabase.from('products').select(`${STAFF_PRODUCT_COLUMNS}, product_tags(tags(label))`).order('created_at', { ascending: false }),
+    svc.from('products').select(`${STAFF_PRODUCT_COLUMNS}, product_tags(tags(label))`).order('created_at', { ascending: false }),
     supabase.from('orders').select('*, order_items(*)').order('created_at', { ascending: false }).limit(100),
     supabase.from('search_logs').select('term').eq('result_count', 0).limit(500),
     supabase.from('leagues').select('slug, name').order('sort_order'),
