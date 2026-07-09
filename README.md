@@ -1,64 +1,95 @@
-# Round 3 fixes — drop-in files
+# Round 4 — full re-audit + the 5 missing features
 
-6 files. All go at the ROOT of your repo except one.
+This supersedes the round-3 zip from earlier — everything in that one
+(the ESLint fix, the `proxy.ts` tweak, the league-page typo fix) is
+included here too, so you only need to apply this one.
 
-NEW FILE
-  eslint.config.mjs               → repo root
+40 files: 17 new, 23 modified. All paths below are relative to your repo
+root — copy each file to the matching path, overwriting where it exists.
 
-REPLACE (overwrite existing files at these exact paths)
-  package.json                    → repo root
-  package-lock.json               → repo root
-  proxy.ts                        → repo root
-  .gitignore                      → repo root
-  components/LeagueProductGrid.tsx
+## What's in here
 
----
+**Real bugs found by actually running things** (not just reading code):
+- `npm run lint` was dead — Next 16 removed `next lint` entirely (round 3).
+- League page showed "All Categorys" — pluralization bug (round 3).
+- **The security migration from last round had a real bug**: the trigger
+  that stops customers self-promoting to Owner also silently blocked the
+  *entire loyalty system* — signup bonuses, purchase points, referral
+  rewards, redemptions. Found by actually running the migrations against a
+  local Postgres and placing a test order, not by re-reading the SQL.
+- **COD orders have never earned loyalty points**, full stop, since before
+  any of my changes — the points trigger only fired on order *status
+  updates*, but COD orders are inserted already-confirmed, so the trigger
+  never ran for what's probably your most common payment method.
+- `rate_limit_hits` (new table, see below) had no RLS enabled — would have
+  leaked customer phone numbers/emails and let anyone reset their own
+  rate limit by deleting their rows.
+- Product page's "out of stock" button only checked per-size flags, never
+  overall stock — a product with total stock at 0 but no size individually
+  flagged could still be added to cart.
 
-## What's in this round
+**The 5 things from your list:**
+1. **Stock decrement** — `place_order()` now atomically decrements stock
+   and rejects the order if there isn't enough (blocks overselling under
+   concurrent checkouts, verified with a real double-checkout test).
+2. **Rate limiting** — a small Postgres-backed limiter, applied to
+   checkout (5 orders / 15 min per phone-or-account) and promo code
+   validation (20/min per IP). Sign-in itself is already rate-limited by
+   Supabase's own Auth service, so no extra code needed there.
+3. **Admin audit log** — every admin action (product edits, order status
+   changes, staff role changes, promo creation, etc.) now logs who did
+   what. View it at `/admin/activity` (staff only).
+4. **Sort + price range** — added to both `/search` and the league pages.
+5. **"Notify me when back in stock"** — shows up on the product page when
+   an item's out of stock; emails everyone who asked once it's restocked.
 
-1. **`npm run lint` was completely broken.** Next.js 16 removed the
-   `next lint` command entirely (confirmed against Next's own docs) — your
-   `package.json` still called it, so linting has been silently a no-op
-   error since you upgraded. Fixed: added `eslint.config.mjs`, installed
-   `eslint` + `eslint-config-next@16.2.10` (matches your Next version
-   exactly), changed the `lint` script to `eslint .`.
+**SEO** — `sitemap.xml`, `robots.txt`, and every product/league page now
+gets its own title/description/share-image instead of one generic one
+site-wide.
 
-2. Running the now-working linter found ~97 pre-existing issues. Almost all
-   of them are style debt (`any` types, un-escaped apostrophes in JSX) —
-   not bugs, the site works fine with them, and mass-rewriting ~80 spots
-   across a dozen files risked introducing new bugs for no functional gain,
-   so I left those alone. Two real ones I did fix because they were exact
-   and zero-risk:
-   - `proxy.ts`: `let response` was never reassigned → changed to `const`.
-   - `components/LeagueProductGrid.tsx`: the league page's category filter
-     built its "show all" label as `` `All ${label}s` ``, which turns
-     "Category" into **"All Categorys"** (visible bug on
-     `/leagues/[slug]`). Fixed to use explicit labels ("All Teams" /
-     "All Categories") instead of guessing the plural.
+**Tests** — `npm test` runs 16 unit tests (Vitest) for the pure logic
+(cart math, loyalty conversion, the Telegram/email escaping). More
+importantly, `supabase/tests/run.sh` spins up a real disposable Postgres,
+applies every migration, and exercises `place_order()` end to end —
+signup bonus, COD purchase points, stock decrement, overselling rejection,
+and the role-escalation guard. This is what caught the two loyalty bugs
+above. Re-run it after any future migration change.
 
-3. **Not fixed, flagged for awareness:** the linter's `react-hooks/set-state-in-effect`
-   rule flagged three spots — `components/Providers.tsx` (theme + cart
-   loading state), `components/Motion.tsx` (counter animation), and
-   `components/ConsentBanner.tsx` — where `setState` is called synchronously
-   inside a `useEffect`. This is a legitimate performance pattern (an extra
-   render cycle each time), not a functional bug, and all three are
-   load-bearing for the homepage's animated stats, the cart, and dark mode.
-   I didn't touch them without being able to click through the live site in
-   a browser to verify a refactor doesn't regress anything — Claude in
-   Chrome wasn't reachable this session. If you want these cleaned up too,
-   say so and I'll do it carefully with a way to verify it live.
+**Arabic + RTL** — real infrastructure (language switcher in the header,
+persisted preference, `dir="rtl"` applied at the document level), with
+navigation, footer, cart, and checkout translated. This is deliberately
+**not full-site coverage** — product descriptions, the admin panel, and
+most account subpages are still English-only. `lib/i18n/dictionary.ts` is
+where you add more strings; every page already has the plumbing to use
+them. I also caught and fixed a real performance regression this
+introduced (reading the locale from a cookie server-side turned every
+static page into a server-rendered-per-request one) — locale is now
+resolved client-side on mount instead, so static generation is untouched.
 
-4. **Everything else checked out:** `npm run build` is clean (25 routes, 0
-   errors), `tsc --noEmit` is clean, the live site's core pages
-   (home, league, product, cart, track, scores, admin→sign-in redirect)
-   render correctly with real Supabase data, and the security fixes from
-   last round are confirmed live in your `PHASE 5.3 Security Update` commit.
+## Setup, in order
 
-## Setup after copying these files in
-```
-npm install     # picks up eslint + eslint-config-next from package-lock.json
-npm run lint    # now actually runs — 97 pre-existing warnings/errors, all non-blocking
-npm run build   # unaffected, still clean
-```
-No environment variables, Supabase migrations, or redeploy steps needed for
-this round — it's all local tooling + two small UI/code fixes.
+1. **Run the new migration** against your live Supabase project:
+   `supabase/migrations/0006_stock_ratelimit_audit_notify.sql`
+   (SQL Editor or `supabase db push`)
+2. **Redeploy the two edge functions** (their imports changed):
+   ```
+   supabase functions deploy notify-telegram
+   supabase functions deploy send-receipt
+   ```
+3. **Copy the files in**, then:
+   ```
+   npm install
+   npm run build   # sanity check
+   npm test        # 16 unit tests
+   ```
+4. **(Optional but recommended) run the DB regression suite** — needs a
+   local Postgres reachable via `psql`:
+   ```
+   bash supabase/tests/run.sh
+   ```
+5. **Set `NEXT_PUBLIC_SITE_URL`** in your environment (Vercel project
+   settings) to your real domain once you have one — it's used for the
+   sitemap and social-share links. Falls back to the current Vercel URL
+   if unset.
+
+No other env vars needed — everything else reuses what you already have.

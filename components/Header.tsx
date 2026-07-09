@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Logo from './Logo';
 import { useState, useEffect } from 'react';
 import { useCart, useCurrency, useTheme, useWishlist, useAuth } from './Providers';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 import { leagues } from '@/lib/mockData';
 
 export default function Header() {
@@ -12,6 +13,7 @@ export default function Header() {
   const { theme, toggle } = useTheme();
   const { currency, setCurrency } = useCurrency();
   const { signedIn, loading, isStaff } = useAuth();
+  const { locale, t, setLocale } = useLocale();
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -27,8 +29,11 @@ export default function Header() {
     <header className={`sticky top-0 z-50 border-b border-black/10 dark:border-white/10 bg-chalk/85 dark:bg-ink/85 backdrop-blur-xl transition-shadow duration-300 ${scrolled ? 'header-scrolled' : ''}`}>
       {/* Top utility bar */}
       <div className="hidden md:flex items-center justify-between px-6 py-1.5 text-[11px] tracking-widest2 uppercase border-b border-black/5 dark:border-white/5 text-steel">
-        <span>Free shipping on orders over $110 · Cash on delivery across Lebanon</span>
+        <span>{t('nav.freeShipping')}</span>
         <div className="flex items-center gap-4">
+          <button onClick={() => setLocale(locale === 'en' ? 'ar' : 'en')} className="chip-underline">
+            {t('nav.language')}
+          </button>
           <button
             onClick={() => setCurrency(currency === 'USD' ? 'LBP' : 'USD')}
             className="chip-underline"
@@ -36,7 +41,7 @@ export default function Header() {
             {currency}
           </button>
           <button onClick={toggle} className="chip-underline" aria-label="Toggle dark mode">
-            {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+            {theme === 'dark' ? t('nav.lightMode') : t('nav.darkMode')}
           </button>
         </div>
       </div>
@@ -62,10 +67,10 @@ export default function Header() {
               </Link>
             ))}
             <Link href="/leagues" className="nav-sweep pb-1 text-steel">
-              All Leagues
+              {t('nav.allLeagues')}
             </Link>
             <Link href="/shop/sportswear" className="nav-sweep pb-1">
-              Sportswear
+              {t('nav.sportswear')}
             </Link>
           </nav>
         </div>
@@ -100,7 +105,7 @@ export default function Header() {
                 href="/sign-in"
                 className="hidden sm:inline-flex items-center bg-volt text-ink text-sm font-medium rounded-full px-4 py-1.5 btn-press"
               >
-                Sign in
+                {t('nav.signIn')}
               </Link>
             )
           )}
@@ -122,7 +127,7 @@ export default function Header() {
             <input
               name="q"
               autoFocus
-              placeholder="Search by name, team, player, or nationality"
+              placeholder={t('nav.searchPlaceholder')}
               className="flex-1 bg-transparent outline-none text-lg placeholder:text-steel"
             />
           </form>
@@ -148,12 +153,12 @@ export default function Header() {
               {l.name}
             </Link>
           ))}
-          <Link href="/shop/sportswear" onClick={() => setMenuOpen(false)}>Sportswear</Link>
-          <Link href="/about" onClick={() => setMenuOpen(false)}>About Us</Link>
+          <Link href="/shop/sportswear" onClick={() => setMenuOpen(false)}>{t('nav.sportswear')}</Link>
+          <Link href="/about" onClick={() => setMenuOpen(false)}>{t('nav.aboutUs')}</Link>
           {!loading && (
             signedIn
-              ? <Link href="/account" onClick={() => setMenuOpen(false)}>My Account</Link>
-              : <Link href="/sign-in" onClick={() => setMenuOpen(false)}>Sign in</Link>
+              ? <Link href="/account" onClick={() => setMenuOpen(false)}>{t('nav.myAccount')}</Link>
+              : <Link href="/sign-in" onClick={() => setMenuOpen(false)}>{t('nav.signIn')}</Link>
           )}
           {!loading && isStaff && (
             <Link href="/admin" onClick={() => setMenuOpen(false)} className="text-crimson">Staff Panel</Link>

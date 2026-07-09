@@ -1,8 +1,24 @@
 import { notFound } from 'next/navigation';
+import type { Metadata } from 'next';
 import { getLeagues, getProducts } from '@/lib/data';
 import LeagueProductGrid from '@/components/LeagueProductGrid';
 import LeagueCrest from '@/components/LeagueCrest';
 import DiagonalSplitBg from '@/components/DiagonalSplitBg';
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const leagues = await getLeagues();
+  const league = leagues.find(l => l.slug === slug);
+  if (!league) return {};
+
+  const title = `${league.name} Kits & Gear`;
+  const description = `Shop authentic ${league.name} kits and match-day gear, shipped across Lebanon.`;
+  return {
+    title,
+    description,
+    openGraph: { title, description, images: league.logoUrl ? [{ url: league.logoUrl }] : undefined },
+  };
+}
 
 export default async function LeaguePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;

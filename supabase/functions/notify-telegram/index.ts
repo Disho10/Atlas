@@ -16,6 +16,7 @@
 // a free spam relay with attacker-chosen text.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { escapeMd } from '../_shared/text.ts';
 
 const TELEGRAM_BOT_TOKEN = Deno.env.get('TELEGRAM_BOT_TOKEN')!;
 const TELEGRAM_CHAT_ID = Deno.env.get('TELEGRAM_CHAT_ID')!;
@@ -26,12 +27,6 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 );
 
-// Legacy Telegram Markdown treats _ * ` [ as formatting characters. Escaping
-// them stops a customer_name/address value like "*URGENT* [click here](url)"
-// from rendering as bold text or a clickable link in your Telegram chat.
-function escapeMd(s: string): string {
-  return (s ?? '').replace(/([_*`\[])/g, '\\$1');
-}
 
 Deno.serve(async (req) => {
   try {

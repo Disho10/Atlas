@@ -3,11 +3,13 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useCart, useCurrency } from '@/components/Providers';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 import { formatCurrency } from '@/lib/mockData';
 
 export default function CartPage() {
   const { lines, remove, setQty, subtotal } = useCart();
   const { currency } = useCurrency();
+  const { t } = useLocale();
   const FREE_SHIPPING = 110;
   const toFreeShipping = Math.max(0, FREE_SHIPPING - subtotal);
   const freeShipping = subtotal >= FREE_SHIPPING;
@@ -20,10 +22,10 @@ export default function CartPage() {
             <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4zM3 6h18M16 10a4 4 0 01-8 0" />
           </svg>
         </div>
-        <h1 className="font-display text-3xl mb-3">Your cart is empty</h1>
+        <h1 className="font-display text-3xl mb-3">{t('cart.empty')}</h1>
         <p className="text-steel mb-8">Nothing here yet — go find your next kit.</p>
         <Link href="/" className="inline-block bg-volt text-ink px-8 py-3.5 rounded-full font-medium btn-press">
-          Continue shopping
+          {t('cart.continueShopping')}
         </Link>
       </main>
     );
@@ -31,7 +33,7 @@ export default function CartPage() {
 
   return (
     <main className="max-w-5xl mx-auto px-6 py-12">
-      <h1 className="font-display text-3xl mb-8">Your cart <span className="text-steel text-xl font-sans">({lines.reduce((s, l) => s + l.qty, 0)} items)</span></h1>
+      <h1 className="font-display text-3xl mb-8">{t('cart.title')} <span className="text-steel text-xl font-sans">({lines.reduce((s, l) => s + l.qty, 0)} items)</span></h1>
 
       {/* Free shipping progress */}
       <div className="rounded-2xl bg-black/5 dark:bg-white/5 px-5 py-4 mb-8">
@@ -73,7 +75,7 @@ export default function CartPage() {
                     <span className="w-8 text-center text-sm tabular">{l.qty}</span>
                     <button onClick={() => setQty(l.product.id, l.size, l.qty + 1)} className="w-8 h-8 text-lg leading-none">+</button>
                   </div>
-                  <button onClick={() => remove(l.product.id, l.size)} className="text-xs text-steel hover:text-crimson transition-colors">Remove</button>
+                  <button onClick={() => remove(l.product.id, l.size)} className="text-xs text-steel hover:text-crimson transition-colors">{t('cart.remove')}</button>
                 </div>
               </div>
             </div>
@@ -94,7 +96,7 @@ export default function CartPage() {
             </div>
             <div className="border-t border-black/10 dark:border-white/10 pt-4 space-y-2 text-sm mb-5">
               <div className="flex justify-between">
-                <span className="text-steel">Subtotal</span>
+                <span className="text-steel">{t('cart.subtotal')}</span>
                 <span className="tabular">{formatCurrency(subtotal, currency)}</span>
               </div>
               <div className="flex justify-between">
@@ -109,10 +111,10 @@ export default function CartPage() {
               </div>
             </div>
             <Link href="/checkout" className="block text-center bg-volt text-ink rounded-full py-4 font-semibold text-sm btn-press">
-              Proceed to checkout →
+              {t('cart.checkout')} →
             </Link>
             <Link href="/" className="block text-center text-sm text-steel mt-3 hover:underline">
-              Continue shopping
+              {t('cart.continueShopping')}
             </Link>
 
             {/* Trust strip */}

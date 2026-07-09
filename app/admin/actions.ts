@@ -34,6 +34,24 @@ async function getRole(): Promise<{ userId: string; role: string } | null> {
 const isStaff = (r: string) => ['admin', 'manager', 'owner'].includes(r);
 const canEditProducts = (r: string) => ['manager', 'owner'].includes(r);
 
+// Fire-and-forget audit trail — never blocks or fails the action it's
+// logging for. `supabase` should be the caller's session client so the
+// insert goes through the "Staff write audit log" RLS policy honestly
+// (the actor really is staff, since every action already checked that).
+async function logAudit(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  actorId: string,
+  action: string,
+  target: string | null,
+  detail?: Record<string, unknown>
+) {
+  try {
+    await supabase.from('admin_audit_log').insert({ actor_id: actorId, action, target, detail: detail ?? null });
+  } catch {
+    // Never let audit logging break the actual admin action.
+  }
+}
+
 // ---------------------------------------------------------------------------
 // PRODUCTS — create / update / delete. Owner + Manager only.
 // ---------------------------------------------------------------------------
@@ -85,6 +103,7 @@ export async function saveProduct(input: {
     : await supabase.from('products').insert(row);
 
   if (error) return { ok: false, error: error.message };
+  await logAudit(supabase, auth.userId, input.id ? 'product.update' : 'product.create', input.name, { price_usd: input.price_usd, status: input.status });
   revalidatePath('/admin');
   revalidatePath('/');
   return { ok: true };
@@ -98,6 +117,7 @@ export async function deleteProduct(id: string): Promise<ActionResult> {
   const supabase = await createClient();
   const { error } = await supabase.from('products').delete().eq('id', id);
   if (error) return { ok: false, error: error.message };
+  await logAudit(supabase, auth.userId, 'product.delete', id);
   revalidatePath('/admin');
   revalidatePath('/');
   return { ok: true };
@@ -152,6 +172,7 @@ export async function logManualOrder(input: {
   });
 
   if (itemErr) return { ok: false, error: itemErr.message };
+  await logAudit(supabase, auth.userId, 'order.manual_log', order.id, { channel: input.channel, subtotal });
   revalidatePath('/admin');
   return { ok: true };
 }
@@ -194,6 +215,7 @@ export async function setStaffRole(input: {
 
   const { error } = await supabase.from('profiles').update({ role: input.role }).eq('id', profile.id);
   if (error) return { ok: false, error: error.message };
+  await logAudit(supabase, auth.userId, 'staff.role', input.email.trim().toLowerCase(), { new_role: input.role });
   revalidatePath('/admin');
   return { ok: true };
 }
@@ -228,6 +250,7 @@ export async function createPromo(input: {
     active: true,
   });
   if (error) return { ok: false, error: error.message };
+  await logAudit(supabase, auth.userId, 'promo.create', input.code.trim().toUpperCase(), { kind: input.kind, amount: input.amount });
   revalidatePath('/admin');
   return { ok: true };
 }
@@ -244,6 +267,7 @@ export async function setExchangeRate(rate: number): Promise<ActionResult> {
   const supabase = await createClient();
   const { error } = await supabase.from('site_settings').upsert({ key: 'usd_to_lbp', value: String(rate) });
   if (error) return { ok: false, error: error.message };
+  await logAudit(supabase, auth.userId, 'settings.exchange_rate', String(rate));
   revalidatePath('/');
   return { ok: true };
 }
@@ -301,6 +325,7 @@ export async function updateOrderStatus(orderId: string, newStatus: string): Pro
       return { ok: false, error: `Update didn't persist. Still "${check?.status ?? 'unknown'}". ${!svc ? 'Add SUPABASE_SERVICE_ROLE_KEY to .env.local to fix RLS issues.' : ''}` };
     }
 
+    await logAudit(session, auth.userId, 'order.status', orderId, { from: existing.status, to: newStatus });
     revalidatePath('/admin');
     return { ok: true };
   } catch (e) {
@@ -356,6 +381,7 @@ export async function logManualOrderMulti(input: {
 
   const { error: itemErr } = await supabase.from('order_items').insert(itemRows);
   if (itemErr) return { ok: false, error: itemErr.message };
+  await logAudit(supabase, auth.userId, 'order.manual_log', order.id, { channel: input.channel, subtotal, item_count: input.items.length });
   revalidatePath('/admin');
   return { ok: true };
 }
@@ -388,6 +414,7 @@ export async function savePage(input: {
     : await supabase.from('custom_pages').insert({ ...row, created_by: auth.userId });
 
   if (error) return { ok: false, error: error.message };
+  await logAudit(supabase, auth.userId, input.id ? 'page.update' : 'page.create', row.slug);
   revalidatePath('/admin');
   revalidatePath(`/p/${row.slug}`);
   return { ok: true };
@@ -401,6 +428,7 @@ export async function deletePage(id: string): Promise<ActionResult> {
   const supabase = await createClient();
   const { error } = await supabase.from('custom_pages').delete().eq('id', id);
   if (error) return { ok: false, error: error.message };
+  await logAudit(supabase, auth.userId, 'page.delete', id);
   revalidatePath('/admin');
   return { ok: true };
 }
@@ -416,9 +444,11 @@ export async function saveHeroSlides(slides: {
   if (!auth) return { ok: false, error: 'Not signed in.' };
   if (!canEditProducts(auth.role)) return { ok: false, error: 'Only Owner and Manager can edit hero slides.' };
 
-  const supabase = serviceClient() ?? await createClient();
+  const session = await createClient();
+  const supabase = serviceClient() ?? session;
   const { error } = await supabase.from('site_settings').upsert({ key: 'hero_slides', value: JSON.stringify(slides) });
   if (error) return { ok: false, error: error.message };
+  await logAudit(session, auth.userId, 'settings.hero_slides', null, { slide_count: slides.length });
   revalidatePath('/');
   return { ok: true };
 }

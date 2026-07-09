@@ -51,6 +51,7 @@ export type Product = {
   status?: 'draft' | 'published'; // admin only
   cost?: number;                  // admin only — for margin math
   variants: { label: string; price: number }[]; // e.g. Jersey vs Jersey+Shorts
+  createdAt?: string;
 };
 
 export const products: Product[] = [

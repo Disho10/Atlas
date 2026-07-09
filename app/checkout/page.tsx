@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useCart, useCurrency } from '@/components/Providers';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 import { formatCurrency } from '@/lib/mockData';
 import { createClient } from '@/lib/supabase/client';
 import { CheckIcon } from '@/components/icons';
@@ -73,6 +74,7 @@ const inputCls = 'w-full border border-black/15 dark:border-white/20 bg-transpar
 export default function CheckoutPage() {
   const { lines, subtotal, remove } = useCart();
   const { currency } = useCurrency();
+  const { t } = useLocale();
   const [method, setMethod] = useState<(typeof METHODS)[number]['value']>('cod');
   const [stage, setStage] = useState<'form' | 'payment' | 'confirmed'>('form');
   const [orderNumber, setOrderNumber] = useState('');
@@ -238,7 +240,7 @@ export default function CheckoutPage() {
   // -------------------------------------------------------------------------
   return (
     <main className="max-w-4xl mx-auto px-6 py-12">
-      <h1 className="font-display text-3xl mb-8">Checkout</h1>
+      <h1 className="font-display text-3xl mb-8">{t('checkout.title')}</h1>
       <div className="grid md:grid-cols-5 gap-10">
 
         {/* Form */}
@@ -251,11 +253,11 @@ export default function CheckoutPage() {
               Delivery details
             </h2>
             <div className="grid sm:grid-cols-2 gap-3">
-              <input placeholder="Full name *" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className={inputCls} />
-              <input placeholder="Phone number" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} className={inputCls} />
-              <input placeholder="Email (for receipt)" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className={`${inputCls} sm:col-span-2`} />
-              <input placeholder="City / area *" value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} className={`${inputCls} sm:col-span-2`} />
-              <input placeholder="Street, building, floor *" value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} className={`${inputCls} sm:col-span-2`} />
+              <input placeholder={`${t('checkout.name')} *`} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className={inputCls} />
+              <input placeholder={t('checkout.phone')} value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} className={inputCls} />
+              <input placeholder={t('checkout.email')} type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className={`${inputCls} sm:col-span-2`} />
+              <input placeholder={`${t('checkout.city')} *`} value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} className={`${inputCls} sm:col-span-2`} />
+              <input placeholder={`${t('checkout.address')} *`} value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} className={`${inputCls} sm:col-span-2`} />
             </div>
           </section>
 
@@ -263,7 +265,7 @@ export default function CheckoutPage() {
           <section>
             <h2 className="font-medium mb-3 flex items-center gap-2">
               <span className="w-6 h-6 rounded-full bg-ink text-chalk dark:bg-chalk dark:text-ink text-xs flex items-center justify-center font-bold">2</span>
-              Payment method
+              {t('checkout.paymentMethod')}
             </h2>
             <div className="grid sm:grid-cols-2 gap-3">
               {METHODS.map(m => (
@@ -275,7 +277,9 @@ export default function CheckoutPage() {
                   }`}>
                   <div className="flex items-center gap-2 mb-0.5">
                     <span>{m.icon}</span>
-                    <span className="text-sm font-medium">{m.label}</span>
+                    <span className="text-sm font-medium">
+                      {m.value === 'cod' ? t('checkout.cod') : m.value === 'card' ? t('checkout.card') : m.label}
+                    </span>
                     {method === m.value && <CheckIcon className="w-3.5 h-3.5 text-volt ml-auto" />}
                   </div>
                   <p className="text-xs text-steel">{m.desc}</p>
@@ -337,7 +341,7 @@ export default function CheckoutPage() {
 
             <button onClick={placeOrder} disabled={submitting || lines.length === 0}
               className="w-full bg-volt text-ink rounded-full py-4 font-semibold text-sm btn-press disabled:opacity-50">
-              {submitting ? 'Placing order…' : method === 'cod' ? 'Place order' : 'Reserve & pay →'}
+              {submitting ? 'Placing order…' : method === 'cod' ? t('checkout.placeOrder') : 'Reserve & pay →'}
             </button>
             <p className="text-[10px] text-steel text-center mt-2">
               {method === 'cod'

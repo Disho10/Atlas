@@ -66,6 +66,29 @@ Deno.serve(async () => {
       }
     }
 
+    if (item.kind === 'back_in_stock' && item.product_id) {
+      const { data: product } = await supabase
+        .from('products')
+        .select('name')
+        .eq('id', item.product_id)
+        .single();
+      const { data: waiting } = await supabase
+        .from('stock_notify_requests')
+        .select('id, email')
+        .eq('product_id', item.product_id)
+        .is('notified_at', null);
+
+      for (const w of waiting ?? []) {
+        await sendEmail({
+          to: w.email,
+          subject: `${product?.name ?? 'An item you wanted'} is back in stock`,
+          html: shell('Back in stock', `Good news — <b>${product?.name ?? 'the item you asked about'}</b> is back in stock. It tends to sell out fast.<br><br><a href="https://your-domain.com/product/${item.product_id}" style="background:#D6FF3F;color:#0B0D10;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:600">Shop it now</a>`),
+        });
+        await supabase.from('stock_notify_requests').update({ notified_at: new Date().toISOString() }).eq('id', w.id);
+        sent++;
+      }
+    }
+
     await supabase.from('notification_queue').update({ sent: true }).eq('id', item.id);
   }
 

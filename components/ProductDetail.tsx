@@ -9,6 +9,7 @@ import { HeartIcon, CheckIcon } from '@/components/icons';
 import ProductImage from '@/components/ProductImage';
 import ProductCard from '@/components/ProductCard';
 import { Reveal } from '@/components/Motion';
+import { requestStockNotification } from '@/app/product/actions';
 
 export default function ProductDetail({ product, initialReviews, related }: { product: Product; initialReviews: Review[]; related: Product[] }) {
   const { add } = useCart();
@@ -27,8 +28,14 @@ export default function ProductDetail({ product, initialReviews, related }: { pr
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewPhoto, setReviewPhoto] = useState<File | null>(null);
   const [posting, setPosting] = useState(false);
+  const [notifyEmail, setNotifyEmail] = useState('');
+  const [notifyState, setNotifyState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
 
-  const outOfStock = size ? product.outOfStockSizes?.includes(size) : false;
+  // Was checking only per-size flags, so a product with total stock at 0 but
+  // no size individually flagged would still let people add it to cart —
+  // place_order() would then correctly reject it server-side, but the button
+  // wouldn't show that until checkout. Total stock now blocks it up front too.
+  const outOfStock = product.stock <= 0 || (size ? !!product.outOfStockSizes?.includes(size) : false);
   const wished = ids.includes(product.id);
   const lowStock = product.stock > 0 && product.stock <= 6;
 
@@ -37,6 +44,14 @@ export default function ProductDetail({ product, initialReviews, related }: { pr
     for (let i = 0; i < qty; i++) add(product, size, selectedVariant || undefined, activeVariant?.price);
     setAdded(true);
     setTimeout(() => setAdded(false), 1600);
+  };
+
+  const submitNotify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!notifyEmail.includes('@')) return;
+    setNotifyState('sending');
+    const res = await requestStockNotification(product.id, notifyEmail);
+    setNotifyState(res.ok ? 'sent' : 'error');
   };
 
   const submitReview = async (e: React.FormEvent) => {
@@ -184,7 +199,7 @@ export default function ProductDetail({ product, initialReviews, related }: { pr
                 onClick={addToCart}
                 className="flex-1 bg-volt text-ink rounded-full py-4 font-medium disabled:opacity-40 btn-press"
               >
-                {outOfStock ? 'Out of stock in this size' : added ? (
+                {outOfStock ? (product.stock <= 0 ? 'Out of stock' : 'Out of stock in this size') : added ? (
                   <span className="inline-flex items-center gap-1.5">Added <CheckIcon className="w-4 h-4" /></span>
                 ) : `Add to cart · ${formatCurrency(activePrice * qty, currency)}`}
               </button>
@@ -200,6 +215,30 @@ export default function ProductDetail({ product, initialReviews, related }: { pr
 
           {lowStock && !product.comingSoon && (
             <p className="text-xs text-crimson mt-3">Only {product.stock} left — low stock</p>
+          )}
+
+          {outOfStock && !product.comingSoon && (
+            notifyState === 'sent' ? (
+              <p className="text-xs text-steel mt-3">We&apos;ll email you the moment it&apos;s back. Thanks!</p>
+            ) : (
+              <form onSubmit={submitNotify} className="flex gap-2 mt-3">
+                <input
+                  type="email"
+                  required
+                  placeholder="Email for a back-in-stock alert"
+                  value={notifyEmail}
+                  onChange={e => setNotifyEmail(e.target.value)}
+                  className="flex-1 border border-black/15 dark:border-white/20 bg-transparent rounded-full px-4 py-2 text-xs outline-none focus:border-volt"
+                />
+                <button
+                  type="submit"
+                  disabled={notifyState === 'sending'}
+                  className="text-xs font-medium px-4 py-2 rounded-full border border-black/15 dark:border-white/20 btn-press disabled:opacity-50"
+                >
+                  {notifyState === 'sending' ? 'Sending…' : 'Notify me'}
+                </button>
+              </form>
+            )
           )}
 
           {/* Delivery reassurance strip */}

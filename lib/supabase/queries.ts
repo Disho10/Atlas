@@ -46,6 +46,7 @@ export function mapProductRow(row: ProductRow): Product {
     color: '#FFFFFF',
     status: (row as any).status ?? 'published',
     cost: (row as any).cost_usd != null ? Number((row as any).cost_usd) : undefined,
+    createdAt: (row as any).created_at ?? undefined,
   };
 }
 

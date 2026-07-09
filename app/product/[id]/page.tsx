@@ -1,6 +1,24 @@
 import { notFound } from 'next/navigation';
+import type { Metadata } from 'next';
 import { getProductById, getReviews, getProducts } from '@/lib/data';
 import ProductDetail from '@/components/ProductDetail';
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const product = await getProductById(id);
+  if (!product) return {};
+
+  const title = `${product.name} — ${product.team}`;
+  const description = `${product.name} for ${product.team}. Authentic gear, shipped across Lebanon with cash on delivery.`;
+  const image = product.image || product.images?.[0];
+
+  return {
+    title,
+    description,
+    openGraph: { title, description, images: image ? [{ url: image }] : undefined, type: 'website' },
+    twitter: { card: 'summary_large_image', title, description, images: image ? [image] : undefined },
+  };
+}
 
 export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

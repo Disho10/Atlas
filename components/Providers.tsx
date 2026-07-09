@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { Product } from '@/lib/mockData';
+import { calcSubtotal } from '@/lib/cart-math';
 
 // ---------------------------------------------------------------------------
 // THEME — dark/light, auto-detected from system preference, toggleable,
@@ -82,7 +83,7 @@ function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const count = lines.reduce((s, l) => s + l.qty, 0);
-  const subtotal = lines.reduce((s, l) => s + l.qty * (l.variantPrice ?? l.product.price), 0);
+  const subtotal = calcSubtotal(lines);
 
   // Snapshot the cart to the DB (for the 24h recovery email) whenever it
   // changes, debounced. Only for signed-in users, and only when non-empty.

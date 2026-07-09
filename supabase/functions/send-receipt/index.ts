@@ -18,6 +18,7 @@
 // blacklisted.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { escapeHtml } from '../_shared/text.ts';
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')!;
 const FROM_EMAIL = Deno.env.get('RECEIPT_FROM_EMAIL')!;
@@ -28,12 +29,6 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 );
 
-// Customer-entered text (name/address/etc.) goes straight into an HTML email
-// body below — escape it first so a name like `<img src=x onerror=...>`
-// can't inject markup into the receipt.
-function escapeHtml(s: string): string {
-  return (s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
-}
 
 Deno.serve(async (req) => {
   try {
