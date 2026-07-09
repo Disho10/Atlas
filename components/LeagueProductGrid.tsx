@@ -17,8 +17,8 @@ export default function LeagueProductGrid({ products }: { products: Product[] })
   return (
     <>
       <div className="flex flex-wrap gap-3 mb-8">
-        <Select label="Team" value={team} onChange={setTeam} options={['all', ...teams]} />
-        <Select label="Category" value={category} onChange={setCategory} options={['all', 'shirts', 'socks', 'balls', 'shinpads', 'sportswear']} />
+        <Select label="Team" allLabel="All Teams" value={team} onChange={setTeam} options={['all', ...teams]} />
+        <Select label="Category" allLabel="All Categories" value={category} onChange={setCategory} options={['all', 'shirts', 'socks', 'balls', 'shinpads', 'sportswear']} />
       </div>
 
       {filtered.length === 0 ? (
@@ -33,7 +33,7 @@ export default function LeagueProductGrid({ products }: { products: Product[] })
   );
 }
 
-function Select({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: string[] }) {
+function Select({ label, allLabel, value, onChange, options }: { label: string; allLabel: string; value: string; onChange: (v: string) => void; options: string[] }) {
   return (
     <label className="text-sm">
       <span className="sr-only">{label}</span>
@@ -44,7 +44,7 @@ function Select({ label, value, onChange, options }: { label: string; value: str
       >
         {options.map(o => (
           <option key={o} value={o} className="text-ink">
-            {o === 'all' ? `All ${label}s` : o}
+            {o === 'all' ? allLabel : o}
           </option>
         ))}
       </select>

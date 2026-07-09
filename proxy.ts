@@ -2,7 +2,7 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 export async function proxy(request: NextRequest) {
-  let response = NextResponse.next({ request: { headers: request.headers } });
+  const response = NextResponse.next({ request: { headers: request.headers } });
 
   // Prototype mode — no Supabase project connected yet. Skip straight through
   // rather than let the client try (and hang) reaching an unset URL.
