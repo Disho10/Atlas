@@ -216,7 +216,7 @@ export default function ProductDetail({ product, initialReviews, related }: { pr
               Breathable fabric, quality-checked before shipping. Sizes {product.sizes.join(', ')}.
             </Accordion>
             <Accordion id="shipping" title="Shipping & delivery" open={openSection} setOpen={setOpenSection}>
-              Same or next-day dispatch. 2–4 days anywhere in Lebanon. Free pickup available in Saida, and free shipping on orders over $100.
+              Same or next-day dispatch. 2–4 days anywhere in Lebanon. Free shipping on orders over $110.
             </Accordion>
             <Accordion id="returns" title="Returns & exchanges" open={openSection} setOpen={setOpenSection}>
               14 days from delivery, unworn with tags. Start it from Account → Returns and we handle the rest — exchange or refund, your call.

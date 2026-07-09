@@ -37,7 +37,7 @@ export function StatsBand() {
 const BADGES = [
   {
     title: 'Fast delivery across Lebanon',
-    body: 'Orders processed same-day, delivered to every governorate. Free pickup in Saida.',
+    body: 'Orders processed same-day, delivered to every governorate across Lebanon.',
     icon: <path d="M3 7h11v8H3zM14 10h4l3 3v2h-7zM7 18a2 2 0 100-4 2 2 0 000 4zM17 18a2 2 0 100-4 2 2 0 000 4z" />,
   },
   {
@@ -119,7 +119,7 @@ const FAQS = [
   { q: 'What payment methods do you accept?', a: 'Whish Pay, OMT, card, and cash on delivery across all of Lebanon.' },
   { q: 'How do returns and exchanges work?', a: 'You have 14 days from delivery. Open Account → Returns, pick the order, and choose return or exchange — we handle the rest.' },
   { q: 'Are the kits authentic?', a: 'Every product page states exactly what you are getting, and every item is quality-checked before it ships. If anything is not as described, we make it right.' },
-  { q: 'Do you have a physical store?', a: 'Free pickup is available in Saida, with a full physical location on the way. Follow us on Instagram for the opening.' },
+  { q: 'Do you ship across all of Lebanon?', a: 'Yes — we deliver to every governorate. Cash on delivery available everywhere.' },
 ];
 
 export function FaqSection() {

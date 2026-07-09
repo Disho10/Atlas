@@ -27,7 +27,7 @@ export default function Header() {
     <header className={`sticky top-0 z-50 border-b border-black/10 dark:border-white/10 bg-chalk/85 dark:bg-ink/85 backdrop-blur-xl transition-shadow duration-300 ${scrolled ? 'header-scrolled' : ''}`}>
       {/* Top utility bar */}
       <div className="hidden md:flex items-center justify-between px-6 py-1.5 text-[11px] tracking-widest2 uppercase border-b border-black/5 dark:border-white/5 text-steel">
-        <span>Free shipping on orders over $100 &middot; Free pickup in Saida &middot; Cash on delivery across Lebanon</span>
+        <span>Free shipping on orders over $110 · Cash on delivery across Lebanon</span>
         <div className="flex items-center gap-4">
           <button
             onClick={() => setCurrency(currency === 'USD' ? 'LBP' : 'USD')}

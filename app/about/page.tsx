@@ -29,7 +29,7 @@ export default function AboutPage() {
         </p>
         <p>
           Today Atlas carries six leagues, ships across all of Lebanon, and is building toward a
-          physical location where fans can try before they buy. Every product is checked before it
+          Every product is checked before it
           ships. Every customer gets the same standard I'd expect myself — because when you come
           from the game, you know what good gear means.
         </p>
@@ -87,7 +87,7 @@ const TIMELINE = [
   {
     year: '2026',
     title: 'Atlas goes online',
-    body: 'A full e-commerce storefront built from scratch, with a physical location on the horizon. Same standard, bigger pitch.',
+    body: 'A full e-commerce storefront built from scratch — bringing authentic kit culture to Lebanon, delivered to your door.',
   },
 ];
 
