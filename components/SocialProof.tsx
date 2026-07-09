@@ -149,7 +149,7 @@ export function FaqSection() {
       </div>
       <p className="text-sm text-steel mt-6">
         Didn't find your answer?{' '}
-        <a href="https://wa.me/9610000000" className="underline underline-offset-2">Message us on WhatsApp</a> — we typically reply within the hour.
+        <a href="https://wa.me/96181752873" className="underline underline-offset-2">Message us on WhatsApp</a> — we typically reply within the hour.
       </p>
     </section>
   );

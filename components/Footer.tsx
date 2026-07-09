@@ -25,7 +25,7 @@ export default function Footer() {
           <ul className="space-y-2 text-sm">
             <li><Link href="/track" className="hover:opacity-70">Track an order</Link></li>
             <li><Link href="/track" className="hover:opacity-70">Returns &amp; exchanges</Link></li>
-            <li><a href="https://wa.me/9610000000" className="hover:opacity-70">WhatsApp us</a></li>
+            <li><a href="https://wa.me/96181752873" className="hover:opacity-70">WhatsApp us</a></li>
             <li><Link href="/scores" className="hover:opacity-70">Match results</Link></li>
           </ul>
         </div>

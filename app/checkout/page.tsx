@@ -40,7 +40,7 @@ const PAYMENT_INSTRUCTIONS: Record<string, { title: string; steps: string[] }> =
     title: 'Complete your Whish Pay transfer',
     steps: [
       'Open your Whish app',
-      'Tap "Send Money" and enter our number: +961 XX XXX XXX',
+      'Tap "Send Money" and enter our number: +961 81 752 873',
       'Enter the exact amount shown on your order',
       'In the note write your order number',
       'Send the transfer — your order ships once we confirm receipt (usually within 1 hour during business hours)',
@@ -50,7 +50,7 @@ const PAYMENT_INSTRUCTIONS: Record<string, { title: string; steps: string[] }> =
     title: 'Complete your OMT transfer',
     steps: [
       'Visit any OMT branch or agent near you',
-      'Send to: [Your Name] — +961 XX XXX XXX',
+      'Send to: Ali — +961 81 752 873',
       'Amount: the exact total shown on your order',
       'Reference: your order number',
       'Send us the OMT reference number on WhatsApp so we can confirm and ship',
@@ -225,7 +225,7 @@ export default function CheckoutPage() {
           </ol>
 
           <a
-            href={`https://wa.me/9610000000?text=${encodeURIComponent(`Hi, I just placed order ${orderNumber} and completed my ${METHODS.find(m => m.value === method)?.label} payment of $${finalTotal.toFixed(2)}.`)}`}
+            href={`https://wa.me/96181752873?text=${encodeURIComponent(`Hi, I just placed order ${orderNumber} and completed my ${METHODS.find(m => m.value === method)?.label} payment of $${finalTotal.toFixed(2)}.`)}`}
             target="_blank"
             rel="noopener noreferrer"
             className="block text-center bg-[#25D366] text-white rounded-full py-3.5 font-medium mb-3 btn-press"

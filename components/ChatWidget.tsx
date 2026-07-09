@@ -67,7 +67,7 @@ export default function ChatWidget() {
               <button onClick={() => send(input)} disabled={thinking} className="bg-volt text-ink rounded-full px-4 text-sm font-medium btn-press disabled:opacity-50">Send</button>
             </div>
             {showWhatsApp && (
-              <a href="https://wa.me/9610000000" target="_blank" rel="noopener noreferrer" className="block text-center text-sm bg-[#25D366] text-white rounded-full py-2 font-medium">
+              <a href="https://wa.me/96181752873" target="_blank" rel="noopener noreferrer" className="block text-center text-sm bg-[#25D366] text-white rounded-full py-2 font-medium">
                 Continue on WhatsApp
               </a>
             )}
