@@ -282,3 +282,78 @@ html {
 @media (prefers-reduced-motion: reduce) {
   .stage-fade { animation: none; opacity: 1 !important; }
 }
+
+/* ---------------------------------------------------------------------
+   Tilt card — cursor-tracked 3D tilt + a soft light that follows the
+   pointer, driven by --tilt-x/--tilt-y/--spot-x/--spot-y set from
+   TiltCard.tsx. Mouse + fine-pointer only; a no-op everywhere else. */
+.tilt-card {
+  --tilt-x: 0deg;
+  --tilt-y: 0deg;
+  --spot-x: 50%;
+  --spot-y: 50%;
+  position: relative;
+  transform-style: preserve-3d;
+  transform: perspective(900px) rotateX(var(--tilt-x)) rotateY(var(--tilt-y));
+  transition: transform .35s cubic-bezier(.16,1,.3,1);
+}
+.tilt-spotlight {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(circle at var(--spot-x) var(--spot-y), rgba(214,255,63,.28), transparent 55%);
+  transition: opacity .35s ease;
+}
+.tilt-card:hover .tilt-spotlight { opacity: 1; }
+.tilt-card:hover .card-img { transform: scale(1.06); }
+@media (hover: none), (prefers-reduced-motion: reduce) {
+  .tilt-card { transform: none !important; transition: none; }
+  .tilt-spotlight { display: none; }
+}
+
+/* ---------------------------------------------------------------------
+   Split-flap scoreboard digit — literal departure-board flip, used once
+   for the homepage stats band. Each digit flips independently when it
+   scrolls into view (see components/Scoreboard.tsx). */
+@keyframes flap-flip {
+  0%   { transform: rotateX(0deg); }
+  50%  { transform: rotateX(-90deg); }
+  51%  { transform: rotateX(90deg); }
+  100% { transform: rotateX(0deg); }
+}
+.flap-digit {
+  display: inline-block;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+}
+.flap-digit[data-flip="true"] {
+  animation: flap-flip .5s cubic-bezier(.4,0,.2,1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .flap-digit[data-flip="true"] { animation: none; }
+}
+
+/* ---------------------------------------------------------------------
+   Kinetic letter reveal — per-letter staggered rise, used once for the
+   hero's top title line on slide change. One-shot, not a loop. */
+@keyframes letter-rise {
+  from { opacity: 0; transform: translateY(.6em) rotateZ(4deg); }
+  to   { opacity: 1; transform: translateY(0) rotateZ(0deg); }
+}
+.letter-rise {
+  display: inline-block;
+  animation: letter-rise .6s cubic-bezier(.16,1,.3,1) both;
+  animation-delay: var(--letter-delay, 0ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .letter-rise { animation: none; }
+}
+
+/* Scroll cue at the base of the hero — reuses the existing float-idle
+   bob so this isn't a new motion primitive, just a new use of one. */
+.scroll-cue { animation: float-idle 2.2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .scroll-cue { animation: none; }
+}

@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Reveal, CountUp } from './Motion';
+import { Reveal } from './Motion';
+import Scoreboard from './Scoreboard';
+import TiltCard from './TiltCard';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
 import type { TranslationKey } from '@/lib/i18n/dictionary';
 
@@ -24,7 +26,7 @@ export function StatsBand() {
         {STATS.map((s, i) => (
           <Reveal key={s.labelKey} delay={i * 120}>
             <p className="font-display text-4xl md:text-5xl text-volt tabular">
-              <CountUp value={s.n} />
+              <Scoreboard value={s.n} />
             </p>
             <p className="text-chalk/60 text-sm mt-2">{t(s.labelKey)}</p>
           </Reveal>
@@ -66,13 +68,13 @@ export function TrustBadges() {
     <section className="max-w-7xl mx-auto px-6 py-14 grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
       {BADGES.map((b, i) => (
         <Reveal key={b.titleKey} delay={i * 100}>
-          <div className="rounded-2xl border border-black/10 dark:border-white/10 p-6 card-premium h-full">
+          <TiltCard className="rounded-2xl border border-black/10 dark:border-white/10 p-6 h-full" intensity={6}>
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-crimson mb-4">
               {b.icon}
             </svg>
             <p className="font-medium">{t(b.titleKey)}</p>
             <p className="text-sm text-steel mt-2 leading-relaxed">{t(b.bodyKey)}</p>
-          </div>
+          </TiltCard>
         </Reveal>
       ))}
     </section>

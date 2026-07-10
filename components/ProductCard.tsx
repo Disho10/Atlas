@@ -1,17 +1,29 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import ProductImage from './ProductImage';
 import { Product } from '@/lib/mockData';
-import { useCurrency, useWishlist } from './Providers';
+import { useCart, useCurrency, useWishlist } from './Providers';
 import { formatCurrency } from '@/lib/mockData';
-import { HeartIcon } from './icons';
+import { HeartIcon, CheckIcon } from './icons';
 
 export default function ProductCard({ product }: { product: Product }) {
   const { currency } = useCurrency();
   const { ids, toggle } = useWishlist();
+  const { add } = useCart();
   const wished = ids.includes(product.id);
   const lowStock = product.stock > 0 && product.stock <= 6;
+  const outOfStock = product.stock <= 0;
+  const canQuickAdd = !product.comingSoon && !outOfStock && product.sizes.length > 0;
+  const [added, setAdded] = useState(false);
+
+  const quickAdd = (e: React.MouseEvent) => {
+    e.preventDefault();
+    add(product, product.sizes[0]);
+    setAdded(true);
+    setTimeout(() => setAdded(false), 1400);
+  };
 
   return (
     <div className="group card-premium rounded-xl">
@@ -35,6 +47,19 @@ export default function ProductCard({ product }: { product: Product }) {
         >
           <HeartIcon filled={wished} className={`w-4 h-4 ${wished ? 'text-crimson' : ''}`} />
         </button>
+        {/* Quick add — slides up from the bottom of the image on hover. Desktop-only
+            progressive enhancement (no hover state to trigger it on touch); mobile
+            shoppers tap through to the product page, which has full add-to-cart. */}
+        {canQuickAdd && (
+          <button
+            onClick={quickAdd}
+            className="absolute left-2 right-2 bottom-2 translate-y-[calc(100%+0.5rem)] group-hover:translate-y-0 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] bg-ink/90 dark:bg-chalk/90 text-chalk dark:text-ink text-xs font-medium rounded-full py-2.5 btn-press backdrop-blur-sm"
+          >
+            {added ? (
+              <span className="inline-flex items-center justify-center gap-1.5"><CheckIcon className="w-3.5 h-3.5" /> Added</span>
+            ) : 'Quick add'}
+          </button>
+        )}
       </Link>
       <div className="mt-3 flex justify-between items-start gap-2">
         <div>

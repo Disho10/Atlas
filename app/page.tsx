@@ -14,6 +14,7 @@ export default async function HomePage() {
   const hot = products.filter(p => p.hot);
   const newest = [...products].slice(-4);
   const mostSearched = products.filter(p => p.reviewCount > 50);
+  const sportswear = products.filter(p => p.category === 'sportswear');
 
   // Fetch hero slides saved by owner/manager — falls back to defaults in HeroSlideshow
   let heroSlides: any[] | undefined;
@@ -33,7 +34,7 @@ export default async function HomePage() {
       <ProductRail titleKey="home.hotTitle" subtitleKey="home.hotSubtitle" products={hot} />
       <ProductRail titleKey="home.justDroppedTitle" subtitleKey="home.justDroppedSubtitle" products={newest} />
 
-      <SportswearPromo />
+      <SportswearPromo products={sportswear} />
 
       {mostSearched.length > 0 && (
         <ProductRail titleKey="home.mostSearchedTitle" subtitleKey="home.mostSearchedSubtitle" products={mostSearched} />

@@ -111,11 +111,19 @@ export default function HeroSlideshow({ slides: serverSlides }: { slides?: any[]
             {slide.tag}
           </div>
 
-          <h1 className="font-display leading-[0.9] tracking-tight text-white animate-rise [animation-delay:100ms] opacity-0"
+          <h1 className="font-display leading-[0.9] tracking-tight text-white"
             style={{ fontSize: 'clamp(2.8rem, 12vw, 6rem)' }}>
-            {slide.titleTop}
+            <span aria-label={slide.titleTop}>
+              {slide.titleTop.split('').map((ch: string, i: number) => (
+                <span key={i} className="letter-rise" style={{ ['--letter-delay' as any]: `${100 + i * 28}ms` }} aria-hidden>
+                  {ch === ' ' ? ' ' : ch}
+                </span>
+              ))}
+            </span>
             <br />
-            <span className="text-volt shimmer-text">{slide.titleAccent}</span>
+            <span className="inline-block animate-rise [animation-delay:250ms] opacity-0">
+              <span className="text-volt shimmer-text">{slide.titleAccent}</span>
+            </span>
           </h1>
 
           <p className="mt-4 sm:mt-6 text-sm sm:text-base text-white/85 animate-rise [animation-delay:200ms] opacity-0 max-w-sm">
