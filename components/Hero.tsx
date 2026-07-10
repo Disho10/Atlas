@@ -7,11 +7,11 @@ export default function Hero({ slides }: { slides?: any[] }) {
 
   return (
     <section className="relative text-chalk">
-      {/* Glow orbs — only when no images configured */}
+      {/* Single, slow glow orb — only when no images configured. One light
+          source instead of two keeps the backdrop calm behind the headline. */}
       {!hasAnyImage && (
         <div className="absolute inset-0 overflow-hidden bg-ink">
-          <div className="glow-orb w-[40rem] h-[40rem] bg-volt -top-48 -right-40" />
-          <div className="glow-orb w-[32rem] h-[32rem] bg-crimson -bottom-40 -left-32 [animation-delay:-7s]" />
+          <div className="glow-orb w-[44rem] h-[44rem] bg-volt -top-52 -right-40" />
         </div>
       )}
       {hasAnyImage && <div className="absolute inset-0 bg-ink" />}

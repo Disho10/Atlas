@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Bebas_Neue, Inter } from 'next/font/google';
 import './globals.css';
 import { Providers } from '@/components/Providers';
 import { LocaleProvider } from '@/lib/i18n/LocaleProvider';
@@ -6,6 +7,22 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ConsentBanner from '@/components/ConsentBanner';
 import ChatWidget from '@/components/ChatWidget';
+
+// Display: Bebas Neue — tall, condensed, stadium-signage energy for headlines.
+// Body: Inter — quiet, highly legible workhorse so the display face can be loud
+// without the whole page feeling loud. Self-hosted via next/font: no runtime
+// request, no flash of fallback text, works offline at build time.
+const display = Bebas_Neue({
+  subsets: ['latin'],
+  weight: '400',
+  variable: '--font-display',
+  display: 'swap',
+});
+const body = Inter({
+  subsets: ['latin'],
+  variable: '--font-body',
+  display: 'swap',
+});
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://atlas-pi-jade.vercel.app';
 
@@ -40,7 +57,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   // instead — LocaleProvider picks up the stored cookie client-side on
   // mount and flips lang/dir immediately after.
   return (
-    <html lang="en" dir="ltr" suppressHydrationWarning data-scroll-behavior="smooth">
+    <html lang="en" dir="ltr" suppressHydrationWarning data-scroll-behavior="smooth" className={`${display.variable} ${body.variable}`}>
       <body>
         <LocaleProvider initialLocale="en">
           <Providers>

@@ -126,12 +126,12 @@ export default function AdminPanel({
         </div>
       )}
 
-      <div className="flex gap-2 mb-8 overflow-x-auto pb-1">
+      <div className="flex gap-2 mb-8 overflow-x-auto scrollbar-hide pb-1">
         {tabs.map(t => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`px-4 py-2 rounded-full text-sm shrink-0 ${tab === t.id ? 'bg-volt text-ink' : 'bg-black/5 dark:bg-white/10'}`}
+            className={`px-4 py-2 rounded-full text-sm shrink-0 btn-press transition-colors duration-200 ${tab === t.id ? 'bg-volt text-ink font-medium' : 'bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15'}`}
           >
             {t.label}
           </button>
@@ -1470,7 +1470,7 @@ function Field({ label, children, className = '' }: { label: string; children: R
 
 function Stat({ label, value, tone }: { label: string; value: string; tone?: 'crimson' }) {
   return (
-    <div className="rounded-2xl border border-black/10 dark:border-white/10 p-5">
+    <div className="rounded-2xl border border-black/10 dark:border-white/10 p-5 card-premium">
       <p className="text-xs uppercase tracking-widest2 text-steel">{label}</p>
       <p className={`font-display text-3xl mt-2 tabular ${tone === 'crimson' ? 'text-crimson' : ''}`}>{value}</p>
     </div>
