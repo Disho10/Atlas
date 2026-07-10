@@ -8,7 +8,7 @@ import { useCart, useCurrency, useWishlist } from './Providers';
 import { formatCurrency } from '@/lib/mockData';
 import { HeartIcon, CheckIcon } from './icons';
 
-export default function ProductCard({ product }: { product: Product }) {
+export default function ProductCard({ product, isNew = false }: { product: Product; isNew?: boolean }) {
   const { currency } = useCurrency();
   const { ids, toggle } = useWishlist();
   const { add } = useCart();
@@ -36,6 +36,7 @@ export default function ProductCard({ product }: { product: Product }) {
           className="object-cover card-img"
         />
         <div className="absolute top-2 left-2 flex flex-col gap-1">
+          {isNew && !product.comingSoon && <Badge tone="volt">New</Badge>}
           {product.hot && <Badge tone="crimson">Hot</Badge>}
           {product.comingSoon && <Badge tone="ink">Coming Soon</Badge>}
           {lowStock && !product.comingSoon && <Badge tone="steel">Low stock</Badge>}
@@ -79,11 +80,12 @@ export default function ProductCard({ product }: { product: Product }) {
   );
 }
 
-function Badge({ children, tone }: { children: React.ReactNode; tone: 'crimson' | 'ink' | 'steel' }) {
+function Badge({ children, tone }: { children: React.ReactNode; tone: 'crimson' | 'ink' | 'steel' | 'volt' }) {
   const toneMap = {
     crimson: 'bg-crimson text-white',
     ink: 'bg-ink text-chalk',
     steel: 'bg-steel text-white',
+    volt: 'bg-volt text-ink',
   } as const;
   return (
     <span className={`text-[10px] uppercase tracking-wide px-2 py-1 rounded-full ${toneMap[tone]}`}>

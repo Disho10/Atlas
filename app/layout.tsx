@@ -7,6 +7,8 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ConsentBanner from '@/components/ConsentBanner';
 import ChatWidget from '@/components/ChatWidget';
+import RouteProgress from '@/components/RouteProgress';
+import BackToTop from '@/components/BackToTop';
 
 // Display: Bebas Neue — tall, condensed, stadium-signage energy for headlines.
 // Body: Inter — quiet, highly legible workhorse so the display face can be loud
@@ -61,11 +63,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <LocaleProvider initialLocale="en">
           <Providers>
+            <RouteProgress />
             <Header />
             {children}
             <Footer />
             <ConsentBanner />
             <ChatWidget />
+            <BackToTop />
           </Providers>
         </LocaleProvider>
       </body>

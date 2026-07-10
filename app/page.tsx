@@ -32,7 +32,7 @@ export default async function HomePage() {
       <StatsBand />
       <CategorySlider />
       <ProductRail titleKey="home.hotTitle" subtitleKey="home.hotSubtitle" products={hot} />
-      <ProductRail titleKey="home.justDroppedTitle" subtitleKey="home.justDroppedSubtitle" products={newest} />
+      <ProductRail titleKey="home.justDroppedTitle" subtitleKey="home.justDroppedSubtitle" products={newest} showNewBadge />
 
       <SportswearPromo products={sportswear} />
 

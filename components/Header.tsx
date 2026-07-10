@@ -6,6 +6,8 @@ import { useState, useEffect } from 'react';
 import { useCart, useCurrency, useTheme, useWishlist, useAuth } from './Providers';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
 import { leagues } from '@/lib/mockData';
+import LeagueCrest from './LeagueCrest';
+import DiagonalSplitBg from './DiagonalSplitBg';
 
 export default function Header() {
   const { count } = useCart();
@@ -62,9 +64,29 @@ export default function Header() {
 
           <nav className="hidden lg:flex items-center gap-5 text-sm uppercase tracking-wide">
             {leagues.slice(0, 4).map(l => (
-              <Link key={l.slug} href={`/leagues/${l.slug}`} className="nav-sweep pb-1" style={{ fontFamily: l.font }}>
-                {l.name}
-              </Link>
+              <div key={l.slug} className="relative group/nav">
+                <Link href={`/leagues/${l.slug}`} className="nav-sweep pb-1 inline-block" style={{ fontFamily: l.font }}>
+                  {l.name}
+                </Link>
+                {/* Mega-menu preview — appears on hover/focus, one league at a time */}
+                <div className="absolute left-1/2 -translate-x-1/2 top-full pt-3 opacity-0 invisible -translate-y-1 group-hover/nav:opacity-100 group-hover/nav:visible group-hover/nav:translate-y-0 group-focus-within/nav:opacity-100 group-focus-within/nav:visible group-focus-within/nav:translate-y-0 transition-all duration-250 ease-[cubic-bezier(0.16,1,0.3,1)] z-40">
+                  <div className="w-64 rounded-2xl overflow-hidden shadow-2xl border border-black/10 dark:border-white/10 bg-chalk dark:bg-ink normal-case">
+                    <div className="relative h-24">
+                      <DiagonalSplitBg color={l.primary} />
+                      <div className="relative z-10 h-full flex items-center justify-center">
+                        <LeagueCrest league={l} size={52} />
+                      </div>
+                    </div>
+                    <div className="p-4">
+                      <p className="text-[11px] text-steel uppercase tracking-widest2">{l.country}</p>
+                      <p className="font-display text-xl mt-0.5" style={{ fontFamily: l.font }}>{l.name}</p>
+                      <Link href={`/leagues/${l.slug}`} className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-ink dark:text-chalk chip-underline">
+                        Shop {l.name} →
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              </div>
             ))}
             <Link href="/leagues" className="nav-sweep pb-1 text-steel">
               {t('nav.allLeagues')}

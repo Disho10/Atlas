@@ -6,7 +6,7 @@ import { Reveal } from './Motion';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
 import type { TranslationKey } from '@/lib/i18n/dictionary';
 
-export default function ProductRail({ titleKey, subtitleKey, products }: { titleKey: TranslationKey; subtitleKey?: TranslationKey; products: Product[] }) {
+export default function ProductRail({ titleKey, subtitleKey, products, showNewBadge = false }: { titleKey: TranslationKey; subtitleKey?: TranslationKey; products: Product[]; showNewBadge?: boolean }) {
   const { t } = useLocale();
   return (
     <section className="max-w-7xl mx-auto px-6 py-10">
@@ -19,7 +19,7 @@ export default function ProductRail({ titleKey, subtitleKey, products }: { title
       <div className="grid grid-cols-2 md:grid-cols-4 gap-5 md:gap-6">
         {products.map((p, i) => (
           <Reveal key={p.id} delay={i * 90}>
-            <ProductCard product={p} />
+            <ProductCard product={p} isNew={showNewBadge} />
           </Reveal>
         ))}
       </div>

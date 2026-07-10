@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Reveal } from './Motion';
 import Scoreboard from './Scoreboard';
 import TiltCard from './TiltCard';
@@ -88,22 +88,45 @@ export function TrustBadges() {
 // Review text itself comes from customers and isn't translated — only the
 // surrounding chrome ("What customers say" / "Verified buyer") is.
 // ---------------------------------------------------------------------------
-type Testimonial = { quote: string; name: string };
+type Testimonial = { quote: string; name: string; rating?: number };
+
+const AUTO_ADVANCE_MS = 6000;
+
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/);
+  return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase() || 'A';
+}
 
 export function Testimonials({ reviews = [] }: { reviews?: Testimonial[] }) {
   const [i, setI] = useState(0);
   const { t } = useLocale();
+
+  useEffect(() => {
+    if (reviews.length <= 1) return;
+    const id = setInterval(() => setI(idx => (idx + 1) % reviews.length), AUTO_ADVANCE_MS);
+    return () => clearInterval(id);
+  }, [reviews.length]);
+
   if (reviews.length === 0) return null;
   const tItem = reviews[Math.min(i, reviews.length - 1)];
+  const rating = tItem.rating ?? 5;
 
   return (
     <section className="bg-pitch text-chalk">
       <div className="max-w-3xl mx-auto px-6 py-16 text-center">
         <p className="text-volt text-xs uppercase tracking-widest2 mb-6">{t('home.whatCustomersSay')}</p>
-        <blockquote key={i} className="font-display text-2xl md:text-3xl leading-snug animate-rise">
-          “{tItem.quote}”
-        </blockquote>
-        <p className="mt-5 text-chalk/60 text-sm">{tItem.name} · {t('home.verifiedBuyer')}</p>
+        <div key={i} className="animate-rise">
+          <div className="w-14 h-14 rounded-full bg-volt/15 border border-volt/30 text-volt font-display text-lg flex items-center justify-center mx-auto mb-5">
+            {initials(tItem.name)}
+          </div>
+          <p className="text-volt text-sm mb-3" aria-hidden>
+            {'★'.repeat(Math.round(rating))}<span className="text-chalk/25">{'★'.repeat(5 - Math.round(rating))}</span>
+          </p>
+          <blockquote className="font-display text-2xl md:text-3xl leading-snug">
+            “{tItem.quote}”
+          </blockquote>
+          <p className="mt-5 text-chalk/60 text-sm">{tItem.name} · {t('home.verifiedBuyer')}</p>
+        </div>
         {reviews.length > 1 && (
           <div className="flex gap-2 justify-center mt-8">
             {reviews.map((_, idx) => (
@@ -111,8 +134,17 @@ export function Testimonials({ reviews = [] }: { reviews?: Testimonial[] }) {
                 key={idx}
                 onClick={() => setI(idx)}
                 aria-label={`Testimonial ${idx + 1}`}
-                className={`h-1.5 rounded-full transition-all duration-300 ${idx === i ? 'w-8 bg-volt' : 'w-3 bg-chalk/25'}`}
-              />
+                className="relative h-1.5 w-8 rounded-full bg-chalk/25 overflow-hidden btn-press"
+              >
+                {idx === i && (
+                  <span
+                    key={i}
+                    className="absolute inset-y-0 left-0 bg-volt rounded-full"
+                    style={{ animation: `testimonial-fill ${AUTO_ADVANCE_MS}ms linear forwards` }}
+                  />
+                )}
+                {idx < i && <span className="absolute inset-0 bg-volt rounded-full" />}
+              </button>
             ))}
           </div>
         )}

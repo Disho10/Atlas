@@ -357,3 +357,13 @@ html {
 @media (prefers-reduced-motion: reduce) {
   .scroll-cue { animation: none; }
 }
+
+/* Testimonial auto-advance dot fill — width driven by inline animation
+   (see components/SocialProof.tsx) so its duration always matches the
+   carousel's actual interval. The global prefers-reduced-motion block
+   above already zeroes animation-duration for every element, including
+   this one, so no extra override is needed here. */
+@keyframes testimonial-fill {
+  from { width: 0%; }
+  to   { width: 100%; }
+}
