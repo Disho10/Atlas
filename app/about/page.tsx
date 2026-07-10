@@ -1,3 +1,5 @@
+import { Reveal, CountUp } from '@/components/Motion';
+
 export default function AboutPage() {
   return (
     <main>
@@ -41,13 +43,15 @@ export default function AboutPage() {
       <section className="max-w-3xl mx-auto px-6 pb-6">
         <h2 className="font-display text-3xl mb-10">The journey so far</h2>
         <div className="relative border-l-2 border-black/10 dark:border-white/15 pl-8 space-y-12">
-          {TIMELINE.map(t => (
-            <div key={t.year} className="relative">
-              <span className="absolute -left-[41px] top-1 w-4 h-4 rounded-full bg-volt border-4 border-chalk dark:border-ink" />
-              <p className="font-display text-2xl text-crimson">{t.year}</p>
-              <p className="font-medium mt-1">{t.title}</p>
-              <p className="text-steel text-sm mt-2 leading-relaxed max-w-md">{t.body}</p>
-            </div>
+          {TIMELINE.map((t, i) => (
+            <Reveal key={t.year} delay={i * 70}>
+              <div className="relative">
+                <span className="absolute -left-[41px] top-1 w-4 h-4 rounded-full bg-volt border-4 border-chalk dark:border-ink" />
+                <p className="font-display text-2xl text-crimson">{t.year}</p>
+                <p className="font-medium mt-1">{t.title}</p>
+                <p className="text-steel text-sm mt-2 leading-relaxed max-w-md">{t.body}</p>
+              </div>
+            </Reveal>
           ))}
         </div>
       </section>
@@ -94,7 +98,7 @@ const TIMELINE = [
 function Stat({ n, l }: { n: string; l: string }) {
   return (
     <div>
-      <p className="font-display text-4xl">{n}</p>
+      <CountUp value={n} className="font-display text-4xl" />
       <p className="text-steel text-sm mt-1">{l}</p>
     </div>
   );

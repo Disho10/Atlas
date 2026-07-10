@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
 import Logo from '@/components/Logo';
+import { Reveal } from '@/components/Motion';
 
 export default function SignInPage() {
   return (
@@ -62,7 +63,8 @@ function SignInInner() {
   return (
     <div className="min-h-screen flex">
       {/* Left panel — dark brand side */}
-      <div className="hidden lg:flex lg:w-2/5 bg-ink text-chalk flex-col justify-between p-10 relative overflow-hidden">
+      <Reveal variant="left" className="hidden lg:flex lg:w-2/5">
+      <div className="w-full h-full flex flex-col justify-between p-10 bg-ink text-chalk relative overflow-hidden">
         <div className="glow-orb w-80 h-80 bg-volt -bottom-20 -left-20 opacity-20" />
         <div className="glow-orb w-64 h-64 bg-crimson top-20 -right-10 opacity-15" />
         <div className="relative z-10">
@@ -84,10 +86,11 @@ function SignInInner() {
           <span>{t('signin.statCod')}</span>
         </div>
       </div>
+      </Reveal>
 
       {/* Right panel — form */}
       <div className="flex-1 flex items-center justify-center px-6 py-12">
-        <div className="w-full max-w-md">
+        <Reveal variant="scale" className="w-full max-w-md">
           {/* Mobile logo */}
           <div className="lg:hidden mb-8 flex justify-center">
             <Logo />
@@ -125,10 +128,10 @@ function SignInInner() {
           </div>
 
           {/* Toggle tabs */}
-          <div className="flex bg-black/5 dark:bg-white/5 rounded-2xl p-1 mb-6">
+          <div className="flex gap-6 border-b border-black/10 dark:border-white/10 mb-6">
             {(['signin', 'signup'] as const).map(m => (
-              <button key={m} onClick={() => setMode(m)}
-                className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all ${mode === m ? 'bg-white dark:bg-ink shadow-sm' : 'text-steel'}`}>
+              <button key={m} onClick={() => setMode(m)} data-active={mode === m}
+                className={`chip-underline py-2.5 text-sm font-medium ${mode === m ? '' : 'text-steel'}`}>
                 {m === 'signin' ? t('nav.signIn') : t('signin.createAccount')}
               </button>
             ))}
@@ -177,7 +180,7 @@ function SignInInner() {
             <a href="/terms" className="underline">{t('footer.terms')}</a> {t('signin.and')}{' '}
             <a href="/privacy" className="underline">{t('footer.privacy')}</a>.
           </p>
-        </div>
+        </Reveal>
       </div>
     </div>
   );

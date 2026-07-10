@@ -78,7 +78,16 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
   return (
     <label className="flex items-center justify-between cursor-pointer">
       <span>{label}</span>
-      <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} className="w-5 h-5 accent-[#D6FF3F]" />
+      <span
+        role="checkbox"
+        aria-checked={checked}
+        tabIndex={0}
+        onClick={() => onChange(!checked)}
+        onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onChange(!checked))}
+        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 ${checked ? 'bg-volt' : 'bg-black/15 dark:bg-white/15'}`}
+      >
+        <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${checked ? 'translate-x-6' : 'translate-x-1'}`} />
+      </span>
     </label>
   );
 }

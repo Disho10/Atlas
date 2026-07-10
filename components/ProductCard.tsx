@@ -30,7 +30,7 @@ export default function ProductCard({ product }: { product: Product }) {
         </div>
         <button
           onClick={(e) => { e.preventDefault(); toggle(product.id); }}
-          className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/90 dark:bg-ink/80 flex items-center justify-center text-ink dark:text-chalk"
+          className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/90 dark:bg-ink/80 flex items-center justify-center text-ink dark:text-chalk btn-press"
           aria-label="Toggle wishlist"
         >
           <HeartIcon filled={wished} className={`w-4 h-4 ${wished ? 'text-crimson' : ''}`} />

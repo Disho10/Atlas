@@ -70,7 +70,7 @@ function Tiles({ t }: { t: (key: TranslationKey) => string }) {
 
 function Tile({ href, title, desc }: { href: string; title: string; desc: string }) {
   return (
-    <Link href={href} className="rounded-2xl border border-black/10 dark:border-white/10 p-5 card-hover block">
+    <Link href={href} className="rounded-2xl border border-black/10 dark:border-white/10 p-5 card-premium block">
       <p className="font-medium">{title}</p>
       <p className="text-sm text-steel mt-1">{desc}</p>
     </Link>

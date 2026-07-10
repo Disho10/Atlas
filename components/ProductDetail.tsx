@@ -274,7 +274,7 @@ export default function ProductDetail({ product, initialReviews, related }: { pr
           <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
             {reviews.filter(r => r.photo).map(r => (
               <div key={r.id} className="aspect-square rounded-xl overflow-hidden bg-black/5 dark:bg-white/5">
-                <img src={r.photo} alt={`Customer photo by ${r.author}`} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
+                <img src={r.photo} alt={`Customer photo by ${r.author}`} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]" />
               </div>
             ))}
           </div>
@@ -380,7 +380,7 @@ function GalleryBlock({ product }: { product: Product }) {
             <button
               key={i}
               onClick={() => setActiveIdx(i)}
-              className={`shrink-0 w-16 h-20 rounded-xl overflow-hidden border-2 transition-colors ${i === activeIdx ? 'border-volt' : 'border-transparent opacity-60 hover:opacity-100'}`}
+              className={`shrink-0 w-16 h-20 rounded-xl overflow-hidden border-2 transition-colors btn-press ${i === activeIdx ? 'border-volt' : 'border-transparent opacity-60 hover:opacity-100'}`}
             >
               <ProductImage src={src} alt={`View ${i + 1}`} width={64} height={80} className="object-cover w-full h-full" />
             </button>
@@ -401,11 +401,11 @@ function Accordion({ id, title, open, setOpen, children }: { id: string; title: 
         aria-expanded={isOpen}
       >
         {title}
-        <span className={`shrink-0 transition-transform duration-300 ${isOpen ? 'rotate-45' : ''}`}>
+        <span className={`shrink-0 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${isOpen ? 'rotate-45' : ''}`}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14" /></svg>
         </span>
       </button>
-      <div className={`overflow-hidden transition-all duration-300 ${isOpen ? 'max-h-48 pb-4' : 'max-h-0'}`}>
+      <div className={`overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${isOpen ? 'max-h-48 pb-4' : 'max-h-0'}`}>
         <p className="text-steel text-sm leading-relaxed">{children}</p>
       </div>
     </div>

@@ -237,7 +237,7 @@ export default function AdminPanel({
           ) : (
             <div className="space-y-2">
               {restockScores.map((r, i) => (
-                <div key={r.id} className="flex items-center gap-3 border border-black/10 dark:border-white/10 rounded-xl px-4 py-3">
+                <div key={r.id} className="flex items-center gap-3 border border-black/10 dark:border-white/10 rounded-xl px-4 py-3 card-hover">
                   <span className="text-xs text-steel w-5 tabular">{i + 1}</span>
                   <span className="flex-1 text-sm">{r.name}</span>
                   <span className={`text-xs tabular w-16 text-right ${r.stock <= 3 ? 'text-crimson' : 'text-steel'}`}>{r.stock} left</span>
@@ -318,7 +318,7 @@ export default function AdminPanel({
                 { label: 'WhatsApp', value: byChannel.whatsapp, color: 'bg-[#25D366]' },
                 { label: 'Instagram', value: byChannel.instagram, color: 'bg-[#E1306C]' },
               ].map(ch => (
-                <div key={ch.label} className="border border-black/10 dark:border-white/10 rounded-2xl p-5">
+                <div key={ch.label} className="border border-black/10 dark:border-white/10 rounded-2xl p-5 card-premium">
                   <div className="flex items-center gap-2 mb-2">
                     <div className={`w-2.5 h-2.5 rounded-full ${ch.color}`} />
                     <span className="text-xs uppercase tracking-wide text-steel">{ch.label}</span>
@@ -334,7 +334,7 @@ export default function AdminPanel({
           <Section title="Order pipeline" desc="Where orders currently stand">
             <div className="grid grid-cols-4 gap-2 text-center">
               {Object.entries(byStatus).map(([status, count]) => (
-                <div key={status} className="border border-black/10 dark:border-white/10 rounded-xl p-4">
+                <div key={status} className="border border-black/10 dark:border-white/10 rounded-xl p-4 card-premium">
                   <p className="font-display text-2xl tabular">{count}</p>
                   <p className="text-xs text-steel capitalize mt-1">{status}</p>
                 </div>
@@ -1377,7 +1377,7 @@ function OrderRow({ order: o, role, demoMode, onDone }: { order: Order; role: st
   };
 
   return (
-    <div className="border border-black/10 dark:border-white/10 rounded-xl overflow-hidden">
+    <div className="border border-black/10 dark:border-white/10 rounded-xl overflow-hidden card-hover">
       <button onClick={() => setExpanded(e => !e)} className="w-full flex items-center gap-3 px-4 py-3 text-left">
         <span className="w-24 text-sm tabular font-mono">{o.id}</span>
         <span className="flex-1 text-sm truncate">
@@ -1450,7 +1450,7 @@ const inputCls = 'w-full border border-black/15 dark:border-white/20 bg-transpar
 function Modal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-[100] flex items-start justify-center p-4 overflow-y-auto bg-black/50 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-chalk dark:bg-ink rounded-3xl p-6 md:p-8 w-full max-w-2xl my-8 shadow-2xl" onClick={e => e.stopPropagation()}>
+      <div className="bg-chalk dark:bg-ink rounded-3xl p-6 md:p-8 w-full max-w-2xl my-8 shadow-2xl animate-rise" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-6">
           <h2 className="font-display text-2xl">{title}</h2>
           <button onClick={onClose} aria-label="Close" className="w-9 h-9 rounded-full bg-black/5 dark:bg-white/10 flex items-center justify-center">
@@ -1492,5 +1492,5 @@ function Section({ title, desc, children }: { title: string; desc?: string; chil
 }
 
 function Row({ children }: { children: React.ReactNode }) {
-  return <div className="flex items-center gap-3 border border-black/10 dark:border-white/10 rounded-xl px-4 py-3">{children}</div>;
+  return <div className="flex items-center gap-3 border border-black/10 dark:border-white/10 rounded-xl px-4 py-3 card-hover">{children}</div>;
 }

@@ -22,7 +22,7 @@ export default function DiagonalSplitBg({
   splitBottom?: number;
 }) {
   return (
-    <>
+    <div className="absolute inset-0 card-img">
       <div className="absolute inset-0 bg-white" />
       <div
         className="absolute inset-0"
@@ -31,6 +31,6 @@ export default function DiagonalSplitBg({
           clipPath: `polygon(0% ${splitBottom}%, 100% ${splitTop}%, 100% 100%, 0% 100%)`,
         }}
       />
-    </>
+    </div>
   );
 }

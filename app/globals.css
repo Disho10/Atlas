@@ -269,3 +269,16 @@ html {
 @media (prefers-reduced-motion: reduce) {
   .animate-rise { animation: none; opacity: 1 !important; transform: none !important; }
 }
+
+/* Quick fade for functional stage/step transitions (checkout) — short and
+   subtle on purpose, this isn't a hero moment. */
+@keyframes stage-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.stage-fade {
+  animation: stage-fade .2s ease both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage-fade { animation: none; opacity: 1 !important; }
+}

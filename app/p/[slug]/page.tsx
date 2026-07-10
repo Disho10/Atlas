@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { Reveal } from '@/components/Motion';
 
 const HAS_SUPABASE = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 
@@ -23,9 +24,11 @@ export default async function CustomPage({ params }: { params: Promise<{ slug: s
 
   return (
     <main>
-      {blocks.map((b, i) => (
-        <BlockRenderer key={i} block={b} />
-      ))}
+      <Reveal>
+        {blocks.map((b, i) => (
+          <BlockRenderer key={i} block={b} />
+        ))}
+      </Reveal>
     </main>
   );
 }
@@ -50,14 +53,14 @@ function BlockRenderer({ block: b }: { block: Block }) {
       return b.src ? (
         <div className="max-w-4xl mx-auto px-6 py-4">
           {/* eslint-disable @next/next/no-img-element */}
-          <img src={b.src} alt="" className="w-full rounded-2xl" />
+          <img src={b.src} alt={b.content || 'Page image'} className="w-full rounded-2xl" />
         </div>
       ) : null;
 
     case 'logo':
       return b.src ? (
         <div className="max-w-4xl mx-auto px-6 py-6 flex justify-center">
-          <img src={b.src} alt="" className="max-h-32 object-contain" />
+          <img src={b.src} alt={b.content || 'Logo'} className="max-h-32 object-contain" />
         </div>
       ) : null;
 

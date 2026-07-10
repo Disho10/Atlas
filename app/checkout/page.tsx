@@ -167,7 +167,7 @@ export default function CheckoutPage() {
   // -------------------------------------------------------------------------
   if (stage === 'confirmed') {
     return (
-      <main className="max-w-lg mx-auto px-6 py-24 text-center">
+      <main className="max-w-lg mx-auto px-6 py-24 text-center stage-fade">
         <div className="w-16 h-16 rounded-full bg-volt flex items-center justify-center mx-auto mb-6">
           <CheckIcon className="w-7 h-7 text-ink" />
         </div>
@@ -189,7 +189,7 @@ export default function CheckoutPage() {
   if (stage === 'payment') {
     const instructions = PAYMENT_INSTRUCTIONS[method];
     return (
-      <main className="max-w-lg mx-auto px-6 py-16">
+      <main className="max-w-lg mx-auto px-6 py-16 stage-fade">
         <div className="rounded-3xl border border-black/10 dark:border-white/10 p-8">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-full bg-volt/20 flex items-center justify-center text-lg">
@@ -239,7 +239,7 @@ export default function CheckoutPage() {
   // CHECKOUT FORM
   // -------------------------------------------------------------------------
   return (
-    <main className="max-w-4xl mx-auto px-6 py-12">
+    <main className="max-w-4xl mx-auto px-6 py-12 stage-fade">
       <h1 className="font-display text-3xl mb-8">{t('checkout.title')}</h1>
       <div className="grid md:grid-cols-5 gap-10">
 
@@ -270,7 +270,7 @@ export default function CheckoutPage() {
             <div className="grid sm:grid-cols-2 gap-3">
               {METHODS.map(m => (
                 <button key={m.value} onClick={() => setMethod(m.value)}
-                  className={`border rounded-xl px-4 py-3.5 text-left transition-all ${
+                  className={`border rounded-xl px-4 py-3.5 text-left transition-all btn-press ${
                     method === m.value
                       ? 'border-volt bg-volt/5 dark:bg-volt/10'
                       : 'border-black/15 dark:border-white/20 hover:border-black/30 dark:hover:border-white/30'

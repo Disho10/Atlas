@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { redeemPoints } from '../actions';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
 import type { TranslationKey } from '@/lib/i18n/dictionary';
+import { Reveal } from '@/components/Motion';
 
 type Ledger = { delta: number; reason: string; date: string };
 
@@ -85,9 +86,10 @@ export default function LoyaltyClient({ balance, lifetime, ledger, demoMode = fa
       </div>
 
       {/* Tiers */}
+      <Reveal>
       <div className="grid sm:grid-cols-3 gap-3 mb-10">
         {TIERS.map((tr, i) => (
-          <div key={tr.id} className={`rounded-2xl border p-4 ${i === tierIndex ? 'border-volt' : 'border-black/10 dark:border-white/10'}`}>
+          <div key={tr.id} className={`rounded-2xl border p-4 card-hover ${i === tierIndex ? 'border-volt' : 'border-black/10 dark:border-white/10'}`}>
             <p className="font-medium text-sm">{t(tr.labelKey)}</p>
             <p className="text-xs text-steel mb-2">{tr.min}+ {t('account.lifetimePts')}</p>
             <ul className="text-xs text-steel space-y-1">
@@ -96,9 +98,11 @@ export default function LoyaltyClient({ balance, lifetime, ledger, demoMode = fa
           </div>
         ))}
       </div>
+      </Reveal>
 
       {/* Redemption */}
-      <div className="rounded-2xl border border-black/10 dark:border-white/10 p-6 mb-10">
+      <Reveal>
+      <div className="rounded-2xl border border-black/10 dark:border-white/10 p-6 mb-10 card-hover">
         <h2 className="font-medium mb-1">{t('account.redeemPointsTitle')}</h2>
         <p className="text-xs text-steel mb-4">{t('account.redeemDesc')}</p>
         <div className="flex items-center gap-3">
@@ -114,13 +118,15 @@ export default function LoyaltyClient({ balance, lifetime, ledger, demoMode = fa
         {msg && <p className={`text-sm mt-3 ${msg.ok ? 'text-pitch dark:text-volt' : 'text-crimson'}`}>{msg.text}</p>}
         <p className="text-xs text-steel mt-4">Points can also go toward specific low-cost items (socks, shin pads) — ask at checkout.</p>
       </div>
+      </Reveal>
 
       {/* History */}
+      <Reveal>
       <h2 className="font-medium mb-3">{t('account.recentActivity')}</h2>
       <div className="space-y-2">
         {ledger.length === 0 && <p className="text-steel text-sm">{t('account.noActivityYet')}</p>}
         {ledger.map((l, i) => (
-          <div key={i} className="flex items-center justify-between border border-black/10 dark:border-white/10 rounded-xl px-4 py-3 text-sm">
+          <div key={i} className="flex items-center justify-between border border-black/10 dark:border-white/10 rounded-xl px-4 py-3 text-sm card-hover">
             <span>{REASON_LABELS[l.reason] ?? l.reason}<span className="text-steel"> · {l.date}</span></span>
             <span className={`tabular font-medium ${l.delta >= 0 ? 'text-pitch dark:text-volt' : 'text-crimson'}`}>
               {l.delta >= 0 ? '+' : ''}{l.delta}
@@ -128,6 +134,7 @@ export default function LoyaltyClient({ balance, lifetime, ledger, demoMode = fa
           </div>
         ))}
       </div>
+      </Reveal>
 
       <p className="text-xs text-steel mt-8">
         {t('account.pointsExpireNotice')}

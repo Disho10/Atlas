@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useCart, useCurrency } from '@/components/Providers';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
 import { formatCurrency } from '@/lib/mockData';
+import { Reveal } from '@/components/Motion';
 
 export default function CartPage() {
   const { lines, remove, setQty, subtotal } = useCart();
@@ -33,6 +34,7 @@ export default function CartPage() {
 
   return (
     <main className="max-w-5xl mx-auto px-6 py-12">
+      <Reveal>
       <h1 className="font-display text-3xl mb-8">{t('cart.title')} <span className="text-steel text-xl font-sans">({lines.reduce((s, l) => s + l.qty, 0)} items)</span></h1>
 
       {/* Free shipping progress */}
@@ -55,7 +57,7 @@ export default function CartPage() {
         {/* Items */}
         <div className="md:col-span-2 space-y-4">
           {lines.map(l => (
-            <div key={l.product.id + l.size + l.variant} className="flex gap-4 rounded-2xl border border-black/10 dark:border-white/10 p-4">
+            <div key={l.product.id + l.size + l.variant} className="flex gap-4 rounded-2xl border border-black/10 dark:border-white/10 p-4 card-hover">
               <div className="relative w-24 h-28 rounded-xl overflow-hidden bg-black/5 dark:bg-white/5 shrink-0">
                 {l.product.image && <Image src={l.product.image} alt={l.product.name} fill className="object-cover" />}
               </div>
@@ -71,11 +73,11 @@ export default function CartPage() {
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center border border-black/15 dark:border-white/20 rounded-full">
-                    <button onClick={() => setQty(l.product.id, l.size, l.qty - 1)} className="w-8 h-8 text-lg leading-none">−</button>
+                    <button onClick={() => setQty(l.product.id, l.size, l.qty - 1)} className="w-8 h-8 text-lg leading-none btn-press">−</button>
                     <span className="w-8 text-center text-sm tabular">{l.qty}</span>
-                    <button onClick={() => setQty(l.product.id, l.size, l.qty + 1)} className="w-8 h-8 text-lg leading-none">+</button>
+                    <button onClick={() => setQty(l.product.id, l.size, l.qty + 1)} className="w-8 h-8 text-lg leading-none btn-press">+</button>
                   </div>
-                  <button onClick={() => remove(l.product.id, l.size)} className="text-xs text-steel hover:text-crimson transition-colors">{t('cart.remove')}</button>
+                  <button onClick={() => remove(l.product.id, l.size)} className="text-xs text-steel hover:text-crimson transition-colors btn-press">{t('cart.remove')}</button>
                 </div>
               </div>
             </div>
@@ -113,19 +115,29 @@ export default function CartPage() {
             <Link href="/checkout" className="block text-center bg-volt text-ink rounded-full py-4 font-semibold text-sm btn-press">
               {t('cart.checkout')} →
             </Link>
-            <Link href="/" className="block text-center text-sm text-steel mt-3 hover:underline">
+            <Link href="/" className="inline-block text-sm text-steel mt-3 nav-sweep pb-0.5">
               {t('cart.continueShopping')}
             </Link>
 
             {/* Trust strip */}
             <div className="mt-5 pt-4 border-t border-black/10 dark:border-white/10 grid grid-cols-3 gap-2 text-center text-[10px] text-steel">
-              <div>🚚 2–4 day delivery</div>
-              <div>💵 Cash on delivery</div>
-              <div>↩ 14-day returns</div>
+              <div className="flex flex-col items-center gap-1">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 6h11v10H3zM14 10h4l3 3v3h-7z" /><circle cx="7" cy="18" r="1.5" /><circle cx="18" cy="18" r="1.5" /></svg>
+                2–4 day delivery
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /></svg>
+                Cash on delivery
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 12a9 9 0 109-9" /><path d="M3 4v5h5" /></svg>
+                14-day returns
+              </div>
             </div>
           </div>
         </div>
       </div>
+      </Reveal>
     </main>
   );
 }

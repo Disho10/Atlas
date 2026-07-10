@@ -82,7 +82,7 @@ export default function SearchClient({ query, products, leagues }: {
           </select>
         </label>
         {activeFilters > 0 && (
-          <button onClick={() => { setTeam('all'); setLeague('all'); setCategory('all'); setGender('all'); setTag('all'); setPriceCeil(null); }} className="text-sm underline underline-offset-2 text-steel px-2">
+          <button onClick={() => { setTeam('all'); setLeague('all'); setCategory('all'); setGender('all'); setTag('all'); setPriceCeil(null); }} className="text-sm underline underline-offset-2 text-steel px-2 btn-press">
             Clear ({activeFilters})
           </button>
         )}
@@ -105,7 +105,20 @@ export default function SearchClient({ query, products, leagues }: {
       </div>
 
       {filtered.length === 0 ? (
-        <p className="text-steel py-16 text-center">Nothing matches those filters. Try widening them.</p>
+        <div className="text-center py-24 rounded-3xl border border-dashed border-black/15 dark:border-white/15">
+          <div className="w-16 h-16 rounded-full bg-black/5 dark:bg-white/5 flex items-center justify-center mx-auto mb-5">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-steel">
+              <circle cx="11" cy="11" r="7" /><path d="M21 21l-4.35-4.35" />
+            </svg>
+          </div>
+          <h2 className="font-display text-2xl mb-2">Nothing matches</h2>
+          <p className="text-steel text-sm mb-6 max-w-xs mx-auto">Try widening your filters or searching a different term.</p>
+          {activeFilters > 0 && (
+            <button onClick={() => { setTeam('all'); setLeague('all'); setCategory('all'); setGender('all'); setTag('all'); setPriceCeil(null); }} className="inline-block bg-volt text-ink px-6 py-3 rounded-full font-medium btn-press text-sm">
+              Clear filters
+            </button>
+          )}
+        </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-5 md:gap-6">
           {filtered.map((p, i) => (
