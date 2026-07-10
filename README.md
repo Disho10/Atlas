@@ -1,95 +1,47 @@
-# Round 4 — full re-audit + the 5 missing features
+# Compatible with your current repo (verified against it directly)
 
-This supersedes the round-3 zip from earlier — everything in that one
-(the ESLint fix, the `proxy.ts` tweak, the league-page typo fix) is
-included here too, so you only need to apply this one.
+I re-cloned your actual GitHub repo instead of assuming — good thing I did.
+Turns out you'd only merged the *first pass* of my last round (PHASE 5.5),
+not the deeper fixes I did after in the same conversation (the ArrowRail
+bug, the full account/sign-in/track/admin translation expansion). Your own
+PHASE 5.6 design update (new fonts, header/hero tweaks, admin tab styling)
+was layered on top of that older base.
 
-40 files: 17 new, 23 modified. All paths below are relative to your repo
-root — copy each file to the matching path, overwriting where it exists.
+So this isn't the same package as before — I rebuilt it against your real
+current code, file by file, specifically preserving every PHASE 5.6 change
+you made (the `scrollbar-hide`, `btn-press`, `card-premium`, hover states,
+font variables — all still there). Where `AdminPanel.tsx` needed both your
+styling and my translation wiring in the same lines, I merged them by hand
+rather than picking one.
 
-## What's in here
+**17 files** — 16 modified, 1 new (`components/SportswearPromo.tsx`).
+Everything else in your repo (globals.css, Hero.tsx, Header.tsx's
+transparency tweak, layout.tsx's fonts) is untouched.
 
-**Real bugs found by actually running things** (not just reading code):
-- `npm run lint` was dead — Next 16 removed `next lint` entirely (round 3).
-- League page showed "All Categorys" — pluralization bug (round 3).
-- **The security migration from last round had a real bug**: the trigger
-  that stops customers self-promoting to Owner also silently blocked the
-  *entire loyalty system* — signup bonuses, purchase points, referral
-  rewards, redemptions. Found by actually running the migrations against a
-  local Postgres and placing a test order, not by re-reading the SQL.
-- **COD orders have never earned loyalty points**, full stop, since before
-  any of my changes — the points trigger only fired on order *status
-  updates*, but COD orders are inserted already-confirmed, so the trigger
-  never ran for what's probably your most common payment method.
-- `rate_limit_hits` (new table, see below) had no RLS enabled — would have
-  leaked customer phone numbers/emails and let anyone reset their own
-  rate limit by deleting their rows.
-- Product page's "out of stock" button only checked per-size flags, never
-  overall stock — a product with total stock at 0 but no size individually
-  flagged could still be added to cart.
+## What's in this batch
+Same content as what I described last time — the `ArrowRail` RTL scroll
+fix, and translation coverage going from ~40 strings to 222 (homepage,
+full account section, sign-in, tracking, admin nav). Full detail on what's
+translated vs intentionally still-English is in my previous message; that
+reasoning didn't change, only the base code it's applied to did.
 
-**The 5 things from your list:**
-1. **Stock decrement** — `place_order()` now atomically decrements stock
-   and rejects the order if there isn't enough (blocks overselling under
-   concurrent checkouts, verified with a real double-checkout test).
-2. **Rate limiting** — a small Postgres-backed limiter, applied to
-   checkout (5 orders / 15 min per phone-or-account) and promo code
-   validation (20/min per IP). Sign-in itself is already rate-limited by
-   Supabase's own Auth service, so no extra code needed there.
-3. **Admin audit log** — every admin action (product edits, order status
-   changes, staff role changes, promo creation, etc.) now logs who did
-   what. View it at `/admin/activity` (staff only).
-4. **Sort + price range** — added to both `/search` and the league pages.
-5. **"Notify me when back in stock"** — shows up on the product page when
-   an item's out of stock; emails everyone who asked once it's restocked.
+## Verified against your actual repo, not a guess
+- Cloned `github.com/Disho10/Atlas` fresh, confirmed exactly which files
+  your PHASE 5.6 touched vs what I still needed to add
+- `npx tsc --noEmit` — clean
+- `npm test` — 16/16 passing
+- `bash supabase/tests/run.sh` — all 6 DB regression checks passing
+  (signup bonus, COD purchase points, stock decrement, oversell
+  rejection, role-escalation guard)
+- `npm run build` — compiles clean; the actual production build in this
+  sandbox fails only because it can't reach `fonts.googleapis.com` to
+  fetch Bebas Neue/Inter (your `next/font/google` setup from PHASE 5.6) —
+  that's a sandbox network restriction on my end, not a code problem.
+  Vercel's build servers can reach Google Fonts fine; this will build
+  normally there. Worth a `npm run build` on your own machine too before
+  you fully trust it, given that's the one thing I couldn't verify
+  end-to-end here.
 
-**SEO** — `sitemap.xml`, `robots.txt`, and every product/league page now
-gets its own title/description/share-image instead of one generic one
-site-wide.
-
-**Tests** — `npm test` runs 16 unit tests (Vitest) for the pure logic
-(cart math, loyalty conversion, the Telegram/email escaping). More
-importantly, `supabase/tests/run.sh` spins up a real disposable Postgres,
-applies every migration, and exercises `place_order()` end to end —
-signup bonus, COD purchase points, stock decrement, overselling rejection,
-and the role-escalation guard. This is what caught the two loyalty bugs
-above. Re-run it after any future migration change.
-
-**Arabic + RTL** — real infrastructure (language switcher in the header,
-persisted preference, `dir="rtl"` applied at the document level), with
-navigation, footer, cart, and checkout translated. This is deliberately
-**not full-site coverage** — product descriptions, the admin panel, and
-most account subpages are still English-only. `lib/i18n/dictionary.ts` is
-where you add more strings; every page already has the plumbing to use
-them. I also caught and fixed a real performance regression this
-introduced (reading the locale from a cookie server-side turned every
-static page into a server-rendered-per-request one) — locale is now
-resolved client-side on mount instead, so static generation is untouched.
-
-## Setup, in order
-
-1. **Run the new migration** against your live Supabase project:
-   `supabase/migrations/0006_stock_ratelimit_audit_notify.sql`
-   (SQL Editor or `supabase db push`)
-2. **Redeploy the two edge functions** (their imports changed):
-   ```
-   supabase functions deploy notify-telegram
-   supabase functions deploy send-receipt
-   ```
-3. **Copy the files in**, then:
-   ```
-   npm install
-   npm run build   # sanity check
-   npm test        # 16 unit tests
-   ```
-4. **(Optional but recommended) run the DB regression suite** — needs a
-   local Postgres reachable via `psql`:
-   ```
-   bash supabase/tests/run.sh
-   ```
-5. **Set `NEXT_PUBLIC_SITE_URL`** in your environment (Vercel project
-   settings) to your real domain once you have one — it's used for the
-   sitemap and social-share links. Falls back to the current Vercel URL
-   if unset.
-
-No other env vars needed — everything else reuses what you already have.
+## Setup
+Nothing new needed beyond last time — no additional env vars or
+migrations. Copy the 17 files in, `npm install`, done.

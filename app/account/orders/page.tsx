@@ -1,12 +1,22 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
+import { translate, type Locale, type TranslationKey } from '@/lib/i18n/dictionary';
+import { COOKIE_NAME } from '@/lib/i18n/LocaleProvider';
 
 const HAS_SUPABASE = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 
+async function getT() {
+  const cookieStore = await cookies();
+  const locale = (cookieStore.get(COOKIE_NAME)?.value === 'ar' ? 'ar' : 'en') as Locale;
+  return (key: TranslationKey) => translate(locale, key);
+}
+
 export default async function OrdersPage() {
+  const t = await getT();
   if (!HAS_SUPABASE) {
-    return <Shell orders={[]} demoMode />;
+    return <Shell orders={[]} demoMode t={t} />;
   }
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -20,17 +30,17 @@ export default async function OrdersPage() {
 
   return <Shell orders={(data ?? []).map(o => ({
     number: o.order_number ?? '—', status: o.status, date: (o.created_at ?? '').slice(0, 10), total: Number(o.subtotal_usd),
-  }))} />;
+  }))} t={t} />;
 }
 
-function Shell({ orders, demoMode = false }: { orders: { number: string; status: string; date: string; total: number }[]; demoMode?: boolean }) {
+function Shell({ orders, demoMode = false, t }: { orders: { number: string; status: string; date: string; total: number }[]; demoMode?: boolean; t: (key: TranslationKey) => string }) {
   return (
     <main className="max-w-2xl mx-auto px-6 py-12">
-      <h1 className="font-display text-3xl mb-2">Your orders</h1>
-      <p className="text-steel text-sm mb-8">Tap any order for live tracking, returns, or exchanges.</p>
+      <h1 className="font-display text-3xl mb-2">{t('account.yourOrders')}</h1>
+      <p className="text-steel text-sm mb-8">{t('account.tapForTracking')}</p>
       {demoMode && <p className="text-steel text-sm mb-6">Connect Supabase and sign in to see your real orders.</p>}
       <div className="space-y-2">
-        {orders.length === 0 && !demoMode && <p className="text-steel text-sm">No orders yet. When you place one, it'll show here.</p>}
+        {orders.length === 0 && !demoMode && <p className="text-steel text-sm">{t('account.noOrdersYet')}</p>}
         {orders.map(o => (
           <Link key={o.number} href="/track" className="flex items-center justify-between border border-black/10 dark:border-white/10 rounded-xl px-4 py-3.5 text-sm card-premium">
             <span className="font-mono">{o.number}</span>
@@ -40,7 +50,7 @@ function Shell({ orders, demoMode = false }: { orders: { number: string; status:
           </Link>
         ))}
       </div>
-      <Link href="/track" className="inline-block mt-8 text-sm underline underline-offset-2">Track an order by number →</Link>
+      <Link href="/track" className="inline-block mt-8 text-sm underline underline-offset-2">{t('account.trackByNumber')}</Link>
     </main>
   );
 }

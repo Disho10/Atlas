@@ -11,11 +11,22 @@ export default function ArrowRail({ children, className = '' }: { children: Reac
   const [canLeft, setCanLeft] = useState(false);
   const [canRight, setCanRight] = useState(false);
 
+  // Modern browsers report scrollLeft as 0..maxScroll in LTR, but 0..-maxScroll
+  // in RTL (the spec-compliant "negative" convention). scrollBy({left}) already
+  // moves the viewport in a consistent physical direction either way — it's
+  // only this boundary math that assumed scrollLeft is never negative, which
+  // silently pinned canLeft to false and broke canRight the moment someone
+  // switched the page to Arabic. Normalizing to "distance scrolled left" fixes
+  // both directions with the same logic.
   const update = () => {
     const el = trackRef.current;
     if (!el) return;
-    setCanLeft(el.scrollLeft > 4);
-    setCanRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    if (maxScroll <= 0) { setCanLeft(false); setCanRight(false); return; }
+    const isRtl = getComputedStyle(el).direction === 'rtl';
+    const scrolledLeft = isRtl ? -el.scrollLeft : el.scrollLeft;
+    setCanLeft(scrolledLeft > 4);
+    setCanRight(scrolledLeft < maxScroll - 4);
   };
 
   useEffect(() => {

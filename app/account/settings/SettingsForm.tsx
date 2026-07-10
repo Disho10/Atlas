@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { updateSettings } from '../actions';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 
 type Initial = {
   full_name: string; email: string; phone: string; birthday: string;
@@ -13,6 +14,7 @@ export default function SettingsForm({ initial, demoMode = false }: { initial: I
   const [f, setF] = useState(initial);
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const { t } = useLocale();
   const set = (k: keyof Initial, v: any) => setF(prev => ({ ...prev, [k]: v }));
 
   const save = () => {
@@ -26,39 +28,39 @@ export default function SettingsForm({ initial, demoMode = false }: { initial: I
         notify_order_updates: f.notify_order_updates,
         notify_rewards: f.notify_rewards,
       });
-      setMsg(res.ok ? { ok: true, text: 'Saved.' } : { ok: false, text: res.error });
+      setMsg(res.ok ? { ok: true, text: t('account.saved') } : { ok: false, text: res.error });
     });
   };
 
   return (
     <main className="max-w-lg mx-auto px-6 py-12">
-      <h1 className="font-display text-3xl mb-8">Settings</h1>
+      <h1 className="font-display text-3xl mb-8">{t('account.settingsTitle')}</h1>
 
       <section className="mb-8">
-        <h2 className="text-sm font-medium mb-3">Profile</h2>
+        <h2 className="text-sm font-medium mb-3">{t('account.profile')}</h2>
         <div className="space-y-3">
-          <Field label="Name"><input value={f.full_name} onChange={e => set('full_name', e.target.value)} className={inputCls} /></Field>
-          <Field label="Email"><input value={f.email} disabled className={`${inputCls} opacity-60`} /></Field>
-          <Field label="Phone"><input value={f.phone} onChange={e => set('phone', e.target.value)} className={inputCls} /></Field>
-          <Field label="Birthday (optional — unlocks a small birthday treat)">
+          <Field label={t('account.name')}><input value={f.full_name} onChange={e => set('full_name', e.target.value)} className={inputCls} /></Field>
+          <Field label={t('account.email')}><input value={f.email} disabled className={`${inputCls} opacity-60`} /></Field>
+          <Field label={t('account.phone')}><input value={f.phone} onChange={e => set('phone', e.target.value)} className={inputCls} /></Field>
+          <Field label={t('account.birthdayOptional')}>
             <input type="date" value={f.birthday ?? ''} onChange={e => set('birthday', e.target.value)} className={inputCls} />
           </Field>
         </div>
       </section>
 
       <section>
-        <h2 className="text-sm font-medium mb-3">Email notifications</h2>
+        <h2 className="text-sm font-medium mb-3">{t('account.emailNotifications')}</h2>
         <div className="space-y-3 text-sm">
-          <Toggle label="New categories go live" checked={f.notify_new_categories} onChange={v => set('notify_new_categories', v)} />
-          <Toggle label="Products related to tags I've viewed" checked={f.notify_tag_matches} onChange={v => set('notify_tag_matches', v)} />
-          <Toggle label="Order status updates" checked={f.notify_order_updates} onChange={v => set('notify_order_updates', v)} />
-          <Toggle label="Loyalty & referral rewards" checked={f.notify_rewards} onChange={v => set('notify_rewards', v)} />
+          <Toggle label={t('account.notifyNewCategories')} checked={f.notify_new_categories} onChange={v => set('notify_new_categories', v)} />
+          <Toggle label={t('account.notifyTagMatches')} checked={f.notify_tag_matches} onChange={v => set('notify_tag_matches', v)} />
+          <Toggle label={t('account.notifyOrderUpdates')} checked={f.notify_order_updates} onChange={v => set('notify_order_updates', v)} />
+          <Toggle label={t('account.notifyRewards')} checked={f.notify_rewards} onChange={v => set('notify_rewards', v)} />
         </div>
       </section>
 
       <div className="mt-8 flex items-center gap-4">
         <button onClick={save} disabled={pending} className="bg-volt text-ink rounded-full px-6 py-3 text-sm font-medium btn-press disabled:opacity-50">
-          {pending ? 'Saving…' : 'Save changes'}
+          {pending ? t('account.saving') : t('account.saveChanges')}
         </button>
         {msg && <span className={`text-sm ${msg.ok ? 'text-pitch dark:text-volt' : 'text-crimson'}`}>{msg.text}</span>}
       </div>

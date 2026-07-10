@@ -3,6 +3,7 @@
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 import Logo from '@/components/Logo';
 
 export default function SignInPage() {
@@ -14,6 +15,7 @@ export default function SignInPage() {
 }
 
 function SignInInner() {
+  const { t } = useLocale();
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -68,18 +70,18 @@ function SignInInner() {
         </div>
         <div className="relative z-10">
           <blockquote className="font-display text-4xl leading-tight mb-4">
-            Wear the<br /><span className="text-volt">culture.</span>
+            {t('signin.wearTheCulture')}
           </blockquote>
           <p className="text-chalk/60 text-sm max-w-xs">
-            Authentic kits and match-day gear from every major league, delivered across Lebanon.
+            {t('signin.leftPanelBody')}
           </p>
         </div>
         <div className="relative z-10 flex gap-4 text-xs text-chalk/40">
-          <span>6 Leagues</span>
+          <span>{t('signin.statLeagues')}</span>
           <span>·</span>
-          <span>500+ Kits</span>
+          <span>{t('signin.statKits')}</span>
           <span>·</span>
-          <span>Cash on delivery</span>
+          <span>{t('signin.statCod')}</span>
         </div>
       </div>
 
@@ -93,12 +95,12 @@ function SignInInner() {
 
           <div className="mb-8">
             <h1 className="font-display text-3xl mb-1">
-              {mode === 'signin' ? 'Welcome back' : 'Create account'}
+              {mode === 'signin' ? t('signin.welcomeBack') : t('signin.createAccount')}
             </h1>
             <p className="text-steel text-sm">
               {mode === 'signin'
-                ? 'Sign in to track orders, access your wishlist, and earn points.'
-                : 'Join Atlas — track orders, earn loyalty points, and get exclusive drops.'}
+                ? t('signin.signInSubtitle')
+                : t('signin.createSubtitle')}
             </p>
           </div>
 
@@ -127,19 +129,19 @@ function SignInInner() {
             {(['signin', 'signup'] as const).map(m => (
               <button key={m} onClick={() => setMode(m)}
                 className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all ${mode === m ? 'bg-white dark:bg-ink shadow-sm' : 'text-steel'}`}>
-                {m === 'signin' ? 'Sign in' : 'Create account'}
+                {m === 'signin' ? t('nav.signIn') : t('signin.createAccount')}
               </button>
             ))}
           </div>
 
           <form onSubmit={submit} className="space-y-3">
             {mode === 'signup' && (
-              <input placeholder="Full name" value={fullName} onChange={e => setFullName(e.target.value)} className={inputCls} />
+              <input placeholder={t('signin.fullName')} value={fullName} onChange={e => setFullName(e.target.value)} className={inputCls} />
             )}
-            <input placeholder="Email address" type="email" value={email} onChange={e => setEmail(e.target.value)} required className={inputCls} />
+            <input placeholder={t('signin.emailAddress')} type="email" value={email} onChange={e => setEmail(e.target.value)} required className={inputCls} />
             <div className="relative">
               <input
-                placeholder="Password"
+                placeholder={t('signin.password')}
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={e => setPassword(e.target.value)}
@@ -148,12 +150,12 @@ function SignInInner() {
               />
               <button type="button" onClick={() => setShowPassword(s => !s)}
                 className="absolute right-4 top-1/2 -translate-y-1/2 text-steel text-xs">
-                {showPassword ? 'Hide' : 'Show'}
+                {showPassword ? t('signin.hide') : t('signin.show')}
               </button>
             </div>
             {mode === 'signup' && (
               <label className="block">
-                <span className="block text-xs text-steel mb-1.5">Birthday <span className="opacity-60">(optional — unlocks a birthday gift)</span></span>
+                <span className="block text-xs text-steel mb-1.5">{t('signin.birthdayHint')}</span>
                 <input type="date" value={birthday} onChange={e => setBirthday(e.target.value)} className={inputCls} />
               </label>
             )}
@@ -166,14 +168,14 @@ function SignInInner() {
 
             <button type="submit" disabled={loading}
               className="w-full bg-volt text-ink rounded-2xl py-4 font-semibold text-sm btn-press disabled:opacity-50 mt-2">
-              {loading ? 'Please wait…' : mode === 'signin' ? 'Sign in' : 'Create account'}
+              {loading ? t('signin.pleaseWait') : mode === 'signin' ? t('nav.signIn') : t('signin.createAccount')}
             </button>
           </form>
 
           <p className="text-xs text-steel text-center mt-6">
-            By continuing you agree to Atlas's{' '}
-            <a href="/terms" className="underline">Terms</a> and{' '}
-            <a href="/privacy" className="underline">Privacy Policy</a>.
+            {t('signin.agreeTermsPrefix')}{' '}
+            <a href="/terms" className="underline">{t('footer.terms')}</a> {t('signin.and')}{' '}
+            <a href="/privacy" className="underline">{t('footer.privacy')}</a>.
           </p>
         </div>
       </div>

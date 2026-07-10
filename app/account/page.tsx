@@ -1,18 +1,33 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
+import { translate, type Locale, type TranslationKey } from '@/lib/i18n/dictionary';
+import { COOKIE_NAME } from '@/lib/i18n/LocaleProvider';
 import SignOutButton from '@/components/SignOutButton';
 
 const HAS_SUPABASE = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 
+// Account pages always require an auth check (redirect if signed out), which
+// already makes them server-rendered per-request in a real deployment — so
+// reading the locale cookie here costs nothing extra, unlike the marketing
+// pages (see app/layout.tsx for why those avoid it).
+async function getT() {
+  const cookieStore = await cookies();
+  const locale = (cookieStore.get(COOKIE_NAME)?.value === 'ar' ? 'ar' : 'en') as Locale;
+  return (key: TranslationKey) => translate(locale, key);
+}
+
 export default async function AccountPage() {
+  const t = await getT();
+
   if (!HAS_SUPABASE) {
     // Prototype mode — no Supabase configured yet, show the page with placeholder context.
     return (
       <main className="max-w-4xl mx-auto px-6 py-12">
-        <h1 className="font-display text-3xl mb-1">Welcome back</h1>
+        <h1 className="font-display text-3xl mb-1">{t('account.welcomeBack')}</h1>
         <p className="text-steel mb-8">Connect Supabase (see BACKEND_INTEGRATION.md) to enable real accounts.</p>
-        <Tiles />
+        <Tiles t={t} />
       </main>
     );
   }
@@ -31,24 +46,24 @@ export default async function AccountPage() {
   return (
     <main className="max-w-4xl mx-auto px-6 py-12">
       <div className="flex items-start justify-between mb-1">
-        <h1 className="font-display text-3xl">Welcome back, {p?.full_name?.split(' ')[0] || 'there'}</h1>
+        <h1 className="font-display text-3xl">{t('account.welcomeBack')}, {p?.full_name?.split(' ')[0] || 'there'}</h1>
         <SignOutButton />
       </div>
-      <p className="text-steel mb-8">{p?.loyalty_points ?? 0} loyalty points{p?.role !== 'customer' ? ` · ${p?.role}` : ''}</p>
-      <Tiles />
+      <p className="text-steel mb-8">{p?.loyalty_points ?? 0} {t('account.loyaltyPoints')}{p?.role !== 'customer' ? ` · ${p?.role}` : ''}</p>
+      <Tiles t={t} />
     </main>
   );
 }
 
-function Tiles() {
+function Tiles({ t }: { t: (key: TranslationKey) => string }) {
   return (
     <div className="grid sm:grid-cols-2 gap-4">
-      <Tile href="/account/orders" title="Orders" desc="Track status: placed → confirmed → shipped → delivered" />
-      <Tile href="/account/wishlist" title="Wishlist" desc="Saved kits and gear" />
-      <Tile href="/account/returns" title="Returns & exchanges" desc="Start a return within 14 days" />
-      <Tile href="/account/referrals" title="Referrals" desc="Share your code, earn rewards" />
-      <Tile href="/account/settings" title="Settings" desc="Email, notifications, addresses" />
-      <Tile href="/account/loyalty" title="Loyalty points" desc="See tiers and rewards" />
+      <Tile href="/account/orders" title={t('account.orders')} desc={t('account.ordersDesc')} />
+      <Tile href="/account/wishlist" title={t('account.wishlist')} desc={t('account.wishlistDesc')} />
+      <Tile href="/account/returns" title={t('account.returnsExchanges')} desc={t('account.returnsDesc')} />
+      <Tile href="/account/referrals" title={t('account.referrals')} desc={t('account.referralsDesc')} />
+      <Tile href="/account/settings" title={t('account.settings')} desc={t('account.settingsDesc')} />
+      <Tile href="/account/loyalty" title={t('account.loyaltyTile')} desc={t('account.loyaltyTileDesc')} />
     </div>
   );
 }

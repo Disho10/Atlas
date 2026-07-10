@@ -1,17 +1,21 @@
+'use client';
+
 import Link from 'next/link';
 import { leagues } from '@/lib/mockData';
 import LeagueCrest from './LeagueCrest';
 import DiagonalSplitBg from './DiagonalSplitBg';
 import ArrowRail from './ArrowRail';
 import { Reveal } from './Motion';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
 
 export default function CategorySlider() {
+  const { t } = useLocale();
   return (
     <section className="max-w-7xl mx-auto px-6 py-10">
       <Reveal>
         <div className="flex items-baseline justify-between mb-5">
-          <h2 className="font-display text-2xl">Shop by League</h2>
-          <Link href="/leagues" className="text-sm chip-underline">View all</Link>
+          <h2 className="font-display text-2xl">{t('home.shopByLeague')}</h2>
+          <Link href="/leagues" className="text-sm chip-underline">{t('home.viewAll')}</Link>
         </div>
       </Reveal>
       <ArrowRail>

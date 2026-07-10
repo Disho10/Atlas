@@ -3,6 +3,8 @@
 import { useMemo, useState, useTransition } from 'react';
 import { formatCurrency, type Product, type Order } from '@/lib/mockData';
 import { saveProduct, deleteProduct, logManualOrder, logManualOrderMulti, updateOrderStatus, setStaffRole, createPromo, setExchangeRate, savePage, deletePage, saveHeroSlides } from '@/app/admin/actions';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
+import type { TranslationKey } from '@/lib/i18n/dictionary';
 
 type Role = 'owner' | 'manager' | 'admin';
 type LeagueOpt = { slug: string; name: string };
@@ -43,6 +45,7 @@ export default function AdminPanel({
   const [loggingOrder, setLoggingOrder] = useState(false);
   const [editingPage, setEditingPage] = useState<PageData | 'new' | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const { t } = useLocale();
 
   const canEditProducts = role === 'owner' || role === 'manager';
 
@@ -78,18 +81,19 @@ export default function AdminPanel({
     return products.filter(p => p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q) || p.tags.some(t => t.toLowerCase().includes(q)));
   }, [query, products]);
 
-  const tabs = [
-    { id: 'overview', label: 'Overview', roles: ['owner', 'manager', 'admin'] },
-    { id: 'orders', label: 'Orders', roles: ['owner', 'manager', 'admin'] },
-    { id: 'products', label: 'Products', roles: ['owner', 'manager', 'admin'] },
-    { id: 'requests', label: 'Restock priority', roles: ['owner', 'manager'] },
-    { id: 'analytics', label: 'Search analytics', roles: ['owner', 'manager'] },
-    { id: 'promos', label: 'Promo codes', roles: ['owner', 'manager'] },
-    { id: 'hero', label: 'Hero slides', roles: ['owner', 'manager'] },
-    { id: 'pages', label: 'Pages', roles: ['owner', 'manager'] },
-    { id: 'team', label: 'Team', roles: ['owner'] },
-    { id: 'finance', label: 'Finance', roles: ['owner'] },
-  ].filter(t => t.roles.includes(role));
+  const allTabs: { id: string; labelKey: TranslationKey; roles: Role[] }[] = [
+    { id: 'overview', labelKey: 'admin.overview', roles: ['owner', 'manager', 'admin'] },
+    { id: 'orders', labelKey: 'admin.orders', roles: ['owner', 'manager', 'admin'] },
+    { id: 'products', labelKey: 'admin.products', roles: ['owner', 'manager', 'admin'] },
+    { id: 'requests', labelKey: 'admin.restockPriority', roles: ['owner', 'manager'] },
+    { id: 'analytics', labelKey: 'admin.searchAnalytics', roles: ['owner', 'manager'] },
+    { id: 'promos', labelKey: 'admin.promoCodes', roles: ['owner', 'manager'] },
+    { id: 'hero', labelKey: 'admin.heroSlides', roles: ['owner', 'manager'] },
+    { id: 'pages', labelKey: 'admin.pages', roles: ['owner', 'manager'] },
+    { id: 'team', labelKey: 'admin.team', roles: ['owner'] },
+    { id: 'finance', labelKey: 'admin.finance', roles: ['owner'] },
+  ];
+  const tabs = allTabs.filter(tb => tb.roles.includes(role));
 
   const flash = (msg: string) => { setNotice(msg); setTimeout(() => setNotice(null), 3500); };
 
@@ -97,7 +101,7 @@ export default function AdminPanel({
     <main className="max-w-6xl mx-auto px-6 py-10">
       <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="font-display text-3xl">Staff Panel</h1>
+          <h1 className="font-display text-3xl">{t('nav.staffPanel')}</h1>
           <p className="text-steel text-sm">{demoMode ? 'Demo mode — connect Supabase for live data' : 'Signed in as'}</p>
         </div>
         {demoMode ? (
@@ -127,13 +131,13 @@ export default function AdminPanel({
       )}
 
       <div className="flex gap-2 mb-8 overflow-x-auto scrollbar-hide pb-1">
-        {tabs.map(t => (
+        {tabs.map(tb => (
           <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`px-4 py-2 rounded-full text-sm shrink-0 btn-press transition-colors duration-200 ${tab === t.id ? 'bg-volt text-ink font-medium' : 'bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15'}`}
+            key={tb.id}
+            onClick={() => setTab(tb.id)}
+            className={`px-4 py-2 rounded-full text-sm shrink-0 btn-press transition-colors duration-200 ${tab === tb.id ? 'bg-volt text-ink font-medium' : 'bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15'}`}
           >
-            {t.label}
+            {t(tb.labelKey)}
           </button>
         ))}
       </div>
