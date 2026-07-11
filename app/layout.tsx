@@ -9,6 +9,7 @@ import ConsentBanner from '@/components/ConsentBanner';
 import ChatWidget from '@/components/ChatWidget';
 import RouteProgress from '@/components/RouteProgress';
 import BackToTop from '@/components/BackToTop';
+import AnalyticsGate from '@/components/AnalyticsGate';
 
 // Display: Bebas Neue — tall, condensed, stadium-signage energy for headlines.
 // Body: Inter — quiet, highly legible workhorse so the display face can be loud
@@ -70,6 +71,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <ConsentBanner />
             <ChatWidget />
             <BackToTop />
+            <AnalyticsGate />
           </Providers>
         </LocaleProvider>
       </body>

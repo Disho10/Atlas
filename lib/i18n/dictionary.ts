@@ -234,6 +234,8 @@ export const translations = {
     'admin.pages': 'Pages',
     'admin.team': 'Team',
     'admin.finance': 'Finance',
+    'admin.reviews': 'Reviews',
+    'admin.returns': 'Returns',
     'admin.activityLog': 'Activity log',
 
     'common.save': 'Save',
@@ -468,6 +470,8 @@ export const translations = {
     'admin.pages': 'الصفحات',
     'admin.team': 'الفريق',
     'admin.finance': 'المالية',
+    'admin.reviews': 'التقييمات',
+    'admin.returns': 'الإرجاعات',
     'admin.activityLog': 'سجل النشاط',
 
     'common.save': 'حفظ',

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { formatCurrency, type Product, type Order } from '@/lib/mockData';
-import { saveProduct, deleteProduct, logManualOrder, logManualOrderMulti, updateOrderStatus, setStaffRole, createPromo, setPromoActive, setExchangeRate, savePage, deletePage, saveHeroSlides } from '@/app/admin/actions';
+import { saveProduct, deleteProduct, logManualOrder, logManualOrderMulti, updateOrderStatus, setStaffRole, createPromo, setPromoActive, setExchangeRate, savePage, deletePage, saveHeroSlides, setReviewHidden, resolveReturn } from '@/app/admin/actions';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
 import type { TranslationKey } from '@/lib/i18n/dictionary';
 
@@ -14,6 +14,15 @@ type PromoCode = {
   id: string; code: string; description: string; kind: string; amount: number;
   minSubtotalUsd: number; maxUses: number | null; usedCount: number; active: boolean;
   startsAt: string | null; endsAt: string | null; createdAt: string;
+};
+type ReviewItem = {
+  id: string; productId: string; productName: string; authorName: string; rating: number;
+  body: string; hidden: boolean; hiddenReason: string | null; createdAt: string;
+};
+type ReturnRequestItem = {
+  id: string; orderId: string; orderNumber: string; customerName: string; orderTotal: number;
+  type: string; reason: string; status: string; refundAmountUsd: number | null;
+  resolvedAt: string | null; createdAt: string;
 };
 
 export default function AdminPanel({
@@ -29,6 +38,8 @@ export default function AdminPanel({
   pages,
   loyaltyPointsOutstanding = 0,
   promoCodes = [],
+  reviews = [],
+  returnRequests = [],
   demoMode = false,
 }: {
   role: Role;
@@ -43,6 +54,8 @@ export default function AdminPanel({
   pages: PageData[];
   loyaltyPointsOutstanding?: number;
   promoCodes?: PromoCode[];
+  reviews?: ReviewItem[];
+  returnRequests?: ReturnRequestItem[];
   demoMode?: boolean;
 }) {
   const [role, setRole] = useState<Role>(fixedRole);
@@ -200,6 +213,21 @@ export default function AdminPanel({
   const hasActivePromo = promoCodes.some(p => p.active);
   // --- end promo suggestion signals -------------------------------------------
 
+  // Refunds actually paid out in the period — return_requests only becomes a
+  // real cost once staff approves/completes it with an amount; a filed-but-
+  // unresolved return isn't money out the door yet.
+  const periodRefunds = returnRequests.filter(r =>
+    (r.status === 'approved' || r.status === 'completed') &&
+    r.refundAmountUsd != null &&
+    r.resolvedAt &&
+    (financePeriod === 'all' || new Date(r.resolvedAt) >= periodCutoff)
+  );
+  const totalRefundsGiven = periodRefunds.reduce((s, r) => s + (r.refundAmountUsd ?? 0), 0);
+  const allTimeRefunds = returnRequests
+    .filter(r => (r.status === 'approved' || r.status === 'completed') && r.refundAmountUsd != null)
+    .reduce((s, r) => s + (r.refundAmountUsd ?? 0), 0);
+  const pendingReturnsCount = returnRequests.filter(r => r.status === 'submitted').length;
+
   const exportFinanceCsv = () => {
     const header = ['Order', 'Date', 'Customer', 'Payment method', 'Status', 'Total USD'];
     const rows = orders.map(o => [o.id, o.date, o.customer, o.paymentMethod, o.status, o.total.toFixed(2)]);
@@ -247,6 +275,8 @@ export default function AdminPanel({
     { id: 'hero', labelKey: 'admin.heroSlides', roles: ['owner', 'manager'] },
     { id: 'pages', labelKey: 'admin.pages', roles: ['owner', 'manager'] },
     { id: 'team', labelKey: 'admin.team', roles: ['owner'] },
+    { id: 'reviews', labelKey: 'admin.reviews', roles: ['owner', 'manager', 'admin'] },
+    { id: 'returns', labelKey: 'admin.returns', roles: ['owner', 'manager'] },
     { id: 'finance', labelKey: 'admin.finance', roles: ['owner'] },
   ];
   const tabs = allTabs.filter(tb => tb.roles.includes(role));
@@ -522,6 +552,14 @@ export default function AdminPanel({
         <TeamTab staff={staff} demoMode={demoMode} onDone={flash} now={now} />
       )}
 
+      {tab === 'reviews' && (
+        <ReviewsTab reviews={reviews} demoMode={demoMode} onDone={flash} />
+      )}
+
+      {tab === 'returns' && (
+        <ReturnsTab returnRequests={returnRequests} demoMode={demoMode} onDone={flash} />
+      )}
+
       {tab === 'finance' && (
         <>
           <ExchangeRateEditor initialRate={initialRate} demoMode={demoMode} onDone={flash} />
@@ -635,11 +673,15 @@ export default function AdminPanel({
           </Section>
 
           {/* Discounts & loyalty liability */}
-          <Section title="Discounts & loyalty" desc="What promotions and rewards are actually costing you">
-            <div className="grid sm:grid-cols-2 gap-3 mb-4">
+          <Section title="Discounts, refunds & loyalty" desc="What promotions, returns, and rewards are actually costing you">
+            <div className="grid sm:grid-cols-3 gap-3 mb-4">
               <Stat label="Discounts given (period)" value={formatCurrency(totalDiscountGiven, 'USD')} />
+              <Stat label="Refunds paid (period)" value={formatCurrency(totalRefundsGiven, 'USD')} tone={totalRefundsGiven > 0 ? 'crimson' : undefined} />
               <Stat label="Outstanding loyalty liability" value={formatCurrency(loyaltyLiabilityUsd, 'USD')} tone={loyaltyLiabilityUsd > revenue * 0.1 ? 'crimson' : undefined} />
             </div>
+            {pendingReturnsCount > 0 && (
+              <p className="text-xs text-crimson mb-4">{pendingReturnsCount} return{pendingReturnsCount === 1 ? '' : 's'} filed and waiting on a decision — see the Returns tab.</p>
+            )}
             {promoCodes.length > 0 && (
               <div className="space-y-2">
                 {promoCodes.map(p => (
@@ -718,11 +760,12 @@ export default function AdminPanel({
               {totalCost > 0 && <Row><span className="flex-1">Product costs (from cost field)</span><span className="tabular text-crimson">−{formatCurrency(totalCost, 'USD')}</span></Row>}
               <Row><span className="flex-1">Salaries</span><span className="tabular text-crimson">−{formatCurrency(salaries, 'USD')}</span></Row>
               <Row><span className="flex-1">Other costs</span><span className="tabular text-crimson">−{formatCurrency(otherCosts, 'USD')}</span></Row>
+              {allTimeRefunds > 0 && <Row><span className="flex-1">Refunds paid out</span><span className="tabular text-crimson">−{formatCurrency(allTimeRefunds, 'USD')}</span></Row>}
               {cancelledRevenue > 0 && <Row><span className="flex-1">Cancelled (already excluded)</span><span className="tabular text-steel">{formatCurrency(cancelledRevenue, 'USD')}</span></Row>}
               <div className="flex items-center justify-between border border-black/10 dark:border-white/10 rounded-xl px-4 py-3 bg-black/5 dark:bg-white/5">
                 <span className="flex-1 font-semibold">Net profit</span>
-                <span className={`tabular font-bold text-lg ${(revenue - totalCost - salaries - otherCosts) >= 0 ? 'text-pitch dark:text-volt' : 'text-crimson'}`}>
-                  {formatCurrency(revenue - totalCost - salaries - otherCosts, 'USD')}
+                <span className={`tabular font-bold text-lg ${(revenue - totalCost - salaries - otherCosts - allTimeRefunds) >= 0 ? 'text-pitch dark:text-volt' : 'text-crimson'}`}>
+                  {formatCurrency(revenue - totalCost - salaries - otherCosts - allTimeRefunds, 'USD')}
                 </span>
               </div>
             </div>
@@ -1347,6 +1390,165 @@ function TeamTab({ staff, demoMode, onDone, now }: { staff: StaffMember[]; demoM
         </div>
       </Section>
     </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// REVIEWS TAB — moderate customer reviews (hide/show, not hard-delete)
+// ---------------------------------------------------------------------------
+function ReviewsTab({ reviews, demoMode, onDone }: { reviews: ReviewItem[]; demoMode: boolean; onDone: (m: string) => void }) {
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<'all' | 'visible' | 'hidden'>('all');
+  const [reasonDraft, setReasonDraft] = useState<Record<string, string>>({});
+
+  const toggle = (r: ReviewItem) => {
+    setError(null);
+    start(async () => {
+      const res = await setReviewHidden(r.id, !r.hidden, !r.hidden ? (reasonDraft[r.id] || undefined) : undefined);
+      if (res.ok) onDone(r.hidden ? 'Review shown again.' : 'Review hidden.');
+      else setError(res.error);
+    });
+  };
+
+  const filtered = reviews.filter(r => filter === 'all' || (filter === 'hidden') === r.hidden);
+  const hiddenCount = reviews.filter(r => r.hidden).length;
+
+  return (
+    <Section title="Reviews" desc="Hidden reviews disappear from the product page immediately but aren't deleted — usage history and the review itself stay intact.">
+      <div className="flex gap-2 mb-4">
+        {(['all', 'visible', 'hidden'] as const).map(f => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            className={`text-xs font-medium px-3.5 py-1.5 rounded-full btn-press transition-colors capitalize ${filter === f ? 'bg-volt text-ink' : 'bg-black/5 dark:bg-white/10'}`}
+          >
+            {f}{f === 'hidden' && hiddenCount > 0 ? ` (${hiddenCount})` : ''}
+          </button>
+        ))}
+      </div>
+      {error && <p className="text-crimson text-sm mb-3">{error}</p>}
+      {filtered.length === 0 ? (
+        <p className="text-steel text-sm">No reviews match that filter.</p>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map(r => (
+            <div key={r.id} className="border border-black/10 dark:border-white/10 rounded-xl px-4 py-3 card-hover">
+              <div className="flex items-start gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm">
+                    <span className="font-medium">{r.authorName}</span>
+                    <span className="text-steel"> · {r.productName} · {'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)} · {r.createdAt}</span>
+                  </p>
+                  <p className="text-sm text-steel mt-1">{r.body}</p>
+                  {r.hidden && r.hiddenReason && <p className="text-xs text-crimson mt-1">Hidden: {r.hiddenReason}</p>}
+                </div>
+                <div className="flex flex-col items-end gap-2 shrink-0">
+                  <button
+                    onClick={() => toggle(r)}
+                    disabled={pending || demoMode}
+                    className={`text-xs px-2.5 py-1 rounded-full disabled:opacity-40 ${r.hidden ? 'bg-black/5 dark:bg-white/10 text-steel' : 'bg-pitch/10 text-pitch dark:bg-volt/10 dark:text-volt'}`}
+                  >
+                    {r.hidden ? 'Show again' : 'Hide'}
+                  </button>
+                </div>
+              </div>
+              {!r.hidden && (
+                <input
+                  value={reasonDraft[r.id] ?? ''}
+                  onChange={e => setReasonDraft(prev => ({ ...prev, [r.id]: e.target.value }))}
+                  placeholder="Reason if you hide this (optional, staff-only)"
+                  className="mt-2 w-full text-xs border border-black/10 dark:border-white/10 bg-transparent rounded-lg px-3 py-1.5"
+                />
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </Section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// RETURNS TAB — approve/reject filed returns and record the actual refund
+// amount, so it shows up as a real cost on the Finance tab instead of the
+// return_requests row just sitting there unresolved forever.
+// ---------------------------------------------------------------------------
+function ReturnsTab({ returnRequests, demoMode, onDone }: { returnRequests: ReturnRequestItem[]; demoMode: boolean; onDone: (m: string) => void }) {
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [refundDraft, setRefundDraft] = useState<Record<string, string>>({});
+  const [filter, setFilter] = useState<'pending' | 'all'>('pending');
+
+  const resolve = (r: ReturnRequestItem, decision: 'approved' | 'rejected' | 'completed') => {
+    setError(null);
+    const amount = decision === 'rejected' ? undefined : Number(refundDraft[r.id] ?? r.orderTotal);
+    start(async () => {
+      const res = await resolveReturn(r.id, decision, amount);
+      if (res.ok) onDone(`${r.orderNumber} marked ${decision}.`);
+      else setError(res.error);
+    });
+  };
+
+  const filtered = returnRequests.filter(r => filter === 'all' || r.status === 'submitted');
+
+  return (
+    <Section title="Returns & exchanges" desc="Approving records the refund amount so it counts as a real cost on the Finance tab — nothing here touches stock automatically.">
+      <div className="flex gap-2 mb-4">
+        {(['pending', 'all'] as const).map(f => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            className={`text-xs font-medium px-3.5 py-1.5 rounded-full btn-press transition-colors capitalize ${filter === f ? 'bg-volt text-ink' : 'bg-black/5 dark:bg-white/10'}`}
+          >
+            {f}
+          </button>
+        ))}
+      </div>
+      {error && <p className="text-crimson text-sm mb-3">{error}</p>}
+      {filtered.length === 0 ? (
+        <p className="text-steel text-sm">{filter === 'pending' ? 'Nothing waiting on a decision.' : 'No return requests yet.'}</p>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map(r => (
+            <div key={r.id} className="border border-black/10 dark:border-white/10 rounded-xl px-4 py-3 card-hover">
+              <div className="flex items-center gap-3 mb-2">
+                <span className="font-mono text-sm w-24">{r.orderNumber}</span>
+                <span className="text-sm flex-1 truncate">{r.customerName} <span className="text-steel">· {formatCurrency(r.orderTotal, 'USD')} order</span></span>
+                <span className="text-xs uppercase px-2 py-0.5 rounded-full bg-black/5 dark:bg-white/10">{r.type}</span>
+                <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${
+                  r.status === 'submitted' ? 'bg-crimson/10 text-crimson' :
+                  r.status === 'approved' || r.status === 'completed' ? 'bg-pitch/10 text-pitch dark:bg-volt/10 dark:text-volt' :
+                  'bg-black/5 dark:bg-white/10 text-steel'
+                }`}>{r.status}</span>
+              </div>
+              <p className="text-sm text-steel mb-2">{r.reason}</p>
+              {r.status === 'submitted' ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="text-xs text-steel">Refund $</label>
+                  <input
+                    type="number"
+                    defaultValue={r.orderTotal}
+                    onChange={e => setRefundDraft(prev => ({ ...prev, [r.id]: e.target.value }))}
+                    className="w-24 border border-black/15 dark:border-white/20 bg-transparent rounded-lg px-2.5 py-1.5 text-sm tabular"
+                  />
+                  <button onClick={() => resolve(r, 'approved')} disabled={pending || demoMode} className="text-xs font-medium bg-volt text-ink rounded-full px-4 py-1.5 btn-press disabled:opacity-40">
+                    Approve &amp; refund
+                  </button>
+                  <button onClick={() => resolve(r, 'rejected')} disabled={pending || demoMode} className="text-xs px-4 py-1.5 rounded-full border border-black/15 dark:border-white/20 disabled:opacity-40">
+                    Reject
+                  </button>
+                </div>
+              ) : (
+                r.refundAmountUsd != null && (
+                  <p className="text-xs text-steel">Refunded {formatCurrency(r.refundAmountUsd, 'USD')} on {(r.resolvedAt ?? '').slice(0, 10)}</p>
+                )
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </Section>
   );
 }
 

@@ -465,3 +465,53 @@ export async function saveHeroSlides(slides: {
   revalidatePath('/');
   return { ok: true };
 }
+
+// ---------------------------------------------------------------------------
+// REVIEW MODERATION — hide/show instead of only hard-delete. Available to any
+// staff tier (same bar as logging orders), not just owner/manager.
+// ---------------------------------------------------------------------------
+export async function setReviewHidden(id: string, hidden: boolean, reason?: string): Promise<ActionResult> {
+  const auth = await getRole();
+  if (!auth) return { ok: false, error: 'Not signed in.' };
+  if (!isStaff(auth.role)) return { ok: false, error: 'Staff only.' };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from('reviews')
+    .update({ hidden, hidden_reason: hidden ? (reason ?? null) : null })
+    .eq('id', id);
+  if (error) return { ok: false, error: error.message };
+  await logAudit(supabase, auth.userId, hidden ? 'review.hide' : 'review.show', id, reason ? { reason } : undefined);
+  revalidatePath('/admin');
+  revalidatePath('/product/[id]', 'page');
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// RETURNS — owner/manager approves/rejects a filed return and records what it
+// actually cost, so the Finance tab reflects real refund activity instead of
+// return_requests rows just sitting there unresolved.
+// ---------------------------------------------------------------------------
+export async function resolveReturn(
+  id: string,
+  decision: 'approved' | 'rejected' | 'completed',
+  refundAmountUsd?: number
+): Promise<ActionResult> {
+  const auth = await getRole();
+  if (!auth) return { ok: false, error: 'Not signed in.' };
+  if (!canEditProducts(auth.role)) return { ok: false, error: 'Only Owner and Manager can resolve returns.' };
+  if (decision !== 'rejected' && (refundAmountUsd == null || refundAmountUsd < 0)) {
+    return { ok: false, error: 'Enter a valid refund amount.' };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from('return_requests').update({
+    status: decision,
+    refund_amount_usd: decision === 'rejected' ? null : refundAmountUsd,
+    resolved_at: new Date().toISOString(),
+    resolved_by: auth.userId,
+  }).eq('id', id);
+  if (error) return { ok: false, error: error.message };
+  await logAudit(supabase, auth.userId, `return.${decision}`, id, refundAmountUsd != null ? { refund_amount_usd: refundAmountUsd } : undefined);
+  revalidatePath('/admin');
+  return { ok: true };
+}

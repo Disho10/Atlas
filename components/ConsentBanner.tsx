@@ -15,7 +15,10 @@ export default function ConsentBanner() {
 
   const decide = (value: 'accepted' | 'declined') => {
     window.localStorage.setItem('atlas-consent', value);
-    // TODO(backend): only initialize analytics / marketing pixels when value === 'accepted'
+    // AnalyticsGate (and anything else gated on consent) listens for this
+    // instead of polling — the native 'storage' event only fires in OTHER
+    // tabs, never the one that made the change.
+    window.dispatchEvent(new CustomEvent('atlas-consent-changed', { detail: value }));
     setStatus('set');
   };
 

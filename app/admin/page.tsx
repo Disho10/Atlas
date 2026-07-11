@@ -15,7 +15,7 @@ const HAS_SUPABASE = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 export default async function AdminPage() {
   // Prototype mode — no Supabase yet: keep the demo panel with a role switcher.
   if (!HAS_SUPABASE) {
-    return <AdminPanel role="owner" products={mockProducts} orders={mockOrders} zeroResultSearches={mockZero} leagues={[]} staff={[]} restockScores={[]} exchangeRate={89500} heroSlides={null} pages={[]} loyaltyPointsOutstanding={2450} promoCodes={[]} demoMode />;
+    return <AdminPanel role="owner" products={mockProducts} orders={mockOrders} zeroResultSearches={mockZero} leagues={[]} staff={[]} restockScores={[]} exchangeRate={89500} heroSlides={null} pages={[]} loyaltyPointsOutstanding={2450} promoCodes={[]} reviews={[]} returnRequests={[]} demoMode />;
   }
 
   const supabase = await createClient();
@@ -43,7 +43,7 @@ export default async function AdminPage() {
   // REST — the service-role key is the only way to read them, and we only
   // reach this line after the staff role check above.
   const svc = createServiceRoleClient();
-  const [{ data: productRows }, { data: orderRows }, { data: zeroRows }, { data: leagueRows }, { data: staffRows }, { data: settingsRows }, { data: pagesRows }, { data: loyaltyRows }, { data: promoRows }, { data: auditRows }] = await Promise.all([
+  const [{ data: productRows }, { data: orderRows }, { data: zeroRows }, { data: leagueRows }, { data: staffRows }, { data: settingsRows }, { data: pagesRows }, { data: loyaltyRows }, { data: promoRows }, { data: auditRows }, { data: reviewRows }, { data: returnRows }] = await Promise.all([
     svc.from('products').select(`${STAFF_PRODUCT_COLUMNS}, product_tags(tags(label))`).order('created_at', { ascending: false }),
     // Was .limit(100) — silently capped every finance figure (revenue, AOV,
     // top sellers, etc.) to only the 100 most recent orders, understating
@@ -63,6 +63,10 @@ export default async function AdminPage() {
     supabase.from('promo_codes').select('id, code, description, kind, amount, min_subtotal_usd, max_uses, used_count, active, starts_at, ends_at, created_at').order('created_at', { ascending: false }),
     // Last action per staff member, for the "last active" column on the Team tab.
     supabase.from('admin_audit_log').select('actor_id, action, created_at').order('created_at', { ascending: false }).limit(500),
+    // All reviews including hidden ones — staff-only via RLS ("not hidden or is_staff()").
+    supabase.from('reviews').select('id, product_id, author_name, rating, body, hidden, hidden_reason, created_at, products(name)').order('created_at', { ascending: false }).limit(300),
+    // Return/exchange requests with enough order context to act on them without a second click-through.
+    supabase.from('return_requests').select('id, order_id, type, reason, status, refund_amount_usd, resolved_at, created_at, orders(order_number, customer_name, subtotal_usd)').order('created_at', { ascending: false }).limit(200),
   ]);
 
   const pages = (pagesRows ?? []).map((p: any) => ({ id: p.id, slug: p.slug, title: p.title, blocks: p.blocks ?? [], published: p.published, updatedAt: (p.updated_at ?? '').slice(0, 10) }));
@@ -172,6 +176,20 @@ export default async function AdminPage() {
   }
   const staffWithActivity = staff.map(s => ({ ...s, lastActiveAt: lastActiveByStaff.get(s.id) ?? null }));
 
+  const reviews = (reviewRows ?? []).map((r: any) => ({
+    id: r.id, productId: r.product_id, productName: r.products?.name ?? 'Unknown product',
+    authorName: r.author_name, rating: r.rating, body: r.body,
+    hidden: r.hidden, hiddenReason: r.hidden_reason, createdAt: (r.created_at ?? '').slice(0, 10),
+  }));
+
+  const returnRequests = (returnRows ?? []).map((r: any) => ({
+    id: r.id, orderId: r.order_id, orderNumber: r.orders?.order_number ?? '—',
+    customerName: r.orders?.customer_name ?? '—', orderTotal: Number(r.orders?.subtotal_usd ?? 0),
+    type: r.type, reason: r.reason, status: r.status,
+    refundAmountUsd: r.refund_amount_usd != null ? Number(r.refund_amount_usd) : null,
+    resolvedAt: r.resolved_at, createdAt: (r.created_at ?? '').slice(0, 10),
+  }));
+
   return (
     <AdminPanel
       role={role as 'admin' | 'manager' | 'owner'}
@@ -186,6 +204,8 @@ export default async function AdminPage() {
       pages={pages}
       loyaltyPointsOutstanding={loyaltyPointsOutstanding}
       promoCodes={promoCodes}
+      reviews={reviews}
+      returnRequests={returnRequests}
     />
   );
 }
