@@ -255,6 +255,19 @@ export async function createPromo(input: {
   return { ok: true };
 }
 
+export async function setPromoActive(id: string, active: boolean): Promise<ActionResult> {
+  const auth = await getRole();
+  if (!auth) return { ok: false, error: 'Not signed in.' };
+  if (!canEditProducts(auth.role)) return { ok: false, error: 'Only Owner and Manager can change promo codes.' };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.from('promo_codes').update({ active }).eq('id', id).select('code').single();
+  if (error) return { ok: false, error: error.message };
+  await logAudit(supabase, auth.userId, active ? 'promo.activate' : 'promo.deactivate', data?.code ?? id);
+  revalidatePath('/admin');
+  return { ok: true };
+}
+
 // ---------------------------------------------------------------------------
 // EXCHANGE RATE — owner/manager sets the USD/LBP display rate
 // ---------------------------------------------------------------------------

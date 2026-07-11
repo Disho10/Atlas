@@ -15,7 +15,7 @@ const HAS_SUPABASE = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 export default async function AdminPage() {
   // Prototype mode — no Supabase yet: keep the demo panel with a role switcher.
   if (!HAS_SUPABASE) {
-    return <AdminPanel role="owner" products={mockProducts} orders={mockOrders} zeroResultSearches={mockZero} leagues={[]} staff={[]} restockScores={[]} exchangeRate={89500} heroSlides={null} pages={[]} loyaltyPointsOutstanding={2450} promoStats={[]} demoMode />;
+    return <AdminPanel role="owner" products={mockProducts} orders={mockOrders} zeroResultSearches={mockZero} leagues={[]} staff={[]} restockScores={[]} exchangeRate={89500} heroSlides={null} pages={[]} loyaltyPointsOutstanding={2450} promoCodes={[]} demoMode />;
   }
 
   const supabase = await createClient();
@@ -43,7 +43,7 @@ export default async function AdminPage() {
   // REST — the service-role key is the only way to read them, and we only
   // reach this line after the staff role check above.
   const svc = createServiceRoleClient();
-  const [{ data: productRows }, { data: orderRows }, { data: zeroRows }, { data: leagueRows }, { data: staffRows }, { data: settingsRows }, { data: pagesRows }, { data: loyaltyRows }, { data: promoRows }] = await Promise.all([
+  const [{ data: productRows }, { data: orderRows }, { data: zeroRows }, { data: leagueRows }, { data: staffRows }, { data: settingsRows }, { data: pagesRows }, { data: loyaltyRows }, { data: promoRows }, { data: auditRows }] = await Promise.all([
     svc.from('products').select(`${STAFF_PRODUCT_COLUMNS}, product_tags(tags(label))`).order('created_at', { ascending: false }),
     // Was .limit(100) — silently capped every finance figure (revenue, AOV,
     // top sellers, etc.) to only the 100 most recent orders, understating
@@ -60,7 +60,9 @@ export default async function AdminPage() {
     // Outstanding loyalty points across every customer — a real liability
     // (what it'd cost if everyone redeemed today), only meaningful to the owner.
     supabase.from('profiles').select('loyalty_points'),
-    supabase.from('promo_codes').select('code, kind, amount, used_count, active'),
+    supabase.from('promo_codes').select('id, code, description, kind, amount, min_subtotal_usd, max_uses, used_count, active, starts_at, ends_at, created_at').order('created_at', { ascending: false }),
+    // Last action per staff member, for the "last active" column on the Team tab.
+    supabase.from('admin_audit_log').select('actor_id, action, created_at').order('created_at', { ascending: false }).limit(500),
   ]);
 
   const pages = (pagesRows ?? []).map((p: any) => ({ id: p.id, slug: p.slug, title: p.title, blocks: p.blocks ?? [], published: p.published, updatedAt: (p.updated_at ?? '').slice(0, 10) }));
@@ -156,9 +158,19 @@ export default async function AdminPage() {
     .slice(0, 20);
 
   const loyaltyPointsOutstanding = (loyaltyRows ?? []).reduce((s: number, r: any) => s + (r.loyalty_points ?? 0), 0);
-  const promoStats = (promoRows ?? []).map((p: any) => ({
-    code: p.code, kind: p.kind, amount: Number(p.amount), usedCount: p.used_count ?? 0, active: p.active,
+  const promoCodes = (promoRows ?? []).map((p: any) => ({
+    id: p.id, code: p.code, description: p.description ?? '', kind: p.kind, amount: Number(p.amount),
+    minSubtotalUsd: Number(p.min_subtotal_usd ?? 0), maxUses: p.max_uses, usedCount: p.used_count ?? 0,
+    active: p.active, startsAt: p.starts_at, endsAt: p.ends_at, createdAt: p.created_at,
   }));
+
+  // Last action per staff member — admin_audit_log rows are already newest
+  // first, so the first match per actor_id is their most recent action.
+  const lastActiveByStaff = new Map<string, string>();
+  for (const row of auditRows ?? []) {
+    if (row.actor_id && !lastActiveByStaff.has(row.actor_id)) lastActiveByStaff.set(row.actor_id, row.created_at);
+  }
+  const staffWithActivity = staff.map(s => ({ ...s, lastActiveAt: lastActiveByStaff.get(s.id) ?? null }));
 
   return (
     <AdminPanel
@@ -167,13 +179,13 @@ export default async function AdminPage() {
       orders={orders}
       zeroResultSearches={zeroResultSearches}
       leagues={leagueOptions}
-      staff={staff}
+      staff={staffWithActivity}
       restockScores={restockScores}
       exchangeRate={Number((settingsRows ?? []).find((s: any) => s.key === 'usd_to_lbp')?.value ?? 89500)}
       heroSlides={(settingsRows ?? []).find((s: any) => s.key === 'hero_slides')?.value ? JSON.parse((settingsRows ?? []).find((s: any) => s.key === 'hero_slides')!.value) : null}
       pages={pages}
       loyaltyPointsOutstanding={loyaltyPointsOutstanding}
-      promoStats={promoStats}
+      promoCodes={promoCodes}
     />
   );
 }

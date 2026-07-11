@@ -1,15 +1,20 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { formatCurrency, type Product, type Order } from '@/lib/mockData';
-import { saveProduct, deleteProduct, logManualOrder, logManualOrderMulti, updateOrderStatus, setStaffRole, createPromo, setExchangeRate, savePage, deletePage, saveHeroSlides } from '@/app/admin/actions';
+import { saveProduct, deleteProduct, logManualOrder, logManualOrderMulti, updateOrderStatus, setStaffRole, createPromo, setPromoActive, setExchangeRate, savePage, deletePage, saveHeroSlides } from '@/app/admin/actions';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
 import type { TranslationKey } from '@/lib/i18n/dictionary';
 
 type Role = 'owner' | 'manager' | 'admin';
 type LeagueOpt = { slug: string; name: string };
-type StaffMember = { id: string; name: string; email: string; role: string };
+type StaffMember = { id: string; name: string; email: string; role: string; lastActiveAt?: string | null };
 type PageData = { id: string; slug: string; title: string; blocks: any[]; published: boolean; updatedAt: string };
+type PromoCode = {
+  id: string; code: string; description: string; kind: string; amount: number;
+  minSubtotalUsd: number; maxUses: number | null; usedCount: number; active: boolean;
+  startsAt: string | null; endsAt: string | null; createdAt: string;
+};
 
 export default function AdminPanel({
   role: fixedRole,
@@ -23,7 +28,7 @@ export default function AdminPanel({
   heroSlides: initialHeroSlides,
   pages,
   loyaltyPointsOutstanding = 0,
-  promoStats = [],
+  promoCodes = [],
   demoMode = false,
 }: {
   role: Role;
@@ -37,7 +42,7 @@ export default function AdminPanel({
   heroSlides: any[] | null;
   pages: PageData[];
   loyaltyPointsOutstanding?: number;
-  promoStats?: { code: string; kind: string; amount: number; usedCount: number; active: boolean }[];
+  promoCodes?: PromoCode[];
   demoMode?: boolean;
 }) {
   const [role, setRole] = useState<Role>(fixedRole);
@@ -49,7 +54,20 @@ export default function AdminPanel({
   const [loggingOrder, setLoggingOrder] = useState(false);
   const [editingPage, setEditingPage] = useState<PageData | 'new' | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [orderSearch, setOrderSearch] = useState('');
+  const [orderStatusFilter, setOrderStatusFilter] = useState<string>('all');
+  const [staleOnly, setStaleOnly] = useState(false);
+  const [deadStockOnly, setDeadStockOnly] = useState(false);
   const { t } = useLocale();
+  // React's purity rule disallows Date.now() anywhere in the render path —
+  // even inside useMemo, since the memo callback must itself be pure (it can
+  // run more than once, e.g. under Strict Mode). The correct pattern is the
+  // same one used for reading any other external/impure source: capture it
+  // in an effect, which runs after render, and treat the "hasn't loaded yet"
+  // instant (very first render) as though these date-relative features
+  // simply have no data yet.
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => { setNow(Date.now()); }, []);
 
   const canEditProducts = role === 'owner' || role === 'manager';
 
@@ -140,6 +158,48 @@ export default function AdminPanel({
   // 100 points = $5, so $0.05/point (see lib/loyalty.ts pointsToDiscount).
   const loyaltyLiabilityUsd = loyaltyPointsOutstanding * 0.05;
 
+  // --- Signals for promo code suggestions (Promos tab) -----------------------
+  // Slow movers: meaningful stock sitting on the shelf with zero sales.
+  const slowMovers = restockScores.filter(r => r.stock > 10 && r.sold === 0);
+  const deadStockIds = new Set(slowMovers.map(r => r.id));
+  const reorderBudget = restockScores.reduce((s, r) => {
+    if (r.score < 30) return s;
+    const suggestedQty = Math.max(0, Math.max(r.sold, 6) - r.stock);
+    const unitCost = costById.get(r.id);
+    return unitCost != null ? s + unitCost * suggestedQty : s;
+  }, 0);
+  const slowMoverValueTied = slowMovers.reduce((s, r) => {
+    const cost = costById.get(r.id);
+    return cost != null ? s + cost * r.stock : s;
+  }, 0);
+
+  // Win-back candidates: customers with at least one order, but nothing in 45+ days.
+  const lastOrderByCustomer = new Map<string, string>();
+  activeOrders.forEach(o => {
+    const key = o.userId || o.email || o.customer;
+    if (!key) return;
+    const prev = lastOrderByCustomer.get(key);
+    if (!prev || o.date > prev) lastOrderByCustomer.set(key, o.date);
+  });
+  const winBackCutoff = new Date();
+  winBackCutoff.setDate(winBackCutoff.getDate() - 45);
+  const winBackCandidates = [...lastOrderByCustomer.values()].filter(d => new Date(d) < winBackCutoff).length;
+
+  // Week-over-week: last 7 days vs the 7 days before that.
+  const last7 = dailyRevenue.slice(-7).reduce((s, d) => s + d.total, 0);
+  const prior7 = dailyRevenue.slice(-14, -7).reduce((s, d) => s + d.total, 0);
+  const weekOverWeekChange = prior7 > 0 ? Math.round(((last7 - prior7) / prior7) * 100) : null;
+
+  // Promo cadence: days since the last code was created, and whether anything's live now.
+  const mostRecentPromoDate = promoCodes.length > 0
+    ? promoCodes.reduce((latest, p) => (p.createdAt > latest ? p.createdAt : latest), promoCodes[0].createdAt)
+    : null;
+  const daysSinceLastPromo = mostRecentPromoDate && now !== null
+    ? Math.floor((now - new Date(mostRecentPromoDate).getTime()) / 86400000)
+    : null;
+  const hasActivePromo = promoCodes.some(p => p.active);
+  // --- end promo suggestion signals -------------------------------------------
+
   const exportFinanceCsv = () => {
     const header = ['Order', 'Date', 'Customer', 'Payment method', 'Status', 'Total USD'];
     const rows = orders.map(o => [o.id, o.date, o.customer, o.paymentMethod, o.status, o.total.toFixed(2)]);
@@ -153,6 +213,23 @@ export default function AdminPanel({
     URL.revokeObjectURL(url);
   };
   // --- end finance tab additions ---------------------------------------------
+
+  // Stale = still sitting at placed/confirmed 48h+ after being created —
+  // usually means it's been forgotten, not that it's genuinely slow.
+  const isStale = (o: Order) => {
+    if (now === null) return false;
+    if (o.status !== 'placed' && o.status !== 'confirmed') return false;
+    return now - new Date(o.date).getTime() > 48 * 3600 * 1000;
+  };
+  const staleCount = orders.filter(isStale).length;
+
+  const filteredOrders = orders.filter(o => {
+    if (staleOnly && !isStale(o)) return false;
+    if (orderStatusFilter !== 'all' && o.status !== orderStatusFilter) return false;
+    const q = orderSearch.toLowerCase().trim();
+    if (q && !o.id.toLowerCase().includes(q) && !o.customer.toLowerCase().includes(q)) return false;
+    return true;
+  });
 
   const searchResults = useMemo(() => {
     const q = query.toLowerCase().trim();
@@ -245,19 +322,41 @@ export default function AdminPanel({
 
       {tab === 'orders' && (
         <Section title="Orders" desc="Includes website, Instagram, and WhatsApp orders. Change status with the dropdown.">
-          <div className="flex justify-end mb-3">
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            <input
+              value={orderSearch}
+              onChange={e => setOrderSearch(e.target.value)}
+              placeholder="Search order # or customer..."
+              className="flex-1 min-w-[180px] border border-black/15 dark:border-white/20 bg-transparent rounded-xl px-4 py-2.5 text-sm"
+            />
+            <select
+              value={orderStatusFilter}
+              onChange={e => setOrderStatusFilter(e.target.value)}
+              className="border border-black/15 dark:border-white/20 bg-transparent rounded-xl px-3 py-2.5 text-sm capitalize"
+            >
+              <option value="all">All statuses</option>
+              {['placed', 'confirmed', 'shipped', 'delivered', 'cancelled'].map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+            {staleCount > 0 && (
+              <button
+                onClick={() => setStaleOnly(v => !v)}
+                className={`text-xs font-medium px-3.5 py-2 rounded-full btn-press transition-colors ${staleOnly ? 'bg-crimson text-chalk' : 'bg-crimson/10 text-crimson'}`}
+              >
+                ⚠ {staleCount} stale (48h+)
+              </button>
+            )}
             <button
               disabled={demoMode}
               onClick={() => setLoggingOrder(true)}
-              className="text-sm bg-ink text-chalk dark:bg-chalk dark:text-ink rounded-full px-4 py-2 btn-press disabled:opacity-40"
+              className="text-sm bg-ink text-chalk dark:bg-chalk dark:text-ink rounded-full px-4 py-2 btn-press disabled:opacity-40 ml-auto"
             >
               + Log Instagram/WhatsApp order
             </button>
           </div>
           <div className="space-y-2">
-            {orders.length === 0 && <p className="text-steel text-sm py-6 text-center">No orders yet.</p>}
-            {orders.map(o => (
-              <OrderRow key={o.id} order={o} role={role} demoMode={demoMode} onDone={flash} />
+            {filteredOrders.length === 0 && <p className="text-steel text-sm py-6 text-center">{orders.length === 0 ? 'No orders yet.' : 'No orders match those filters.'}</p>}
+            {filteredOrders.map(o => (
+              <OrderRow key={o.id} order={o} role={role} demoMode={demoMode} onDone={flash} stale={isStale(o)} />
             ))}
           </div>
         </Section>
@@ -265,13 +364,21 @@ export default function AdminPanel({
 
       {tab === 'products' && (
         <Section title="Products" desc={canEditProducts ? 'Add, edit, or remove products. Internal codes are staff-only.' : 'View only — ask an Owner or Manager to make product changes.'}>
-          <div className="flex gap-3 mb-4">
+          <div className="flex flex-wrap gap-3 mb-4">
             <input
               value={query}
               onChange={e => setQuery(e.target.value)}
               placeholder="Search by product, tag, or internal code..."
-              className="flex-1 border border-black/15 dark:border-white/20 bg-transparent rounded-xl px-4 py-3 text-sm"
+              className="flex-1 min-w-[180px] border border-black/15 dark:border-white/20 bg-transparent rounded-xl px-4 py-3 text-sm"
             />
+            {deadStockIds.size > 0 && (
+              <button
+                onClick={() => setDeadStockOnly(v => !v)}
+                className={`text-xs font-medium px-3.5 py-2 rounded-full btn-press transition-colors shrink-0 ${deadStockOnly ? 'bg-crimson text-chalk' : 'bg-crimson/10 text-crimson'}`}
+              >
+                {deadStockIds.size} dead stock
+              </button>
+            )}
             {canEditProducts && (
               <button
                 disabled={demoMode}
@@ -283,12 +390,13 @@ export default function AdminPanel({
             )}
           </div>
           <div className="space-y-2">
-            {(query ? searchResults : products).map(p => (
+            {(deadStockOnly ? products.filter(p => deadStockIds.has(p.id)) : (query ? searchResults : products)).map(p => (
               <Row key={p.id}>
                 <span className="text-xs font-mono text-steel w-28 truncate">{p.code || '—'}</span>
                 <span className="flex-1 text-sm">
                   {p.name}
                   {p.status === 'draft' && <span className="ml-2 text-[10px] uppercase bg-black/10 dark:bg-white/15 rounded px-1.5 py-0.5">Draft</span>}
+                  {deadStockIds.has(p.id) && <span className="ml-2 text-[10px] uppercase bg-crimson/10 text-crimson rounded px-1.5 py-0.5">Dead stock</span>}
                 </span>
                 <span className="text-sm tabular w-20">{p.stock} in stock</span>
                 <span className="text-sm font-medium tabular w-14 text-right">${p.price}</span>
@@ -315,24 +423,42 @@ export default function AdminPanel({
           {restockScores.length === 0 ? (
             <p className="text-steel text-sm">No data yet — scores build up as orders and searches come in.</p>
           ) : (
-            <div className="space-y-2">
-              {restockScores.map((r, i) => (
-                <div key={r.id} className="flex items-center gap-3 border border-black/10 dark:border-white/10 rounded-xl px-4 py-3 card-hover">
-                  <span className="text-xs text-steel w-5 tabular">{i + 1}</span>
-                  <span className="flex-1 text-sm">{r.name}</span>
-                  <span className={`text-xs tabular w-16 text-right ${r.stock <= 3 ? 'text-crimson' : 'text-steel'}`}>{r.stock} left</span>
-                  <span className="text-xs text-steel tabular w-16 text-right">{r.sold} sold</span>
-                  <span className="text-xs text-steel tabular w-20 text-right">{r.searchHits} searches</span>
-                  {/* Score bar */}
-                  <div className="w-24 shrink-0">
-                    <div className="h-2 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden">
-                      <div className="h-full bg-volt rounded-full" style={{ width: `${r.score}%` }} />
-                    </div>
-                  </div>
-                  <span className="text-sm font-medium tabular w-10 text-right">{r.score}</span>
+            <>
+              {reorderBudget > 0 && (
+                <div className="rounded-2xl bg-black/5 dark:bg-white/5 p-5 mb-5">
+                  <p className="text-xs text-steel mb-1">Estimated cost to restock everything scoring 30+</p>
+                  <p className="font-display text-2xl tabular">{formatCurrency(reorderBudget, 'USD')}</p>
+                  <p className="text-xs text-steel mt-1">Based on cost price × suggested reorder quantity — only for items with cost data set.</p>
                 </div>
-              ))}
-            </div>
+              )}
+              <div className="space-y-2">
+                {restockScores.map((r, i) => {
+                  const suggestedQty = r.score >= 30 ? Math.max(0, Math.max(r.sold, 6) - r.stock) : 0;
+                  const unitCost = costById.get(r.id);
+                  return (
+                    <div key={r.id} className="flex items-center gap-3 border border-black/10 dark:border-white/10 rounded-xl px-4 py-3 card-hover">
+                      <span className="text-xs text-steel w-5 tabular">{i + 1}</span>
+                      <span className="flex-1 text-sm">{r.name}</span>
+                      <span className={`text-xs tabular w-16 text-right ${r.stock <= 3 ? 'text-crimson' : 'text-steel'}`}>{r.stock} left</span>
+                      <span className="text-xs text-steel tabular w-16 text-right">{r.sold} sold</span>
+                      <span className="text-xs text-steel tabular w-20 text-right">{r.searchHits} searches</span>
+                      {suggestedQty > 0 && (
+                        <span className="text-xs text-steel tabular w-24 text-right">
+                          reorder {suggestedQty}{unitCost != null ? ` (${formatCurrency(unitCost * suggestedQty, 'USD')})` : ''}
+                        </span>
+                      )}
+                      {/* Score bar */}
+                      <div className="w-24 shrink-0">
+                        <div className="h-2 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden">
+                          <div className="h-full bg-volt rounded-full" style={{ width: `${r.score}%` }} />
+                        </div>
+                      </div>
+                      <span className="text-sm font-medium tabular w-10 text-right">{r.score}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
           )}
           <p className="text-xs text-steel mt-4">
             A product ranks high only when multiple signals align — selling fast <em>and</em> running low <em>and</em> being searched beats a product that hits just one.
@@ -342,6 +468,19 @@ export default function AdminPanel({
 
       {tab === 'analytics' && (
         <Section title="Zero-result searches" desc="What customers search for that you don't carry yet — a direct demand signal">
+          {zeroResultSearches.length > 0 && (
+            <div className="flex justify-end mb-3">
+              <button
+                onClick={async () => {
+                  const text = zeroResultSearches.map(z => `${z.term} (${z.count}×)`).join('\n');
+                  try { await navigator.clipboard.writeText(text); flash('Copied to clipboard.'); } catch {}
+                }}
+                className="text-xs font-medium px-3.5 py-1.5 rounded-full border border-black/15 dark:border-white/20 btn-press"
+              >
+                Copy list
+              </button>
+            </div>
+          )}
           <div className="space-y-2">
             {zeroResultSearches.length === 0 && <p className="text-steel text-sm">No zero-result searches logged yet.</p>}
             {zeroResultSearches.map(z => (
@@ -355,7 +494,20 @@ export default function AdminPanel({
       )}
 
       {tab === 'promos' && (
-        <PromosTab demoMode={demoMode} onDone={flash} />
+        <PromosTab
+          demoMode={demoMode}
+          onDone={flash}
+          promoCodes={promoCodes}
+          suggestions={{
+            grossMargin,
+            slowMoverCount: slowMovers.length,
+            slowMoverValueTied,
+            winBackCandidates,
+            weekOverWeekChange,
+            daysSinceLastPromo,
+            hasActivePromo,
+          }}
+        />
       )}
 
       {tab === 'hero' && (
@@ -367,7 +519,7 @@ export default function AdminPanel({
       )}
 
       {tab === 'team' && (
-        <TeamTab staff={staff} demoMode={demoMode} onDone={flash} />
+        <TeamTab staff={staff} demoMode={demoMode} onDone={flash} now={now} />
       )}
 
       {tab === 'finance' && (
@@ -488,10 +640,10 @@ export default function AdminPanel({
               <Stat label="Discounts given (period)" value={formatCurrency(totalDiscountGiven, 'USD')} />
               <Stat label="Outstanding loyalty liability" value={formatCurrency(loyaltyLiabilityUsd, 'USD')} tone={loyaltyLiabilityUsd > revenue * 0.1 ? 'crimson' : undefined} />
             </div>
-            {promoStats.length > 0 && (
+            {promoCodes.length > 0 && (
               <div className="space-y-2">
-                {promoStats.map(p => (
-                  <Row key={p.code}>
+                {promoCodes.map(p => (
+                  <Row key={p.id}>
                     <span className="font-mono text-sm w-24">{p.code}</span>
                     <span className="text-xs text-steel flex-1">{p.kind === 'percent' ? `${p.amount}% off` : `${formatCurrency(p.amount, 'USD')} off`}</span>
                     <span className="text-xs text-steel">{p.usedCount} use{p.usedCount === 1 ? '' : 's'}</span>
@@ -936,7 +1088,20 @@ function ExchangeRateEditor({ initialRate, demoMode, onDone }: { initialRate: nu
 // ---------------------------------------------------------------------------
 // PROMOS TAB — create match-day / seasonal discount codes
 // ---------------------------------------------------------------------------
-function PromosTab({ demoMode, onDone }: { demoMode: boolean; onDone: (m: string) => void }) {
+function PromosTab({ demoMode, onDone, promoCodes, suggestions }: {
+  demoMode: boolean;
+  onDone: (m: string) => void;
+  promoCodes: PromoCode[];
+  suggestions: {
+    grossMargin: number;
+    slowMoverCount: number;
+    slowMoverValueTied: number;
+    winBackCandidates: number;
+    weekOverWeekChange: number | null;
+    daysSinceLastPromo: number | null;
+    hasActivePromo: boolean;
+  };
+}) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [f, setF] = useState({
@@ -960,38 +1125,158 @@ function PromosTab({ demoMode, onDone }: { demoMode: boolean; onDone: (m: string
     });
   };
 
+  const toggleActive = (p: PromoCode) => {
+    start(async () => {
+      const res = await setPromoActive(p.id, !p.active);
+      if (res.ok) onDone(`${p.code} ${p.active ? 'deactivated' : 'activated'}.`);
+      else setError(res.error);
+    });
+  };
+
+  // Margin-aware depth: don't suggest a discount deeper than the margin can
+  // comfortably absorb. Below 25% margin, suggest a smaller % or switch to a
+  // capped fixed-dollar amount instead of an open-ended percentage.
+  const marginHealthy = suggestions.grossMargin === 0 || suggestions.grossMargin >= 30;
+  const suggestedDepth = marginHealthy ? 15 : suggestions.grossMargin >= 20 ? 10 : 5;
+
+  const cards: { title: string; rationale: string; code: string; kind: 'percent' | 'fixed'; amount: number; description: string }[] = [];
+
+  if (suggestions.slowMoverCount > 0) {
+    cards.push({
+      title: 'Clear slow-moving stock',
+      rationale: `${suggestions.slowMoverCount} product${suggestions.slowMoverCount === 1 ? '' : 's'} with real stock on the shelf haven't sold at all recently — ${formatCurrency(suggestions.slowMoverValueTied, 'USD')} sitting there at cost. Promo codes here are storewide (there's no per-product targeting yet), so frame this as a general clearance and feature those specific items on the homepage/Instagram while it runs.`,
+      code: 'CLEARANCE' + suggestedDepth,
+      kind: 'percent',
+      amount: suggestedDepth,
+      description: 'Clearance — slow-moving stock',
+    });
+  }
+
+  if (suggestions.winBackCandidates > 0) {
+    cards.push({
+      title: 'Win back quiet customers',
+      rationale: `${suggestions.winBackCandidates} customer${suggestions.winBackCandidates === 1 ? '' : 's'} ordered before but not in the last 45 days. A code alone won't reach them — pair it with a WhatsApp/email nudge to that specific list.`,
+      code: 'WELCOMEBACK' + suggestedDepth,
+      kind: 'percent',
+      amount: suggestedDepth,
+      description: 'Win-back — lapsed customers',
+    });
+  }
+
+  if (suggestions.weekOverWeekChange !== null && suggestions.weekOverWeekChange <= -15) {
+    cards.push({
+      title: 'This week is down',
+      rationale: `Revenue is down ${Math.abs(suggestions.weekOverWeekChange)}% versus the week before. A short, time-boxed flash sale (24–72h) tends to work better here than an open-ended one — set an end date when you create it.`,
+      code: 'FLASH' + suggestedDepth,
+      kind: 'percent',
+      amount: suggestedDepth,
+      description: 'Flash sale — short window',
+    });
+  }
+
+  if (!suggestions.hasActivePromo && (suggestions.daysSinceLastPromo === null || suggestions.daysSinceLastPromo > 30)) {
+    cards.push({
+      title: suggestions.daysSinceLastPromo === null ? "You've never run a promo" : 'Nothing running right now',
+      rationale: suggestions.daysSinceLastPromo === null
+        ? "A first code — even a modest one — is a low-risk way to see how price-sensitive your customers are."
+        : `It's been ${suggestions.daysSinceLastPromo} days since your last code, and nothing's active. Worth having at least a small standing offer available.`,
+      code: 'ATLAS' + suggestedDepth,
+      kind: 'percent',
+      amount: suggestedDepth,
+      description: 'Standing offer',
+    });
+  }
+
+  if (!marginHealthy) {
+    cards.push({
+      title: 'Margin is thin right now',
+      rationale: `Gross margin is around ${suggestions.grossMargin}%. Suggestions above are already capped lower than usual (${suggestedDepth}% instead of 15%) to account for this — consider a fixed-dollar discount instead of a percentage if you want tighter control over what a big order actually costs you.`,
+      code: '',
+      kind: 'fixed',
+      amount: 3,
+      description: '',
+    });
+  }
+
   return (
-    <Section title="Create a promo code" desc="Match-day codes, seasonal sales, El Clásico weekend — tie a discount to any event.">
-      <div className="grid sm:grid-cols-2 gap-3">
-        <Field label="Code (customers type this)"><input value={f.code} onChange={e => set('code', e.target.value.toUpperCase())} placeholder="CLASICO25" className={inputCls} /></Field>
-        <Field label="Description (internal)"><input value={f.description} onChange={e => set('description', e.target.value)} placeholder="El Clásico weekend" className={inputCls} /></Field>
-        <Field label="Discount type">
-          <select value={f.kind} onChange={e => set('kind', e.target.value)} className={inputCls}>
-            <option value="percent">Percent off (%)</option>
-            <option value="fixed">Fixed amount off ($)</option>
-          </select>
-        </Field>
-        <Field label={f.kind === 'percent' ? 'Percent (0–100)' : 'Amount (USD)'}><input type="number" value={f.amount} onChange={e => set('amount', e.target.value)} className={inputCls} /></Field>
-        <Field label="Min. spend (USD)"><input type="number" value={f.min_subtotal_usd} onChange={e => set('min_subtotal_usd', e.target.value)} className={inputCls} /></Field>
-        <Field label="Max uses (blank = unlimited)"><input type="number" value={f.max_uses} onChange={e => set('max_uses', e.target.value)} className={inputCls} /></Field>
-        <Field label="Starts (optional)"><input type="datetime-local" value={f.starts_at} onChange={e => set('starts_at', e.target.value)} className={inputCls} /></Field>
-        <Field label="Ends (optional)"><input type="datetime-local" value={f.ends_at} onChange={e => set('ends_at', e.target.value)} className={inputCls} /></Field>
-      </div>
-      {error && <p className="text-crimson text-sm mt-3">{error}</p>}
-      <button onClick={create} disabled={pending || demoMode} className="mt-4 text-sm bg-volt text-ink rounded-full px-6 py-2.5 font-medium btn-press disabled:opacity-40">
-        {pending ? 'Creating…' : 'Create promo code'}
-      </button>
-      <p className="text-xs text-steel mt-4">
-        Tip: use the Match Results page (owner/manager) to spot upcoming fixtures, then create a code timed to that weekend.
-      </p>
-    </Section>
+    <>
+      {cards.length > 0 && (
+        <Section title="Suggested promo codes" desc="Grounded in your actual order/stock data, not generic advice — review before using any of these.">
+          <div className="grid sm:grid-cols-2 gap-3">
+            {cards.map(c => (
+              <div key={c.title} className="border border-black/10 dark:border-white/10 rounded-2xl p-5 card-premium flex flex-col">
+                <p className="font-medium text-sm mb-1.5">{c.title}</p>
+                <p className="text-xs text-steel mb-4 flex-1">{c.rationale}</p>
+                {c.code && (
+                  <button
+                    onClick={() => setF(prev => ({ ...prev, code: c.code, kind: c.kind, amount: c.amount, description: c.description }))}
+                    className="self-start text-xs font-medium bg-volt text-ink rounded-full px-4 py-2 btn-press"
+                  >
+                    Use this →
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      <Section title="Create a promo code" desc="Match-day codes, seasonal sales, El Clásico weekend — tie a discount to any event.">
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Field label="Code (customers type this)"><input value={f.code} onChange={e => set('code', e.target.value.toUpperCase())} placeholder="CLASICO25" className={inputCls} /></Field>
+          <Field label="Description (internal)"><input value={f.description} onChange={e => set('description', e.target.value)} placeholder="El Clásico weekend" className={inputCls} /></Field>
+          <Field label="Discount type">
+            <select value={f.kind} onChange={e => set('kind', e.target.value)} className={inputCls}>
+              <option value="percent">Percent off (%)</option>
+              <option value="fixed">Fixed amount off ($)</option>
+            </select>
+          </Field>
+          <Field label={f.kind === 'percent' ? 'Percent (0–100)' : 'Amount (USD)'}><input type="number" value={f.amount} onChange={e => set('amount', e.target.value)} className={inputCls} /></Field>
+          <Field label="Min. spend (USD)"><input type="number" value={f.min_subtotal_usd} onChange={e => set('min_subtotal_usd', e.target.value)} className={inputCls} /></Field>
+          <Field label="Max uses (blank = unlimited)"><input type="number" value={f.max_uses} onChange={e => set('max_uses', e.target.value)} className={inputCls} /></Field>
+          <Field label="Starts (optional)"><input type="datetime-local" value={f.starts_at} onChange={e => set('starts_at', e.target.value)} className={inputCls} /></Field>
+          <Field label="Ends (optional)"><input type="datetime-local" value={f.ends_at} onChange={e => set('ends_at', e.target.value)} className={inputCls} /></Field>
+        </div>
+        {error && <p className="text-crimson text-sm mt-3">{error}</p>}
+        <button onClick={create} disabled={pending || demoMode} className="mt-4 text-sm bg-volt text-ink rounded-full px-6 py-2.5 font-medium btn-press disabled:opacity-40">
+          {pending ? 'Creating…' : 'Create promo code'}
+        </button>
+        <p className="text-xs text-steel mt-4">
+          Tip: use the Match Results page (owner/manager) to spot upcoming fixtures, then create a code timed to that weekend.
+        </p>
+      </Section>
+
+      <Section title="Existing codes" desc="Toggle any code on or off without deleting it — history and usage count stay intact.">
+        {promoCodes.length === 0 ? (
+          <p className="text-steel text-sm">No promo codes yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {promoCodes.map(p => (
+              <Row key={p.id}>
+                <span className="font-mono text-sm w-28">{p.code}</span>
+                <span className="text-xs text-steel flex-1 truncate">{p.description || '—'}</span>
+                <span className="text-xs text-steel w-24">{p.kind === 'percent' ? `${p.amount}% off` : `${formatCurrency(p.amount, 'USD')} off`}</span>
+                <span className="text-xs text-steel w-20">{p.usedCount}{p.maxUses ? `/${p.maxUses}` : ''} used</span>
+                <button
+                  onClick={() => toggleActive(p)}
+                  disabled={pending || demoMode}
+                  className={`text-xs px-2.5 py-1 rounded-full shrink-0 disabled:opacity-40 ${p.active ? 'bg-pitch/10 text-pitch dark:bg-volt/10 dark:text-volt' : 'bg-black/5 dark:bg-white/10 text-steel'}`}
+                >
+                  {p.active ? 'Active — tap to disable' : 'Inactive — tap to enable'}
+                </button>
+              </Row>
+            ))}
+          </div>
+        )}
+      </Section>
+    </>
   );
 }
 
 // ---------------------------------------------------------------------------
 // TEAM TAB — owner promotes / demotes staff by email
 // ---------------------------------------------------------------------------
-function TeamTab({ staff, demoMode, onDone }: { staff: StaffMember[]; demoMode: boolean; onDone: (m: string) => void }) {
+function TeamTab({ staff, demoMode, onDone, now }: { staff: StaffMember[]; demoMode: boolean; onDone: (m: string) => void; now: number | null }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState('');
@@ -1046,6 +1331,9 @@ function TeamTab({ staff, demoMode, onDone }: { staff: StaffMember[]; demoMode: 
           {staff.map(m => (
             <Row key={m.id}>
               <span className="flex-1 text-sm">{m.name}<span className="text-steel"> · {m.email}</span></span>
+              <span className="text-xs text-steel w-32 shrink-0">
+                {m.lastActiveAt && now !== null ? `Active ${timeAgo(m.lastActiveAt, now)}` : 'No activity logged'}
+              </span>
               <select
                 value={m.role}
                 onChange={e => changeRole(m, e.target.value as any)}
@@ -1516,7 +1804,7 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: 'bg-crimson/15 text-crimson',
 };
 
-function OrderRow({ order: o, role, demoMode, onDone }: { order: Order; role: string; demoMode: boolean; onDone: (m: string) => void }) {
+function OrderRow({ order: o, role, demoMode, onDone, stale = false }: { order: Order; role: string; demoMode: boolean; onDone: (m: string) => void; stale?: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const [pending, start] = useTransition();
   const [localStatus, setLocalStatus] = useState(o.status);
@@ -1559,6 +1847,7 @@ function OrderRow({ order: o, role, demoMode, onDone }: { order: Order; role: st
     <div className="border border-black/10 dark:border-white/10 rounded-xl overflow-hidden card-hover">
       <button onClick={() => setExpanded(e => !e)} className="w-full flex items-center gap-3 px-4 py-3 text-left">
         <span className="w-24 text-sm tabular font-mono">{o.id}</span>
+        {stale && <span className="text-crimson text-xs shrink-0" title="No progress in 48h+">⚠</span>}
         <span className="flex-1 text-sm truncate">
           {o.customer}
           <span className="text-steel"> · {o.items.length} item{o.items.length === 1 ? '' : 's'}</span>
@@ -1649,6 +1938,17 @@ function Field({ label, children, className = '' }: { label: string; children: R
       {children}
     </label>
   );
+}
+
+function timeAgo(iso: string, now: number): string {
+  const diffMs = now - new Date(iso).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  return `${Math.floor(days / 30)}mo ago`;
 }
 
 function Stat({ label, value, tone }: { label: string; value: string; tone?: 'crimson' }) {
