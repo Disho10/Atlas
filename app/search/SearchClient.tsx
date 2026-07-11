@@ -99,9 +99,10 @@ export default function SearchClient({ query, products, leagues }: {
           step={1}
           value={effectiveCeil}
           onChange={e => setPriceCeil(Number(e.target.value))}
-          className="flex-1"
+          className="range-volt flex-1"
+          style={{ backgroundImage: `linear-gradient(to right, #D6FF3F ${(effectiveCeil / maxPrice) * 100}%, transparent ${(effectiveCeil / maxPrice) * 100}%)` }}
         />
-        <span className="text-xs tabular w-14 text-right">${effectiveCeil}</span>
+        <span className="text-xs tabular w-14 text-right font-medium">${effectiveCeil}</span>
       </div>
 
       {filtered.length === 0 ? (
