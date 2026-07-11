@@ -1,47 +1,73 @@
-# Compatible with your current repo (verified against it directly)
+# Owner finance dashboard — 3 files
 
-I re-cloned your actual GitHub repo instead of assuming — good thing I did.
-Turns out you'd only merged the *first pass* of my last round (PHASE 5.5),
-not the deeper fixes I did after in the same conversation (the ArrowRail
-bug, the full account/sign-in/track/admin translation expansion). Your own
-PHASE 5.6 design update (new fonts, header/hero tweaks, admin tab styling)
-was layered on top of that older base.
+`app/admin/page.tsx`, `components/AdminPanel.tsx`, `lib/mockData.ts` —
+overwrite at those exact paths. No migration, no new env vars.
 
-So this isn't the same package as before — I rebuilt it against your real
-current code, file by file, specifically preserving every PHASE 5.6 change
-you made (the `scrollbar-hide`, `btn-press`, `card-premium`, hover states,
-font variables — all still there). Where `AdminPanel.tsx` needed both your
-styling and my translation wiring in the same lines, I merged them by hand
-rather than picking one.
+## Two real bugs fixed along the way
 
-**17 files** — 16 modified, 1 new (`components/SportswearPromo.tsx`).
-Everything else in your repo (globals.css, Hero.tsx, Header.tsx's
-transparency tweak, layout.tsx's fonts) is untouched.
+1. **Orders were silently capped at 100.** The query behind every finance
+   number (revenue, AOV, top sellers, everything) had `.limit(100)` — past
+   your 100th order, all of this was quietly wrong, understating your real
+   totals with no indication anything was missing. Bumped to 1000
+   (PostgREST's own per-request ceiling). If you outgrow that too, the
+   numbers need to move to a SQL `SUM`/`COUNT` instead of pulling every row
+   into JS — worth flagging to me when you get there.
+2. **Cost/margin matching used a fragile name-substring check** —
+   `it.name.includes(p.name)` would double-count anything whose name is a
+   substring of another ("Real Madrid Home Jersey" matching inside "Real
+   Madrid Home Jersey (Kids)"). Fixed to match by `product_id`, which the
+   data already had — the join was just never used.
 
-## What's in this batch
-Same content as what I described last time — the `ArrowRail` RTL scroll
-fix, and translation coverage going from ~40 strings to 222 (homepage,
-full account section, sign-in, tracking, admin nav). Full detail on what's
-translated vs intentionally still-English is in my previous message; that
-reasoning didn't change, only the base code it's applied to did.
+## What's new in the Finance tab (owner-only)
 
-## Verified against your actual repo, not a guess
-- Cloned `github.com/Disho10/Atlas` fresh, confirmed exactly which files
-  your PHASE 5.6 touched vs what I still needed to add
+- **Time period filter** — Last 7 / 30 / 90 days or all-time. Every stat
+  in the tab now respects it.
+- **Revenue trend chart** — daily bars, hover for the exact number,
+  pure CSS, no charting library added.
+- **Revenue by payment method** — Cash on Delivery / Whish Pay / OMT /
+  Card, alongside the existing channel breakdown (website/IG/WhatsApp).
+- **Customer metrics** — unique customers, repeat customers, repeat
+  purchase rate. Grouped by signed-in user id, falling back to email for
+  guest checkouts.
+- **Discounts given** — real dollars discounted in the period, computed
+  as (pre-discount items subtotal) − (what the order actually settled
+  for), since `place_order()` only ever stores the post-discount total.
+- **Loyalty point liability** — what it would cost you today if every
+  outstanding point across every customer got redeemed at once. This is
+  a real number worth watching; it grows quietly and most stores never
+  look at it until it's large.
+- **Promo code performance** — every code, its discount, how many times
+  it's been used, active/inactive.
+- **Inventory valuation** — total stock value at cost (capital tied up)
+  and at retail (what it's worth if it all sold).
+- **Top sellers now show margin, not just revenue** — a product can be
+  your #1 seller and still be a bad one if the margin's thin; both
+  numbers sit side by side now.
+- **CSV export** — one click, downloads every order (date, number,
+  customer, payment method, status, total) for your accountant or your
+  own records. Generated client-side from data already on the page, no
+  server round-trip.
+
+## What I didn't add, and why
+- **Tax/VAT handling** — Lebanon's retail tax situation varies enough by
+  business structure that I didn't want to guess at something with real
+  compliance consequences. Tell me your actual setup and I'll build it
+  correctly instead of assuming.
+- **Multi-currency P&L (USD vs LBP)** — everything here is USD, matching
+  how the rest of the app already prices things. The LBP figure shown
+  elsewhere in the site is a display conversion, not a second ledger —
+  said so because it'd be easy to assume otherwise.
+- **Returns/refund cost tracking** — `return_requests` exists in your
+  schema but isn't wired into financial impact yet. Genuinely useful,
+  didn't want to guess at how you want cost attributed (full refund?
+  restocking fee? case by case?) without you weighing in.
+
+## Verified
 - `npx tsc --noEmit` — clean
-- `npm test` — 16/16 passing
-- `bash supabase/tests/run.sh` — all 6 DB regression checks passing
-  (signup bonus, COD purchase points, stock decrement, oversell
-  rejection, role-escalation guard)
-- `npm run build` — compiles clean; the actual production build in this
-  sandbox fails only because it can't reach `fonts.googleapis.com` to
-  fetch Bebas Neue/Inter (your `next/font/google` setup from PHASE 5.6) —
-  that's a sandbox network restriction on my end, not a code problem.
-  Vercel's build servers can reach Google Fonts fine; this will build
-  normally there. Worth a `npm run build` on your own machine too before
-  you fully trust it, given that's the one thing I couldn't verify
-  end-to-end here.
-
-## Setup
-Nothing new needed beyond last time — no additional env vars or
-migrations. Copy the 17 files in, `npm install`, done.
+- `npm run lint` — no new errors (fixed one warning I introduced —
+  `avgOrderValue` briefly became unused when I moved period-scoped AOV
+  into the Finance tab, so I put an all-time AOV stat on the Overview tab
+  instead of just deleting the variable)
+- `npm run build` compiles clean; the actual build fails in my sandbox
+  only because it can't reach `fonts.googleapis.com` — same known
+  limitation as last time, not a code issue. Confirm on your end.

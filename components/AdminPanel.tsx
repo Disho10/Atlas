@@ -22,6 +22,8 @@ export default function AdminPanel({
   exchangeRate: initialRate,
   heroSlides: initialHeroSlides,
   pages,
+  loyaltyPointsOutstanding = 0,
+  promoStats = [],
   demoMode = false,
 }: {
   role: Role;
@@ -34,6 +36,8 @@ export default function AdminPanel({
   exchangeRate: number;
   heroSlides: any[] | null;
   pages: PageData[];
+  loyaltyPointsOutstanding?: number;
+  promoStats?: { code: string; kind: string; amount: number; usedCount: number; active: boolean }[];
   demoMode?: boolean;
 }) {
   const [role, setRole] = useState<Role>(fixedRole);
@@ -63,17 +67,92 @@ export default function AdminPanel({
   const byStatus = { placed: 0, confirmed: 0, shipped: 0, delivered: 0 };
   activeOrders.forEach(o => { if (o.status in byStatus) byStatus[o.status as keyof typeof byStatus]++; });
 
-  // Product cost/margin (products with cost data)
-  const totalCost = products.reduce((s, p) => {
-    if (!p.cost) return s;
-    const sold = activeOrders.flatMap(o => o.items).filter(it => it.name.includes(p.name)).reduce((ss, it) => ss + it.qty, 0);
-    return s + (p.cost * sold);
+  // Product cost/margin — matched by productId (order_items.product_id), not
+  // by name substring. The old version used `it.name.includes(p.name)`,
+  // which would double-count anything whose name is a substring of another
+  // product's name (e.g. "Real Madrid Home Jersey" matching inside "Real
+  // Madrid Home Jersey (Kids)") — a real bug in a number that's supposed to
+  // be trustworthy.
+  const costById = new Map(products.filter(p => p.cost != null).map(p => [p.id, p.cost!]));
+  const totalCost = activeOrders.flatMap(o => o.items).reduce((s, it) => {
+    const cost = costById.get(it.productId);
+    return cost != null ? s + cost * it.qty : s;
   }, 0);
   const grossMargin = revenue > 0 ? Math.round(((revenue - totalCost) / revenue) * 100) : 0;
 
   // Average order value
   const avgOrderValue = activeOrders.length > 0 ? revenue / activeOrders.length : 0;
   const mostRequested = [...products].sort((a, b) => b.reviewCount - a.reviewCount).slice(0, 5);
+
+  // --- Finance tab additions -------------------------------------------------
+  const [financePeriod, setFinancePeriod] = useState<'7d' | '30d' | '90d' | 'all'>('30d');
+  const periodDays = { '7d': 7, '30d': 30, '90d': 90, all: Infinity }[financePeriod];
+  const periodCutoff = new Date();
+  periodCutoff.setDate(periodCutoff.getDate() - periodDays);
+  const periodOrders = activeOrders.filter(o => periodDays === Infinity || new Date(o.date) >= periodCutoff);
+  const periodRevenue = periodOrders.reduce((s, o) => s + o.total, 0);
+  const periodAOV = periodOrders.length > 0 ? periodRevenue / periodOrders.length : 0;
+
+  // Daily revenue series for the trend chart (last N days, oldest first)
+  const trendDays = Math.min(periodDays === Infinity ? 90 : periodDays, 90);
+  const dailyRevenue = Array.from({ length: trendDays }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (trendDays - 1 - i));
+    const key = d.toISOString().slice(0, 10);
+    const total = activeOrders.filter(o => o.date === key).reduce((s, o) => s + o.total, 0);
+    return { date: key, total };
+  });
+  const maxDailyRevenue = Math.max(1, ...dailyRevenue.map(d => d.total));
+
+  // Payment method breakdown
+  const byPaymentMethod = periodOrders.reduce((m, o) => {
+    m.set(o.paymentMethod, (m.get(o.paymentMethod) ?? 0) + o.total);
+    return m;
+  }, new Map<string, number>());
+
+  // Discounts given — items subtotal (qty × unit price, pre-discount) minus
+  // what the order actually settled for (post promo/referral discount).
+  // place_order() applies the discount before storing subtotal_usd, so this
+  // difference is the only way to recover "how much did we give away."
+  const totalDiscountGiven = periodOrders.reduce((s, o) => {
+    const itemsSubtotal = o.items.reduce((ss, it) => ss + it.price * it.qty, 0);
+    return s + Math.max(0, itemsSubtotal - o.total);
+  }, 0);
+
+  // Customer repeat-purchase rate — grouped by userId (signed-in) falling
+  // back to email (guest checkout), since guests have no userId.
+  const ordersByCustomer = new Map<string, number>();
+  activeOrders.forEach(o => {
+    const key = o.userId || o.email || o.customer;
+    if (!key) return;
+    ordersByCustomer.set(key, (ordersByCustomer.get(key) ?? 0) + 1);
+  });
+  const uniqueCustomers = ordersByCustomer.size;
+  const repeatCustomers = [...ordersByCustomer.values()].filter(n => n > 1).length;
+  const repeatRate = uniqueCustomers > 0 ? Math.round((repeatCustomers / uniqueCustomers) * 100) : 0;
+
+  // Inventory valuation — capital tied up at cost vs. what it's worth at
+  // retail if it all sold at full price.
+  const inventoryAtCost = products.reduce((s, p) => s + (p.cost ?? 0) * p.stock, 0);
+  const inventoryAtRetail = products.reduce((s, p) => s + p.price * p.stock, 0);
+
+  // Loyalty liability — what redeeming every outstanding point today would cost.
+  // 100 points = $5, so $0.05/point (see lib/loyalty.ts pointsToDiscount).
+  const loyaltyLiabilityUsd = loyaltyPointsOutstanding * 0.05;
+
+  const exportFinanceCsv = () => {
+    const header = ['Order', 'Date', 'Customer', 'Payment method', 'Status', 'Total USD'];
+    const rows = orders.map(o => [o.id, o.date, o.customer, o.paymentMethod, o.status, o.total.toFixed(2)]);
+    const csv = [header, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `atlas-orders-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  // --- end finance tab additions ---------------------------------------------
 
   const searchResults = useMemo(() => {
     const q = query.toLowerCase().trim();
@@ -143,9 +222,10 @@ export default function AdminPanel({
       </div>
 
       {tab === 'overview' && (
-        <div className="grid sm:grid-cols-3 gap-4 mb-10">
+        <div className="grid sm:grid-cols-4 gap-4 mb-10">
           <Stat label="Revenue" value={formatCurrency(revenue, 'USD')} />
           <Stat label="Active orders" value={String(activeOrders.length)} />
+          <Stat label="Avg. order value" value={formatCurrency(avgOrderValue, 'USD')} />
           <Stat label="Low-stock items" value={String(lowStock.length)} tone={lowStock.length > 0 ? 'crimson' : undefined} />
         </div>
       )}
@@ -294,11 +374,29 @@ export default function AdminPanel({
         <>
           <ExchangeRateEditor initialRate={initialRate} demoMode={demoMode} onDone={flash} />
 
-          {/* Key metrics */}
-          <div className="grid sm:grid-cols-4 gap-3 mb-8">
-            <Stat label="Revenue" value={formatCurrency(revenue, 'USD')} />
-            <Stat label="Orders (active)" value={String(activeOrders.length)} />
-            <Stat label="Avg. order value" value={formatCurrency(avgOrderValue, 'USD')} />
+          {/* Period selector + export */}
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+            <div className="flex gap-2">
+              {([['7d', 'Last 7 days'], ['30d', 'Last 30 days'], ['90d', 'Last 90 days'], ['all', 'All time']] as const).map(([id, label]) => (
+                <button
+                  key={id}
+                  onClick={() => setFinancePeriod(id)}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-medium btn-press transition-colors ${financePeriod === id ? 'bg-volt text-ink' : 'bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15'}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <button onClick={exportFinanceCsv} className="text-xs font-medium px-3.5 py-1.5 rounded-full border border-black/15 dark:border-white/20 btn-press">
+              Export orders (CSV)
+            </button>
+          </div>
+
+          {/* Key metrics — scoped to the selected period */}
+          <div className="grid sm:grid-cols-4 gap-3 mb-6">
+            <Stat label="Revenue" value={formatCurrency(periodRevenue, 'USD')} />
+            <Stat label="Orders" value={String(periodOrders.length)} />
+            <Stat label="Avg. order value" value={formatCurrency(periodAOV, 'USD')} />
             <Stat label="Gross margin" value={grossMargin > 0 ? `${grossMargin}%` : '—'} tone={grossMargin < 30 ? 'crimson' : undefined} />
           </div>
 
@@ -309,6 +407,23 @@ export default function AdminPanel({
               <p className="text-xs text-steel">{cancelledOrders.length} order{cancelledOrders.length === 1 ? '' : 's'} cancelled — {formatCurrency(cancelledRevenue, 'USD')} excluded from revenue.</p>
             </div>
           )}
+
+          {/* Revenue trend */}
+          <Section title="Revenue trend" desc={`Daily revenue, last ${dailyRevenue.length} days`}>
+            <div className="flex items-end gap-[2px] h-32 border-b border-black/10 dark:border-white/10">
+              {dailyRevenue.map(d => (
+                <div key={d.date} className="flex-1 group relative">
+                  <div
+                    className="bg-volt rounded-t-sm min-h-[2px] transition-all hover:opacity-70"
+                    style={{ height: `${(d.total / maxDailyRevenue) * 128}px` }}
+                  />
+                  <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-ink text-chalk text-[10px] rounded px-2 py-1 whitespace-nowrap z-10">
+                    {d.date}: {formatCurrency(d.total, 'USD')}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Section>
 
           {/* Revenue by channel */}
           <Section title="Revenue by channel" desc="Where the money is coming from">
@@ -330,6 +445,22 @@ export default function AdminPanel({
             </div>
           </Section>
 
+          {/* Revenue by payment method */}
+          <Section title="Revenue by payment method" desc="Whish Pay, OMT, Card, and Cash on Delivery">
+            <div className="grid sm:grid-cols-4 gap-3">
+              {['Cash on Delivery', 'Whish Pay', 'OMT', 'Card'].map(pm => {
+                const val = byPaymentMethod.get(pm) ?? 0;
+                return (
+                  <div key={pm} className="border border-black/10 dark:border-white/10 rounded-2xl p-5 card-premium">
+                    <p className="text-xs uppercase tracking-wide text-steel mb-2">{pm}</p>
+                    <p className="font-display text-xl tabular">{formatCurrency(val, 'USD')}</p>
+                    {periodRevenue > 0 && <p className="text-xs text-steel mt-1">{Math.round((val / periodRevenue) * 100)}% of period</p>}
+                  </div>
+                );
+              })}
+            </div>
+          </Section>
+
           {/* Order pipeline */}
           <Section title="Order pipeline" desc="Where orders currently stand">
             <div className="grid grid-cols-4 gap-2 text-center">
@@ -342,29 +473,77 @@ export default function AdminPanel({
             </div>
           </Section>
 
-          {/* Top sellers */}
-          <Section title="Top sellers" desc="Products generating the most revenue from active orders">
+          {/* Customers */}
+          <Section title="Customers" desc="Repeat business is the cheapest revenue you'll ever get">
+            <div className="grid sm:grid-cols-3 gap-3">
+              <Stat label="Unique customers" value={String(uniqueCustomers)} />
+              <Stat label="Repeat customers" value={String(repeatCustomers)} />
+              <Stat label="Repeat rate" value={`${repeatRate}%`} tone={repeatRate < 20 ? 'crimson' : undefined} />
+            </div>
+          </Section>
+
+          {/* Discounts & loyalty liability */}
+          <Section title="Discounts & loyalty" desc="What promotions and rewards are actually costing you">
+            <div className="grid sm:grid-cols-2 gap-3 mb-4">
+              <Stat label="Discounts given (period)" value={formatCurrency(totalDiscountGiven, 'USD')} />
+              <Stat label="Outstanding loyalty liability" value={formatCurrency(loyaltyLiabilityUsd, 'USD')} tone={loyaltyLiabilityUsd > revenue * 0.1 ? 'crimson' : undefined} />
+            </div>
+            {promoStats.length > 0 && (
+              <div className="space-y-2">
+                {promoStats.map(p => (
+                  <Row key={p.code}>
+                    <span className="font-mono text-sm w-24">{p.code}</span>
+                    <span className="text-xs text-steel flex-1">{p.kind === 'percent' ? `${p.amount}% off` : `${formatCurrency(p.amount, 'USD')} off`}</span>
+                    <span className="text-xs text-steel">{p.usedCount} use{p.usedCount === 1 ? '' : 's'}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${p.active ? 'bg-pitch/10 text-pitch dark:bg-volt/10 dark:text-volt' : 'bg-black/5 dark:bg-white/10 text-steel'}`}>
+                      {p.active ? 'Active' : 'Inactive'}
+                    </span>
+                  </Row>
+                ))}
+              </div>
+            )}
+          </Section>
+
+          {/* Inventory valuation */}
+          <Section title="Inventory valuation" desc="Capital currently tied up on your shelves">
+            <div className="grid sm:grid-cols-2 gap-3">
+              <Stat label="At cost" value={formatCurrency(inventoryAtCost, 'USD')} />
+              <Stat label="At retail (if all sold)" value={formatCurrency(inventoryAtRetail, 'USD')} />
+            </div>
+          </Section>
+
+          {/* Top sellers — revenue AND margin */}
+          <Section title="Top sellers" desc="Products generating the most revenue and profit from active orders">
             {(() => {
-              const productRevenue = new Map<string, { name: string; qty: number; revenue: number }>();
+              const byProduct = new Map<string, { name: string; qty: number; revenue: number; cost: number }>();
               activeOrders.flatMap(o => o.items).forEach(it => {
-                const existing = productRevenue.get(it.name) ?? { name: it.name, qty: 0, revenue: 0 };
+                const existing = byProduct.get(it.productId || it.name) ?? { name: it.name, qty: 0, revenue: 0, cost: 0 };
                 existing.qty += it.qty;
                 existing.revenue += it.price * it.qty;
-                productRevenue.set(it.name, existing);
+                const unitCost = costById.get(it.productId);
+                if (unitCost != null) existing.cost += unitCost * it.qty;
+                byProduct.set(it.productId || it.name, existing);
               });
-              const sorted = Array.from(productRevenue.values()).sort((a, b) => b.revenue - a.revenue).slice(0, 8);
+              const sorted = Array.from(byProduct.values()).sort((a, b) => b.revenue - a.revenue).slice(0, 8);
               return sorted.length === 0 ? (
                 <p className="text-steel text-sm">No sales data yet.</p>
               ) : (
                 <div className="space-y-2">
-                  {sorted.map((s, i) => (
-                    <Row key={s.name}>
-                      <span className="text-xs text-steel w-5 tabular">{i + 1}</span>
-                      <span className="flex-1 text-sm">{s.name}</span>
-                      <span className="text-xs text-steel tabular w-14">{s.qty} sold</span>
-                      <span className="text-sm font-medium tabular w-20 text-right">{formatCurrency(s.revenue, 'USD')}</span>
-                    </Row>
-                  ))}
+                  {sorted.map((s, i) => {
+                    const profit = s.revenue - s.cost;
+                    const margin = s.revenue > 0 ? Math.round((profit / s.revenue) * 100) : null;
+                    return (
+                      <Row key={s.name}>
+                        <span className="text-xs text-steel w-5 tabular">{i + 1}</span>
+                        <span className="flex-1 text-sm">{s.name}</span>
+                        <span className="text-xs text-steel tabular w-16">{s.qty} sold</span>
+                        {margin !== null && (
+                          <span className={`text-xs tabular w-12 ${margin < 30 ? 'text-crimson' : 'text-steel'}`}>{margin}% mgn</span>
+                        )}
+                        <span className="text-sm font-medium tabular w-20 text-right">{formatCurrency(s.revenue, 'USD')}</span>
+                      </Row>
+                    );
+                  })}
                 </div>
               );
             })()}

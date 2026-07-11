@@ -15,7 +15,7 @@ const HAS_SUPABASE = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 export default async function AdminPage() {
   // Prototype mode — no Supabase yet: keep the demo panel with a role switcher.
   if (!HAS_SUPABASE) {
-    return <AdminPanel role="owner" products={mockProducts} orders={mockOrders} zeroResultSearches={mockZero} leagues={[]} staff={[]} restockScores={[]} exchangeRate={89500} heroSlides={null} pages={[]} demoMode />;
+    return <AdminPanel role="owner" products={mockProducts} orders={mockOrders} zeroResultSearches={mockZero} leagues={[]} staff={[]} restockScores={[]} exchangeRate={89500} heroSlides={null} pages={[]} loyaltyPointsOutstanding={2450} promoStats={[]} demoMode />;
   }
 
   const supabase = await createClient();
@@ -43,15 +43,24 @@ export default async function AdminPage() {
   // REST — the service-role key is the only way to read them, and we only
   // reach this line after the staff role check above.
   const svc = createServiceRoleClient();
-  const [{ data: productRows }, { data: orderRows }, { data: zeroRows }, { data: leagueRows }, { data: staffRows }, { data: settingsRows }, { data: pagesRows }] = await Promise.all([
+  const [{ data: productRows }, { data: orderRows }, { data: zeroRows }, { data: leagueRows }, { data: staffRows }, { data: settingsRows }, { data: pagesRows }, { data: loyaltyRows }, { data: promoRows }] = await Promise.all([
     svc.from('products').select(`${STAFF_PRODUCT_COLUMNS}, product_tags(tags(label))`).order('created_at', { ascending: false }),
-    supabase.from('orders').select('*, order_items(*)').order('created_at', { ascending: false }).limit(100),
+    // Was .limit(100) — silently capped every finance figure (revenue, AOV,
+    // top sellers, etc.) to only the 100 most recent orders, understating
+    // real totals for any store past that point. 1000 is PostgREST's own
+    // per-request ceiling; if you outgrow that, this needs to move to a SQL
+    // aggregate (SUM/COUNT in Postgres) instead of pulling every row into JS.
+    supabase.from('orders').select('*, order_items(*)').order('created_at', { ascending: false }).limit(1000),
     supabase.from('search_logs').select('term').eq('result_count', 0).limit(500),
     supabase.from('leagues').select('slug, name').order('sort_order'),
     // Team list — owner uses this to manage roles. Reads all profiles (allowed for staff via RLS).
     supabase.from('profiles').select('id, full_name, email, role').order('role'),
     supabase.from('site_settings').select('key, value'),
     supabase.from('custom_pages').select('id, slug, title, blocks, published, updated_at').order('updated_at', { ascending: false }),
+    // Outstanding loyalty points across every customer — a real liability
+    // (what it'd cost if everyone redeemed today), only meaningful to the owner.
+    supabase.from('profiles').select('loyalty_points'),
+    supabase.from('promo_codes').select('code, kind, amount, used_count, active'),
   ]);
 
   const pages = (pagesRows ?? []).map((p: any) => ({ id: p.id, slug: p.slug, title: p.title, blocks: p.blocks ?? [], published: p.published, updatedAt: (p.updated_at ?? '').slice(0, 10) }));
@@ -73,6 +82,8 @@ export default async function AdminPage() {
     paymentMethod: ({ whish_pay: 'Whish Pay', omt: 'OMT', card: 'Card', cod: 'Cash on Delivery' } as const)[o.payment_method as string] ?? 'Cash on Delivery',
     customer: o.customer_name,
     address: [o.address, o.city].filter(Boolean).join(', '),
+    userId: o.user_id ?? undefined,
+    email: o.customer_email ?? undefined,
     items: (o.order_items ?? []).map((it: any) => ({
       productId: it.product_id ?? '',
       name: it.product_name,
@@ -144,6 +155,11 @@ export default async function AdminPage() {
     .sort((a, b) => b.count - a.count)
     .slice(0, 20);
 
+  const loyaltyPointsOutstanding = (loyaltyRows ?? []).reduce((s: number, r: any) => s + (r.loyalty_points ?? 0), 0);
+  const promoStats = (promoRows ?? []).map((p: any) => ({
+    code: p.code, kind: p.kind, amount: Number(p.amount), usedCount: p.used_count ?? 0, active: p.active,
+  }));
+
   return (
     <AdminPanel
       role={role as 'admin' | 'manager' | 'owner'}
@@ -156,6 +172,8 @@ export default async function AdminPage() {
       exchangeRate={Number((settingsRows ?? []).find((s: any) => s.key === 'usd_to_lbp')?.value ?? 89500)}
       heroSlides={(settingsRows ?? []).find((s: any) => s.key === 'hero_slides')?.value ? JSON.parse((settingsRows ?? []).find((s: any) => s.key === 'hero_slides')!.value) : null}
       pages={pages}
+      loyaltyPointsOutstanding={loyaltyPointsOutstanding}
+      promoStats={promoStats}
     />
   );
 }

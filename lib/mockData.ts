@@ -165,6 +165,8 @@ export type Order = {
   paymentMethod: 'Whish Pay' | 'OMT' | 'Card' | 'Cash on Delivery';
   customer: string;
   address: string;
+  userId?: string;   // signed-in customer id, if any — powers repeat-customer stats
+  email?: string;
 };
 
 export const orders: Order[] = [
