@@ -2,13 +2,17 @@
 
 import { useEffect, useState } from 'react';
 import { Analytics } from '@vercel/analytics/next';
+import { GoogleAnalytics } from '@next/third-parties/google';
 
-// Vercel Analytics is cookieless (no persistent identifiers, nothing written
-// to the browser) and wouldn't strictly need to wait on cookie consent — but
-// ConsentBanner already has a standing TODO promising that "analytics /
-// marketing pixels" only initialize after acceptance, and it's cheap to keep
-// that promise consistent rather than have one exception no one remembers
-// the reasoning for later. Same 'atlas-consent' key the banner itself writes.
+const GA_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
+
+// Vercel Analytics is cookieless and wouldn't strictly need to wait on
+// consent, but Google Analytics genuinely does — it sets real cookies
+// (_ga, _ga_<container-id>) and is exactly the kind of thing GDPR-style
+// consent requirements are about. ConsentBanner already promises "analytics
+// / marketing pixels only initialize after acceptance"; this is the case
+// where that promise actually matters, not just a nice-to-have consistency
+// choice like it was for Vercel Analytics alone.
 export default function AnalyticsGate() {
   const [accepted, setAccepted] = useState(false);
 
@@ -26,5 +30,13 @@ export default function AnalyticsGate() {
   }, []);
 
   if (!accepted) return null;
-  return <Analytics />;
+  return (
+    <>
+      <Analytics />
+      {/* Not configured yet? GA_ID is undefined until NEXT_PUBLIC_GA_MEASUREMENT_ID
+          is set (Vercel project settings, or .env.local) — skip silently
+          rather than load gtag.js pointed at nothing. */}
+      {GA_ID && <GoogleAnalytics gaId={GA_ID} />}
+    </>
+  );
 }
