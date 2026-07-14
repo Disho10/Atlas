@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { getProductById, getReviews, getProducts } from '@/lib/data';
+import { getProductById, getReviews, getProducts, getFrequentlyBoughtWith } from '@/lib/data';
 import ProductDetail from '@/components/ProductDetail';
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
@@ -27,12 +27,19 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
 
   const reviews = await getReviews(product.id);
 
-  // Related: same league if it has one, otherwise same category. Exclude self.
-  const pool = product.leagueSlug
-    ? await getProducts({ leagueSlug: product.leagueSlug })
-    : await getProducts({ category: product.category });
-  let related = pool.filter(p => p.id !== product.id);
-  // Backfill from the general catalog if the pool is thin.
+  // "Customers who bought this also bought" — real purchase data first.
+  // Only backfills with the same-league/category guess when there isn't
+  // enough order history yet (new product, or just low volume so far).
+  let related = await getFrequentlyBoughtWith(product.id, 4);
+
+  if (related.length < 4) {
+    const pool = product.leagueSlug
+      ? await getProducts({ leagueSlug: product.leagueSlug })
+      : await getProducts({ category: product.category });
+    const backfill = pool.filter(p => p.id !== product.id && !related.some(r => r.id === p.id));
+    related = [...related, ...backfill];
+  }
+  // Still thin (e.g. a league with only a couple of products)? Pull from the whole catalog.
   if (related.length < 4) {
     const all = await getProducts();
     const extra = all.filter(p => p.id !== product.id && !related.some(r => r.id === p.id));

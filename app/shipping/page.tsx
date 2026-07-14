@@ -64,7 +64,7 @@ export default async function ShippingPage() {
         <h2 className="text-ink dark:text-chalk font-medium mb-3">Payment on delivery</h2>
         <p className="text-sm text-steel">
           Choose Cash on Delivery at checkout and pay the courier when your order arrives — no
-          online payment needed. Prefer to pay ahead? Whish Pay, OMT, and card are all available
+          online payment needed. Prefer to pay ahead? Whish Pay and card are both available
           too.
         </p>
       </section>

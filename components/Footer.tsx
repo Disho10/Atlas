@@ -24,6 +24,7 @@ export default function Footer() {
           <h4 className="text-xs uppercase tracking-widest2 text-steel mb-3">{t('footer.leagues')}</h4>
           <ul className="space-y-2 text-sm">
             <li><Link href="/sale" className="hover:opacity-70 text-crimson">{t('footer.sale')}</Link></li>
+            <li><Link href="/gift-cards" className="hover:opacity-70">{t('footer.giftCards')}</Link></li>
             {leagues.slice(0, 5).map(l => (
               <li key={l.slug}><Link href={`/leagues/${l.slug}`} className="hover:opacity-70" style={{ fontFamily: l.font }}>{l.name}</Link></li>
             ))}
@@ -35,6 +36,7 @@ export default function Footer() {
             <li><Link href="/track" className="hover:opacity-70">{t('footer.trackOrder')}</Link></li>
             <li><Link href="/track" className="hover:opacity-70">{t('footer.returns')}</Link></li>
             <li><Link href="/shipping" className="hover:opacity-70">{t('footer.shipping')}</Link></li>
+            <li><Link href="/faq" className="hover:opacity-70">{t('footer.faq')}</Link></li>
             <li><Link href="/contact" className="hover:opacity-70">{t('footer.contact')}</Link></li>
             <li><a href={whatsappLink(settings.whatsappNumber)} className="hover:opacity-70">{t('footer.whatsapp')}</a></li>
             <li><Link href="/scores" className="hover:opacity-70">{t('footer.matchResults')}</Link></li>

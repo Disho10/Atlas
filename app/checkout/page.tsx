@@ -21,12 +21,6 @@ const METHODS = [
     desc: 'Transfer via Whish app',
   },
   {
-    label: 'OMT',
-    value: 'omt',
-    icon: '🏧',
-    desc: 'Transfer via OMT',
-  },
-  {
     label: 'Card',
     value: 'card',
     icon: '💳',
@@ -49,16 +43,6 @@ function paymentInstructions(whatsappNumber: string): Record<string, { title: st
         'Enter the exact amount shown on your order',
         'In the note write your order number',
         'Send the transfer — your order ships once we confirm receipt (usually within 1 hour during business hours)',
-      ],
-    },
-    omt: {
-      title: 'Complete your OMT transfer',
-      steps: [
-        'Visit any OMT branch or agent near you',
-        `Send to: Atlas Sports — ${displayNumber}`,
-        'Amount: the exact total shown on your order',
-        'Reference: your order number',
-        'Send us the OMT reference number on WhatsApp so we can confirm and ship',
       ],
     },
     card: {
@@ -85,6 +69,7 @@ export default function CheckoutPage() {
   const [method, setMethod] = useState<(typeof METHODS)[number]['value']>('cod');
   const [stage, setStage] = useState<'form' | 'payment' | 'confirmed'>('form');
   const [orderNumber, setOrderNumber] = useState('');
+  const [giftCardApplied, setGiftCardApplied] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', phone: '', city: '', address: '', email: '' });
@@ -92,6 +77,7 @@ export default function CheckoutPage() {
   const [discount, setDiscount] = useState(0);
   const [promoMsg, setPromoMsg] = useState<string | null>(null);
   const [promoChecking, setPromoChecking] = useState(false);
+  const [giftCardCode, setGiftCardCode] = useState('');
   const [welcomeDiscount, setWelcomeDiscount] = useState(0);
   const finalTotal = Math.max(0, subtotal - discount - welcomeDiscount);
 
@@ -143,6 +129,7 @@ export default function CheckoutPage() {
       p_city: form.city.trim(),
       p_payment_method: method,
       p_promo_code: promoCode || null,
+      p_gift_card_code: giftCardCode || null,
       p_items: lines.map(l => ({
         product_id: l.product.id,
         size: l.size,
@@ -171,8 +158,15 @@ export default function CheckoutPage() {
     }
 
     setOrderNumber(result.order_number ?? result.order_id);
-    // COD: confirmed immediately. Others: show payment instructions first.
-    setStage(method === 'cod' ? 'confirmed' : 'payment');
+    const appliedGiftCard = Number(result.gift_card_applied_usd) || 0;
+    setGiftCardApplied(appliedGiftCard);
+    // COD confirms immediately either way. A gift card that fully covers the
+    // order also confirms immediately regardless of the method picked (the
+    // DB already does this — see place_order()'s v_status logic — this just
+    // needs to route to the same screen instead of showing "pay via Whish/
+    // Card" instructions for an order that's already fully paid).
+    const fullyCoveredByGiftCard = appliedGiftCard > 0 && finalTotal - appliedGiftCard <= 0;
+    setStage(method === 'cod' || fullyCoveredByGiftCard ? 'confirmed' : 'payment');
     setSubmitting(false);
     clear();
   };
@@ -188,8 +182,11 @@ export default function CheckoutPage() {
         </div>
         <h1 className="font-display text-3xl mb-2">Order confirmed!</h1>
         <p className="text-steel text-sm mb-1">Order <span className="font-mono font-medium">{orderNumber}</span></p>
+        {giftCardApplied > 0 && <p className="text-xs text-volt mb-1">${giftCardApplied.toFixed(2)} covered by your gift card</p>}
         <p className="text-steel text-sm mb-8">
-          We'll prepare your order and deliver it with cash on delivery. You'll receive a message before the driver heads out.
+          {method === 'cod'
+            ? "We'll prepare your order and deliver it with cash on delivery. You'll receive a message before the driver heads out."
+            : "Your gift card covered the full amount — nothing left to pay. We'll prepare your order and message you before the driver heads out."}
         </p>
         <a href="/account/orders" className="inline-block bg-volt text-ink px-6 py-3 rounded-full font-medium btn-press">
           Track your order
@@ -213,6 +210,7 @@ export default function CheckoutPage() {
             <div>
               <h1 className="font-display text-2xl">{instructions?.title}</h1>
               <p className="text-steel text-sm">Order <span className="font-mono">{orderNumber}</span></p>
+              {giftCardApplied > 0 && <p className="text-xs text-volt">${giftCardApplied.toFixed(2)} already covered by your gift card</p>}
             </div>
           </div>
 
@@ -307,7 +305,6 @@ export default function CheckoutPage() {
               <div className="mt-3 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 px-4 py-3 text-sm text-steel">
                 <span className="font-medium text-ink dark:text-chalk">How it works:</span>{' '}
                 {method === 'whish_pay' && 'Your order is reserved, then we send you our Whish number to transfer the amount.'}
-                {method === 'omt' && 'Your order is reserved, then you send via OMT and message us the reference number.'}
                 {method === 'card' && 'Your order is reserved, then we send you a secure card payment link within 15 minutes.'}
               </div>
             )}
@@ -336,6 +333,18 @@ export default function CheckoutPage() {
                 </button>
               </div>
               {promoMsg && <p className={`text-xs ${discount > 0 ? 'text-volt' : 'text-crimson'}`}>{promoMsg}</p>}
+            </div>
+
+            {/* Gift card — applied for real at checkout, not previewed ahead of
+                time, so there's nowhere for someone to probe codes for balance
+                without actually spending an attempt against the rate limiter. */}
+            <div className="border-t border-black/10 dark:border-white/10 pt-4 mb-4">
+              <input
+                value={giftCardCode}
+                onChange={e => setGiftCardCode(e.target.value.toUpperCase())}
+                placeholder="Gift card code (optional)"
+                className="w-full border border-black/15 dark:border-white/20 bg-transparent rounded-lg px-3 py-2 text-sm font-mono"
+              />
             </div>
 
             <div className="space-y-1.5 text-sm border-t border-black/10 dark:border-white/10 pt-4 mb-5">

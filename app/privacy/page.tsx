@@ -22,7 +22,7 @@ export default function PrivacyPage() {
             <li><b>Cookies</b> — see the section below.</li>
           </ul>
           <p className="mt-2">
-            We don&apos;t collect or store your full card number, Whish Pay, or OMT account details — those
+            We don&apos;t collect or store your full card number or Whish Pay account details — those
             payments are handled directly by the provider.
           </p>
         </section>
@@ -52,7 +52,7 @@ export default function PrivacyPage() {
           <h2 className="text-ink dark:text-chalk font-medium mb-1.5">4. Who we share it with</h2>
           <p>We don&apos;t sell your data. We share the minimum needed with:</p>
           <ul className="list-disc pl-5 mt-1 space-y-1">
-            <li><b>Payment providers</b> (Whish Pay, OMT, our card processor) — to process your payment.</li>
+            <li><b>Payment providers</b> (Whish Pay, our card processor) — to process your payment.</li>
             <li><b>Delivery couriers</b> — your name, phone, and address, to get your order to you.</li>
             <li><b>Supabase</b>, our database and hosting provider — stores the data described above on our behalf, under their own security and privacy commitments.</li>
             <li><b>Resend</b>, our email provider — sends order confirmations and receipts.</li>

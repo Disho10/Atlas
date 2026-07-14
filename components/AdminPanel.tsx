@@ -25,6 +25,11 @@ type ReturnRequestItem = {
   type: string; reason: string; status: string; refundAmountUsd: number | null;
   resolvedAt: string | null; createdAt: string;
 };
+type GiftCardItem = {
+  id: string; code: string; initialBalanceUsd: number; remainingBalanceUsd: number;
+  purchaserEmail: string; recipientEmail: string; recipientName: string | null;
+  status: string; createdAt: string;
+};
 
 export default function AdminPanel({
   role: fixedRole,
@@ -41,6 +46,7 @@ export default function AdminPanel({
   promoCodes = [],
   reviews = [],
   returnRequests = [],
+  giftCards = [],
   storeSettings = DEFAULT_SETTINGS,
   demoMode = false,
 }: {
@@ -58,6 +64,7 @@ export default function AdminPanel({
   promoCodes?: PromoCode[];
   reviews?: ReviewItem[];
   returnRequests?: ReturnRequestItem[];
+  giftCards?: GiftCardItem[];
   storeSettings?: SiteSettings;
   demoMode?: boolean;
 }) {
@@ -281,6 +288,7 @@ export default function AdminPanel({
     { id: 'customers', labelKey: 'admin.customers', roles: ['owner', 'manager', 'admin'] },
     { id: 'reviews', labelKey: 'admin.reviews', roles: ['owner', 'manager', 'admin'] },
     { id: 'returns', labelKey: 'admin.returns', roles: ['owner', 'manager'] },
+    { id: 'giftCards', labelKey: 'admin.giftCards', roles: ['owner', 'manager'] },
     { id: 'finance', labelKey: 'admin.finance', roles: ['owner'] },
     { id: 'storeSettings', labelKey: 'admin.storeSettings', roles: ['owner', 'manager'] },
   ];
@@ -567,6 +575,10 @@ export default function AdminPanel({
 
       {tab === 'returns' && (
         <ReturnsTab returnRequests={returnRequests} demoMode={demoMode} onDone={flash} />
+      )}
+
+      {tab === 'giftCards' && (
+        <GiftCardsTab giftCards={giftCards} />
       )}
 
       {tab === 'storeSettings' && (
@@ -1024,7 +1036,7 @@ function OrderLogger({ onClose, onLogged }: { onClose: () => void; onLogged: () 
   const [error, setError] = useState<string | null>(null);
   const [f, setF] = useState({
     customer_name: '', customer_phone: '', channel: 'whatsapp' as 'whatsapp' | 'instagram',
-    payment_method: 'cod' as 'whish_pay' | 'omt' | 'card' | 'cod',
+    payment_method: 'cod' as 'whish_pay' | 'card' | 'cod',
     address: '', city: '',
   });
   type Item = { product_name: string; size: string; qty: number; unit_price_usd: number };
@@ -1072,7 +1084,6 @@ function OrderLogger({ onClose, onLogged }: { onClose: () => void; onLogged: () 
           <select value={f.payment_method} onChange={e => set('payment_method', e.target.value)} className={inputCls}>
             <option value="cod">Cash on Delivery</option>
             <option value="whish_pay">Whish Pay</option>
-            <option value="omt">OMT</option>
             <option value="card">Card</option>
           </select>
         </Field>
@@ -1717,6 +1728,58 @@ function ReturnsTab({ returnRequests, demoMode, onDone }: { returnRequests: Retu
                 )
               )}
             </div>
+          ))}
+        </div>
+      )}
+    </Section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// GIFT CARDS TAB — read-only view (codes/balances/status). Purchase and
+// redemption both happen through their own SECURITY DEFINER functions
+// (purchase_gift_card, place_order) — nothing here writes to the table
+// directly, consistent with promo_codes/orders: financial facts aren't
+// something a client request should set, even a staff one.
+// ---------------------------------------------------------------------------
+function GiftCardsTab({ giftCards }: { giftCards: GiftCardItem[] }) {
+  const [query, setQuery] = useState('');
+  const q = query.toLowerCase().trim();
+  const filtered = giftCards.filter(g =>
+    !q || g.code.toLowerCase().includes(q) || g.purchaserEmail.toLowerCase().includes(q) || g.recipientEmail.toLowerCase().includes(q)
+  );
+  const totalOutstanding = giftCards.filter(g => g.status === 'active').reduce((s, g) => s + g.remainingBalanceUsd, 0);
+
+  return (
+    <Section title="Gift cards" desc="Outstanding balance is a real liability — money already collected that customers haven't spent yet.">
+      <div className="grid sm:grid-cols-2 gap-3 mb-5">
+        <Stat label="Cards issued" value={String(giftCards.length)} />
+        <Stat label="Outstanding balance" value={formatCurrency(totalOutstanding, 'USD')} tone={totalOutstanding > 0 ? 'crimson' : undefined} />
+      </div>
+      <input
+        value={query}
+        onChange={e => setQuery(e.target.value)}
+        placeholder="Search code, purchaser, or recipient email..."
+        className="w-full border border-black/15 dark:border-white/20 bg-transparent rounded-xl px-4 py-2.5 text-sm mb-4"
+      />
+      {filtered.length === 0 ? (
+        <p className="text-steel text-sm">{giftCards.length === 0 ? 'No gift cards sold yet.' : 'No gift cards match that search.'}</p>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map(g => (
+            <Row key={g.id}>
+              <span className="font-mono text-sm w-40 shrink-0">{g.code}</span>
+              <span className="flex-1 min-w-0 text-xs text-steel truncate">
+                {g.purchaserEmail} → {g.recipientEmail}{g.recipientName ? ` (${g.recipientName})` : ''}
+              </span>
+              <span className="text-xs tabular w-28 text-right shrink-0">
+                {formatCurrency(g.remainingBalanceUsd, 'USD')} / {formatCurrency(g.initialBalanceUsd, 'USD')}
+              </span>
+              <span className={`text-xs px-2 py-0.5 rounded-full capitalize shrink-0 ${
+                g.status === 'active' ? 'bg-pitch/10 text-pitch dark:bg-volt/10 dark:text-volt' : 'bg-black/5 dark:bg-white/10 text-steel'
+              }`}>{g.status}</span>
+              <span className="text-xs text-steel w-20 text-right shrink-0">{g.createdAt}</span>
+            </Row>
           ))}
         </div>
       )}

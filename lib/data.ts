@@ -194,3 +194,26 @@ export async function getSiteSettings(): Promise<SiteSettings> {
   }
   return parseSiteSettings(data);
 }
+
+// Real "customers who bought this also bought" — ranked by how many
+// distinct past orders contained both products (see frequently_bought_with()
+// in migration 0008). Falls back to nothing (caller backfills with
+// same-league/category products) when there isn't enough order history yet
+// for a product — a brand-new product with zero sales has no co-purchase
+// signal, and that's correctly different from "nothing is related to this."
+export async function getFrequentlyBoughtWith(productId: string, limit = 4): Promise<Product[]> {
+  if (!HAS_SUPABASE) return [];
+  const supabase = await createClient();
+  const { data: pairs, error } = await supabase.rpc('frequently_bought_with', { p_product_id: productId, p_limit: limit * 2 });
+  if (error || !pairs || pairs.length === 0) {
+    if (error) console.error('[getFrequentlyBoughtWith] Supabase error:', error.message);
+    return [];
+  }
+
+  // Re-fetch through getProductById so hidden categories / unpublished
+  // items are excluded the same way as everywhere else — the RPC only
+  // knows about purchase history, not current publish status.
+  const ids: string[] = pairs.map((p: any) => p.product_id);
+  const products = await Promise.all(ids.map(id => getProductById(id)));
+  return products.filter((p): p is Product => !!p).slice(0, limit);
+}

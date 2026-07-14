@@ -16,7 +16,7 @@ const HAS_SUPABASE = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 export default async function AdminPage() {
   // Prototype mode — no Supabase yet: keep the demo panel with a role switcher.
   if (!HAS_SUPABASE) {
-    return <AdminPanel role="owner" products={mockProducts} orders={mockOrders} zeroResultSearches={mockZero} leagues={[]} staff={[]} restockScores={[]} exchangeRate={89500} heroSlides={null} pages={[]} loyaltyPointsOutstanding={2450} promoCodes={[]} reviews={[]} returnRequests={[]} storeSettings={DEFAULT_SETTINGS} demoMode />;
+    return <AdminPanel role="owner" products={mockProducts} orders={mockOrders} zeroResultSearches={mockZero} leagues={[]} staff={[]} restockScores={[]} exchangeRate={89500} heroSlides={null} pages={[]} loyaltyPointsOutstanding={2450} promoCodes={[]} reviews={[]} returnRequests={[]} giftCards={[]} storeSettings={DEFAULT_SETTINGS} demoMode />;
   }
 
   const supabase = await createClient();
@@ -44,7 +44,7 @@ export default async function AdminPage() {
   // REST — the service-role key is the only way to read them, and we only
   // reach this line after the staff role check above.
   const svc = createServiceRoleClient();
-  const [{ data: productRows }, { data: orderRows }, { data: zeroRows }, { data: leagueRows }, { data: staffRows }, { data: settingsRows }, { data: pagesRows }, { data: loyaltyRows }, { data: promoRows }, { data: auditRows }, { data: reviewRows }, { data: returnRows }] = await Promise.all([
+  const [{ data: productRows }, { data: orderRows }, { data: zeroRows }, { data: leagueRows }, { data: staffRows }, { data: settingsRows }, { data: pagesRows }, { data: loyaltyRows }, { data: promoRows }, { data: auditRows }, { data: reviewRows }, { data: returnRows }, { data: giftCardRows }] = await Promise.all([
     svc.from('products').select(`${STAFF_PRODUCT_COLUMNS}, product_tags(tags(label))`).order('created_at', { ascending: false }),
     // Was .limit(100) — silently capped every finance figure (revenue, AOV,
     // top sellers, etc.) to only the 100 most recent orders, understating
@@ -68,6 +68,7 @@ export default async function AdminPage() {
     supabase.from('reviews').select('id, product_id, author_name, rating, body, hidden, hidden_reason, created_at, products(name)').order('created_at', { ascending: false }).limit(300),
     // Return/exchange requests with enough order context to act on them without a second click-through.
     supabase.from('return_requests').select('id, order_id, type, reason, status, refund_amount_usd, resolved_at, created_at, orders(order_number, customer_name, subtotal_usd)').order('created_at', { ascending: false }).limit(200),
+    supabase.from('gift_cards').select('id, code, initial_balance_usd, remaining_balance_usd, purchaser_email, recipient_email, recipient_name, status, created_at').order('created_at', { ascending: false }).limit(300),
   ]);
 
   const pages = (pagesRows ?? []).map((p: any) => ({ id: p.id, slug: p.slug, title: p.title, blocks: p.blocks ?? [], published: p.published, updatedAt: (p.updated_at ?? '').slice(0, 10) }));
@@ -192,6 +193,13 @@ export default async function AdminPage() {
     resolvedAt: r.resolved_at, createdAt: (r.created_at ?? '').slice(0, 10),
   }));
 
+  const giftCards = (giftCardRows ?? []).map((g: any) => ({
+    id: g.id, code: g.code, initialBalanceUsd: Number(g.initial_balance_usd),
+    remainingBalanceUsd: Number(g.remaining_balance_usd), purchaserEmail: g.purchaser_email,
+    recipientEmail: g.recipient_email, recipientName: g.recipient_name, status: g.status,
+    createdAt: (g.created_at ?? '').slice(0, 10),
+  }));
+
   return (
     <AdminPanel
       role={role as 'admin' | 'manager' | 'owner'}
@@ -208,6 +216,7 @@ export default async function AdminPage() {
       promoCodes={promoCodes}
       reviews={reviews}
       returnRequests={returnRequests}
+      giftCards={giftCards}
       storeSettings={parseSiteSettings(settingsRows)}
     />
   );

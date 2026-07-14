@@ -10,7 +10,7 @@ const FAQS: { keywords: string[]; a: string }[] = [
   { keywords: ['ship', 'delivery', 'deliver', 'how long', 'arrive'], a: 'In-stock items ship same or next day and arrive within 2–4 days anywhere in Lebanon. Free shipping on orders over $110, and cash on delivery is available everywhere.' },
   { keywords: ['size', 'sizing', 'fit', 'measurement'], a: 'Our kits run true to size — order your usual. Each product page lists the available sizes, and marks any that are out of stock.' },
   { keywords: ['return', 'exchange', 'refund'], a: 'You have 14 days from delivery to return or exchange, unworn with tags. Start it from the order tracking page using your order number.' },
-  { keywords: ['pay', 'payment', 'cash', 'cod', 'whish', 'omt', 'card'], a: 'We accept Whish Pay, OMT, card, and cash on delivery across all of Lebanon.' },
+  { keywords: ['pay', 'payment', 'cash', 'cod', 'whish', 'omt', 'card'], a: 'We accept Whish Pay, card, and cash on delivery across all of Lebanon. We no longer accept OMT.' },
   { keywords: ['track', 'where', 'status', 'order'], a: 'You can track any order by its number on the Track page — just enter your ATL- number. Want me to look one up now? Type your order number (e.g. ATL-10234).' },
   { keywords: ['store', 'shop', 'location', 'physical', 'pickup'], a: 'We are an online store delivering across all of Lebanon. Follow us on Instagram for updates.' },
   { keywords: ['authentic', 'real', 'genuine', 'fake'], a: 'Every product page states exactly what you\'re getting, and every item is quality-checked before it ships.' },

@@ -44,11 +44,10 @@ export default function TermsPage() {
           <ul className="list-disc pl-5 mt-1 space-y-1">
             <li>Cash on Delivery, paid to the courier when your order arrives</li>
             <li>Whish Pay</li>
-            <li>OMT</li>
             <li>Card payment</li>
           </ul>
           <p className="mt-2">
-            For Whish Pay, OMT, and card payments, the transaction itself is handled by that provider, not us —
+            For Whish Pay and card payments, the transaction itself is handled by that provider, not us —
             we never see or store your full card or account details. If a payment provider has a dispute with a
             charge, that dispute is handled under that provider&apos;s own terms as well as ours.
           </p>
@@ -76,11 +75,12 @@ export default function TermsPage() {
             page using your order number.
           </p>
           <p className="mt-2">
-            Once we approve a return, we refund the amount agreed for that order. Refunds for card, Whish Pay, or
-            OMT payments are returned to the original payment method where the provider allows it; refunds on
-            Cash on Delivery orders are arranged directly with you (for example, bank transfer or Whish Pay) since
-            there is no card or account to refund to automatically. We aim to resolve approved refunds promptly,
-            but exact timing can depend on your payment provider.
+            Once we approve a return, we refund the amount agreed for that order. Refunds for card or Whish Pay
+            payments are returned to the original payment method where the provider allows it; refunds on
+            Cash on Delivery orders (and any older order paid via a method we no longer accept) are arranged
+            directly with you (for example, bank transfer or Whish Pay) since there is no card or account to
+            refund to automatically. We aim to resolve approved refunds promptly, but exact timing can depend
+            on your payment provider.
           </p>
           <p className="mt-2">
             Items that arrive damaged, defective, or not as described are covered regardless of the 14-day window

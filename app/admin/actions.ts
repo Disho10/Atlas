@@ -130,7 +130,7 @@ export async function logManualOrder(input: {
   customer_name: string;
   customer_phone: string;
   channel: 'instagram' | 'whatsapp';
-  payment_method: 'whish_pay' | 'omt' | 'card' | 'cod';
+  payment_method: 'whish_pay' | 'card' | 'cod';
   address: string;
   city: string;
   product_name: string;
@@ -374,7 +374,7 @@ export async function logManualOrderMulti(input: {
   customer_name: string;
   customer_phone: string;
   channel: 'instagram' | 'whatsapp';
-  payment_method: 'whish_pay' | 'omt' | 'card' | 'cod';
+  payment_method: 'whish_pay' | 'card' | 'cod';
   address: string;
   city: string;
   items: { product_name: string; size: string; qty: number; unit_price_usd: number }[];
