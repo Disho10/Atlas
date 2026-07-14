@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { useCart, useCurrency } from '@/components/Providers';
+import { useCart, useCurrency, useSiteSettings } from '@/components/Providers';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
 import { formatCurrency } from '@/lib/mockData';
 import { Reveal } from '@/components/Motion';
@@ -11,7 +11,8 @@ export default function CartPage() {
   const { lines, remove, setQty, subtotal, hydrated } = useCart();
   const { currency } = useCurrency();
   const { t } = useLocale();
-  const FREE_SHIPPING = 110;
+  const { settings } = useSiteSettings();
+  const FREE_SHIPPING = settings.freeShippingThreshold;
   const toFreeShipping = Math.max(0, FREE_SHIPPING - subtotal);
   const freeShipping = subtotal >= FREE_SHIPPING;
 

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Product, Review, formatCurrency } from '@/lib/mockData';
-import { useCart, useCurrency, useWishlist } from '@/components/Providers';
+import { useCart, useCurrency, useWishlist, useSiteSettings } from '@/components/Providers';
 import { createClient } from '@/lib/supabase/client';
 import { HeartIcon, CheckIcon } from '@/components/icons';
 import ProductImage from '@/components/ProductImage';
@@ -15,6 +15,7 @@ export default function ProductDetail({ product, initialReviews, related }: { pr
   const { add } = useCart();
   const { currency } = useCurrency();
   const { ids, toggle } = useWishlist();
+  const { settings } = useSiteSettings();
   const [size, setSize] = useState<string | null>(product.sizes[0] ?? null);
   const [qty, setQty] = useState(1);
   const hasVariants = product.variants.length > 0;
@@ -248,7 +249,7 @@ export default function ProductDetail({ product, initialReviews, related }: { pr
 
           {/* Delivery reassurance strip */}
           <div className="mt-6 grid grid-cols-3 gap-2 text-center text-[11px] text-steel">
-            <div className="border border-black/10 dark:border-white/10 rounded-xl py-3 px-2">2–4 day delivery</div>
+            <div className="border border-black/10 dark:border-white/10 rounded-xl py-3 px-2">{settings.deliveryEstimateText}</div>
             <div className="border border-black/10 dark:border-white/10 rounded-xl py-3 px-2">Cash on delivery</div>
             <div className="border border-black/10 dark:border-white/10 rounded-xl py-3 px-2">14-day returns</div>
           </div>
@@ -260,7 +261,7 @@ export default function ProductDetail({ product, initialReviews, related }: { pr
               Breathable fabric, quality-checked before shipping. Sizes {product.sizes.join(', ')}.
             </Accordion>
             <Accordion id="shipping" title="Shipping & delivery" open={openSection} setOpen={setOpenSection}>
-              Same or next-day dispatch. 2–4 days anywhere in Lebanon. Free shipping on orders over $110.
+              Same or next-day dispatch. {settings.deliveryEstimateText} anywhere in Lebanon. Free shipping on orders over ${settings.freeShippingThreshold}.
             </Accordion>
             <Accordion id="returns" title="Returns & exchanges" open={openSection} setOpen={setOpenSection}>
               14 days from delivery, unworn with tags. Start it from Account → Returns and we handle the rest — exchange or refund, your call.

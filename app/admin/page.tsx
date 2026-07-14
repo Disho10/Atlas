@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { createClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { STAFF_PRODUCT_COLUMNS, mapProductRow } from '@/lib/supabase/queries';
+import { parseSiteSettings, DEFAULT_SETTINGS } from '@/lib/settings';
 import AdminPanel from '@/components/AdminPanel';
 import {
   products as mockProducts,
@@ -15,7 +16,7 @@ const HAS_SUPABASE = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 export default async function AdminPage() {
   // Prototype mode — no Supabase yet: keep the demo panel with a role switcher.
   if (!HAS_SUPABASE) {
-    return <AdminPanel role="owner" products={mockProducts} orders={mockOrders} zeroResultSearches={mockZero} leagues={[]} staff={[]} restockScores={[]} exchangeRate={89500} heroSlides={null} pages={[]} loyaltyPointsOutstanding={2450} promoCodes={[]} reviews={[]} returnRequests={[]} demoMode />;
+    return <AdminPanel role="owner" products={mockProducts} orders={mockOrders} zeroResultSearches={mockZero} leagues={[]} staff={[]} restockScores={[]} exchangeRate={89500} heroSlides={null} pages={[]} loyaltyPointsOutstanding={2450} promoCodes={[]} reviews={[]} returnRequests={[]} storeSettings={DEFAULT_SETTINGS} demoMode />;
   }
 
   const supabase = await createClient();
@@ -90,6 +91,7 @@ export default async function AdminPage() {
     address: [o.address, o.city].filter(Boolean).join(', '),
     userId: o.user_id ?? undefined,
     email: o.customer_email ?? undefined,
+    phone: o.customer_phone ?? undefined,
     items: (o.order_items ?? []).map((it: any) => ({
       productId: it.product_id ?? '',
       name: it.product_name,
@@ -206,6 +208,7 @@ export default async function AdminPage() {
       promoCodes={promoCodes}
       reviews={reviews}
       returnRequests={returnRequests}
+      storeSettings={parseSiteSettings(settingsRows)}
     />
   );
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useCart, useCurrency } from '@/components/Providers';
+import { useCart, useCurrency, useSiteSettings } from '@/components/Providers';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
 import { formatCurrency } from '@/lib/mockData';
 import { createClient } from '@/lib/supabase/client';
@@ -35,38 +35,43 @@ const METHODS = [
 ] as const;
 
 // Payment instructions shown after order is placed for non-COD methods.
-// Replace the phone numbers and account details with your real ones.
-const PAYMENT_INSTRUCTIONS: Record<string, { title: string; steps: string[] }> = {
-  whish_pay: {
-    title: 'Complete your Whish Pay transfer',
-    steps: [
-      'Open your Whish app',
-      'Tap "Send Money" and enter our number: +961 81 752 873',
-      'Enter the exact amount shown on your order',
-      'In the note write your order number',
-      'Send the transfer — your order ships once we confirm receipt (usually within 1 hour during business hours)',
-    ],
-  },
-  omt: {
-    title: 'Complete your OMT transfer',
-    steps: [
-      'Visit any OMT branch or agent near you',
-      'Send to: Ali — +961 81 752 873',
-      'Amount: the exact total shown on your order',
-      'Reference: your order number',
-      'Send us the OMT reference number on WhatsApp so we can confirm and ship',
-    ],
-  },
-  card: {
-    title: 'Pay by card',
-    steps: [
-      'We\'ll send you a secure payment link by WhatsApp or SMS within 15 minutes',
-      'Click the link and enter your card details on our secure payment page',
-      'Your order ships once payment is confirmed',
-      'Need it faster? Message us on WhatsApp and we\'ll send the link immediately',
-    ],
-  },
-};
+// whatsappNumber comes from Store Settings (Admin → Store Settings) instead
+// of being hardcoded here — was duplicated as a literal string in 3 spots
+// in this file alone before that existed.
+function paymentInstructions(whatsappNumber: string): Record<string, { title: string; steps: string[] }> {
+  const displayNumber = `+${whatsappNumber.slice(0, 3)} ${whatsappNumber.slice(3, 5)} ${whatsappNumber.slice(5, 8)} ${whatsappNumber.slice(8)}`;
+  return {
+    whish_pay: {
+      title: 'Complete your Whish Pay transfer',
+      steps: [
+        'Open your Whish app',
+        `Tap "Send Money" and enter our number: ${displayNumber}`,
+        'Enter the exact amount shown on your order',
+        'In the note write your order number',
+        'Send the transfer — your order ships once we confirm receipt (usually within 1 hour during business hours)',
+      ],
+    },
+    omt: {
+      title: 'Complete your OMT transfer',
+      steps: [
+        'Visit any OMT branch or agent near you',
+        `Send to: Atlas Sports — ${displayNumber}`,
+        'Amount: the exact total shown on your order',
+        'Reference: your order number',
+        'Send us the OMT reference number on WhatsApp so we can confirm and ship',
+      ],
+    },
+    card: {
+      title: 'Pay by card',
+      steps: [
+        'We\'ll send you a secure payment link by WhatsApp or SMS within 15 minutes',
+        'Click the link and enter your card details on our secure payment page',
+        'Your order ships once payment is confirmed',
+        'Need it faster? Message us on WhatsApp and we\'ll send the link immediately',
+      ],
+    },
+  };
+}
 
 const HAS_SUPABASE = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 const inputCls = 'w-full border border-black/15 dark:border-white/20 bg-transparent rounded-xl px-4 py-3 text-sm outline-none focus:border-volt transition-colors';
@@ -75,6 +80,8 @@ export default function CheckoutPage() {
   const { lines, subtotal, remove, clear } = useCart();
   const { currency } = useCurrency();
   const { t } = useLocale();
+  const { settings } = useSiteSettings();
+  const PAYMENT_INSTRUCTIONS = paymentInstructions(settings.whatsappNumber);
   const [method, setMethod] = useState<(typeof METHODS)[number]['value']>('cod');
   const [stage, setStage] = useState<'form' | 'payment' | 'confirmed'>('form');
   const [orderNumber, setOrderNumber] = useState('');
@@ -224,7 +231,7 @@ export default function CheckoutPage() {
           </ol>
 
           <a
-            href={`https://wa.me/96181752873?text=${encodeURIComponent(`Hi, I just placed order ${orderNumber} and completed my ${METHODS.find(m => m.value === method)?.label} payment of $${finalTotal.toFixed(2)}.`)}`}
+            href={`https://wa.me/${settings.whatsappNumber}?text=${encodeURIComponent(`Hi, I just placed order ${orderNumber} and completed my ${METHODS.find(m => m.value === method)?.label} payment of $${finalTotal.toFixed(2)}.`)}`}
             target="_blank"
             rel="noopener noreferrer"
             className="block text-center bg-[#25D366] text-white rounded-full py-3.5 font-medium mb-3 btn-press"
@@ -338,7 +345,7 @@ export default function CheckoutPage() {
               {discount > 0 && (
                 <div className="flex justify-between"><span className="text-steel">Promo</span><span className="text-crimson tabular">−{formatCurrency(discount, currency)}</span></div>
               )}
-              <div className="flex justify-between"><span className="text-steel">Shipping</span><span className={subtotal >= 110 ? 'text-volt font-medium' : 'text-steel'}>{subtotal >= 110 ? 'Free' : 'COD'}</span></div>
+              <div className="flex justify-between"><span className="text-steel">Shipping</span><span className={subtotal >= settings.freeShippingThreshold ? 'text-volt font-medium' : 'text-steel'}>{subtotal >= settings.freeShippingThreshold ? 'Free' : 'COD'}</span></div>
               <div className="flex justify-between font-semibold text-base pt-1">
                 <span>Total</span>
                 <span className="tabular">{formatCurrency(finalTotal, currency)}</span>

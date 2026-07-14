@@ -286,6 +286,27 @@ export async function setExchangeRate(rate: number): Promise<ActionResult> {
 }
 
 // ---------------------------------------------------------------------------
+// STORE SETTINGS — WhatsApp number, free-shipping threshold, delivery text,
+// business hours. Was hardcoded across 6+ files before; now a single
+// key-value row per setting, editable here instead of a code change.
+// ---------------------------------------------------------------------------
+export async function setSiteSetting(dbKey: string, value: string): Promise<ActionResult> {
+  const auth = await getRole();
+  if (!auth) return { ok: false, error: 'Not signed in.' };
+  if (!canEditProducts(auth.role)) return { ok: false, error: 'Only Owner and Manager can change store settings.' };
+  if (!value.trim()) return { ok: false, error: 'Value cannot be empty.' };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from('site_settings').upsert({ key: dbKey, value: value.trim() });
+  if (error) return { ok: false, error: error.message };
+  await logAudit(supabase, auth.userId, 'settings.store_setting', dbKey, { value: value.trim() });
+  revalidatePath('/');
+  revalidatePath('/contact');
+  revalidatePath('/shipping');
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
 // ORDER STATUS — advance or cancel an order. All staff can advance; cancel
 // is owner/manager only.
 // ---------------------------------------------------------------------------

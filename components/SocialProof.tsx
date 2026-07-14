@@ -6,6 +6,8 @@ import Scoreboard from './Scoreboard';
 import TiltCard from './TiltCard';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
 import type { TranslationKey } from '@/lib/i18n/dictionary';
+import { useSiteSettings } from './Providers';
+import { whatsappLink } from '@/lib/settings';
 
 // ---------------------------------------------------------------------------
 // STATS BAND — scoreboard-style numbers. Replace with real figures as the
@@ -167,6 +169,7 @@ const FAQS: { qKey: TranslationKey; aKey: TranslationKey }[] = [
 export function FaqSection() {
   const [open, setOpen] = useState<number | null>(0);
   const { t } = useLocale();
+  const { settings } = useSiteSettings();
 
   return (
     <section className="max-w-3xl mx-auto px-6 py-16">
@@ -192,7 +195,7 @@ export function FaqSection() {
       </div>
       <p className="text-sm text-steel mt-6">
         {t('home.didntFindAnswer')}{' '}
-        <a href="https://wa.me/96181752873" className="underline underline-offset-2">{t('home.messageWhatsapp')}</a> — {t('home.replyWithinHour')}
+        <a href={whatsappLink(settings.whatsappNumber)} className="underline underline-offset-2">{t('home.messageWhatsapp')}</a> — {t('home.replyWithinHour')}
       </p>
     </section>
   );

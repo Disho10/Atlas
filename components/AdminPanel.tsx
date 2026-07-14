@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { formatCurrency, type Product, type Order } from '@/lib/mockData';
-import { saveProduct, deleteProduct, logManualOrder, logManualOrderMulti, updateOrderStatus, setStaffRole, createPromo, setPromoActive, setExchangeRate, savePage, deletePage, saveHeroSlides, setReviewHidden, resolveReturn } from '@/app/admin/actions';
+import { saveProduct, deleteProduct, logManualOrder, logManualOrderMulti, updateOrderStatus, setStaffRole, createPromo, setPromoActive, setExchangeRate, savePage, deletePage, saveHeroSlides, setReviewHidden, resolveReturn, setSiteSetting } from '@/app/admin/actions';
+import { DEFAULT_SETTINGS, settingDbKey, type SiteSettings } from '@/lib/settings';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
 import type { TranslationKey } from '@/lib/i18n/dictionary';
 
@@ -40,6 +41,7 @@ export default function AdminPanel({
   promoCodes = [],
   reviews = [],
   returnRequests = [],
+  storeSettings = DEFAULT_SETTINGS,
   demoMode = false,
 }: {
   role: Role;
@@ -56,6 +58,7 @@ export default function AdminPanel({
   promoCodes?: PromoCode[];
   reviews?: ReviewItem[];
   returnRequests?: ReturnRequestItem[];
+  storeSettings?: SiteSettings;
   demoMode?: boolean;
 }) {
   const [role, setRole] = useState<Role>(fixedRole);
@@ -275,9 +278,11 @@ export default function AdminPanel({
     { id: 'hero', labelKey: 'admin.heroSlides', roles: ['owner', 'manager'] },
     { id: 'pages', labelKey: 'admin.pages', roles: ['owner', 'manager'] },
     { id: 'team', labelKey: 'admin.team', roles: ['owner'] },
+    { id: 'customers', labelKey: 'admin.customers', roles: ['owner', 'manager', 'admin'] },
     { id: 'reviews', labelKey: 'admin.reviews', roles: ['owner', 'manager', 'admin'] },
     { id: 'returns', labelKey: 'admin.returns', roles: ['owner', 'manager'] },
     { id: 'finance', labelKey: 'admin.finance', roles: ['owner'] },
+    { id: 'storeSettings', labelKey: 'admin.storeSettings', roles: ['owner', 'manager'] },
   ];
   const tabs = allTabs.filter(tb => tb.roles.includes(role));
 
@@ -552,12 +557,20 @@ export default function AdminPanel({
         <TeamTab staff={staff} demoMode={demoMode} onDone={flash} now={now} />
       )}
 
+      {tab === 'customers' && (
+        <CustomersTab orders={orders} />
+      )}
+
       {tab === 'reviews' && (
         <ReviewsTab reviews={reviews} demoMode={demoMode} onDone={flash} />
       )}
 
       {tab === 'returns' && (
         <ReturnsTab returnRequests={returnRequests} demoMode={demoMode} onDone={flash} />
+      )}
+
+      {tab === 'storeSettings' && (
+        <StoreSettingsTab initialSettings={storeSettings} demoMode={demoMode} onDone={flash} />
       )}
 
       {tab === 'finance' && (
@@ -1129,6 +1142,79 @@ function ExchangeRateEditor({ initialRate, demoMode, onDone }: { initialRate: nu
 }
 
 // ---------------------------------------------------------------------------
+// STORE SETTINGS TAB — WhatsApp number, free-shipping threshold, delivery
+// estimate text, business hours. These were hardcoded directly in 6+ files
+// before (the WhatsApp number alone) — changing any of them meant editing
+// code and redeploying. Now a key-value row each in site_settings.
+// ---------------------------------------------------------------------------
+function StoreSettingsTab({ initialSettings, demoMode, onDone }: { initialSettings: SiteSettings; demoMode: boolean; onDone: (m: string) => void }) {
+  const [f, setF] = useState(initialSettings);
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  const saveAll = () => {
+    setError(null);
+    start(async () => {
+      const results = await Promise.all([
+        setSiteSetting(settingDbKey('whatsappNumber'), f.whatsappNumber),
+        setSiteSetting(settingDbKey('freeShippingThreshold'), String(f.freeShippingThreshold)),
+        setSiteSetting(settingDbKey('deliveryEstimateText'), f.deliveryEstimateText),
+        setSiteSetting(settingDbKey('businessHours'), f.businessHours),
+      ]);
+      const failed = results.find(r => !r.ok);
+      if (failed && !failed.ok) setError(failed.error);
+      else onDone('Store settings updated.');
+    });
+  };
+
+  return (
+    <Section title="Store Settings" desc="Values used across the site — the customer Contact and Shipping pages, checkout, and cart all read from here instead of hardcoded text.">
+      <div className="space-y-4 max-w-md">
+        <Field label="WhatsApp number (digits only, no + or spaces)">
+          <input
+            value={f.whatsappNumber}
+            onChange={e => setF(s => ({ ...s, whatsappNumber: e.target.value.replace(/[^\d]/g, '') }))}
+            placeholder="96181752873"
+            className={inputCls}
+          />
+        </Field>
+        <Field label="Free shipping threshold (USD)">
+          <input
+            type="number"
+            value={f.freeShippingThreshold}
+            onChange={e => setF(s => ({ ...s, freeShippingThreshold: Number(e.target.value) }))}
+            className={inputCls}
+          />
+        </Field>
+        <Field label="Delivery estimate text">
+          <input
+            value={f.deliveryEstimateText}
+            onChange={e => setF(s => ({ ...s, deliveryEstimateText: e.target.value }))}
+            placeholder="2–4 business days"
+            className={inputCls}
+          />
+        </Field>
+        <Field label="Business hours">
+          <input
+            value={f.businessHours}
+            onChange={e => setF(s => ({ ...s, businessHours: e.target.value }))}
+            placeholder="Sun–Fri, 9am–7pm Beirut time"
+            className={inputCls}
+          />
+        </Field>
+      </div>
+      {error && <p className="text-crimson text-sm mt-3">{error}</p>}
+      <button onClick={saveAll} disabled={pending || demoMode} className="mt-5 text-sm bg-volt text-ink rounded-full px-6 py-2.5 font-medium btn-press disabled:opacity-40">
+        {pending ? 'Saving…' : 'Save all'}
+      </button>
+      <p className="text-xs text-steel mt-4">
+        Changes apply immediately on next page load — no redeploy needed. Cart/checkout pick these up within a few seconds since they're cached client-side for the session.
+      </p>
+    </Section>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // PROMOS TAB — create match-day / seasonal discount codes
 // ---------------------------------------------------------------------------
 function PromosTab({ demoMode, onDone, promoCodes, suggestions }: {
@@ -1390,6 +1476,92 @@ function TeamTab({ staff, demoMode, onDone, now }: { staff: StaffMember[]; demoM
         </div>
       </Section>
     </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// CUSTOMERS TAB — was a genuine blind spot: the Finance tab computed
+// aggregate stats (repeat rate, unique count) but there was no browsable
+// list of who your customers actually are. Built from order data already
+// in hand (no new query needed) — grouped by signed-in user id, falling
+// back to phone or email for guest checkouts, since a guest still deserves
+// to be findable if they message support without their order number.
+// ---------------------------------------------------------------------------
+function CustomersTab({ orders }: { orders: Order[] }) {
+  const [query, setQuery] = useState('');
+  const [sort, setSort] = useState<'recent' | 'spent' | 'orders'>('recent');
+
+  const customers = useMemo(() => {
+    const byKey = new Map<string, {
+      key: string; name: string; phone: string; email: string;
+      orderCount: number; totalSpent: number; lastOrderDate: string; registered: boolean;
+    }>();
+
+    for (const o of orders) {
+      if (o.status === 'cancelled') continue; // don't count cancelled orders toward spend
+      const key = o.userId || o.email || o.customer;
+      if (!key) continue;
+      const existing = byKey.get(key);
+      if (existing) {
+        existing.orderCount += 1;
+        existing.totalSpent += o.total;
+        if (o.date > existing.lastOrderDate) existing.lastOrderDate = o.date;
+        // Fill in contact details if an earlier order for this customer was missing them
+        if (!existing.phone && o.phone) existing.phone = o.phone;
+      } else {
+        byKey.set(key, {
+          key, name: o.customer, phone: o.phone ?? '', email: o.email ?? '',
+          orderCount: 1, totalSpent: o.total, lastOrderDate: o.date, registered: !!o.userId,
+        });
+      }
+    }
+
+    let list = Array.from(byKey.values());
+    const q = query.toLowerCase().trim();
+    if (q) list = list.filter(c => c.name.toLowerCase().includes(q) || c.phone.includes(q) || c.email.toLowerCase().includes(q));
+
+    if (sort === 'recent') list.sort((a, b) => b.lastOrderDate.localeCompare(a.lastOrderDate));
+    else if (sort === 'spent') list.sort((a, b) => b.totalSpent - a.totalSpent);
+    else list.sort((a, b) => b.orderCount - a.orderCount);
+
+    return list;
+  }, [orders, query, sort]);
+
+  return (
+    <Section title="Customers" desc={`${customers.length} customer${customers.length === 1 ? '' : 's'} — built from order history, so guest checkouts show up too, not just accounts.`}>
+      <div className="flex flex-wrap gap-2 mb-4">
+        <input
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder="Search name, phone, or email..."
+          className="flex-1 min-w-[180px] border border-black/15 dark:border-white/20 bg-transparent rounded-xl px-4 py-2.5 text-sm"
+        />
+        <select value={sort} onChange={e => setSort(e.target.value as typeof sort)} className="border border-black/15 dark:border-white/20 bg-transparent rounded-xl px-3 py-2.5 text-sm">
+          <option value="recent">Most recent order</option>
+          <option value="spent">Highest spend</option>
+          <option value="orders">Most orders</option>
+        </select>
+      </div>
+      {customers.length === 0 ? (
+        <p className="text-steel text-sm">No customers match that search.</p>
+      ) : (
+        <div className="space-y-2">
+          {customers.map(c => (
+            <Row key={c.key}>
+              <span className="flex-1 min-w-0">
+                <span className="text-sm font-medium">{c.name}</span>
+                {c.registered && <span className="ml-1.5 text-[10px] uppercase bg-black/5 dark:bg-white/10 rounded px-1.5 py-0.5 align-middle">Account</span>}
+                <br />
+                <span className="text-xs text-steel truncate">{[c.phone, c.email].filter(Boolean).join(' · ') || '—'}</span>
+              </span>
+              <span className="text-xs text-steel w-20 text-right shrink-0">{c.orderCount} order{c.orderCount === 1 ? '' : 's'}</span>
+              <span className="text-sm font-medium tabular w-20 text-right shrink-0">{formatCurrency(c.totalSpent, 'USD')}</span>
+              <span className="text-xs text-steel w-24 text-right shrink-0">{c.lastOrderDate}</span>
+            </Row>
+          ))}
+        </div>
+      )}
+    </Section>
   );
 }
 

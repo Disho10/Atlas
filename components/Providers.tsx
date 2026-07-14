@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { Product } from '@/lib/mockData';
 import { calcSubtotal } from '@/lib/cart-math';
+import { DEFAULT_SETTINGS, parseSiteSettings, type SiteSettings } from '@/lib/settings';
 
 // ---------------------------------------------------------------------------
 // THEME — dark/light, auto-detected from system preference, toggleable,
@@ -233,15 +234,44 @@ function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthCtx.Provider value={{ signedIn, loading, role, isStaff }}>{children}</AuthCtx.Provider>;
 }
 
+// ---------------------------------------------------------------------------
+// SITE SETTINGS — WhatsApp number, free-shipping threshold, delivery text,
+// business hours. Editable at Admin → Store Settings instead of hardcoded.
+// Fetched once here (public read, no auth needed) and shared via context so
+// every client component that needs one of these doesn't each fetch it
+// separately. Server components use getSiteSettings() from lib/data.ts.
+// ---------------------------------------------------------------------------
+const SettingsCtx = createContext<{ settings: SiteSettings; loaded: boolean }>({ settings: DEFAULT_SETTINGS, loaded: false });
+export const useSiteSettings = () => useContext(SettingsCtx);
+
+function SettingsProvider({ children }: { children: ReactNode }) {
+  const [settings, setSettings] = useState<SiteSettings>(DEFAULT_SETTINGS);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) { setLoaded(true); return; }
+    import('@/lib/supabase/client').then(async ({ createClient }) => {
+      const supabase = createClient();
+      const { data } = await supabase.from('site_settings').select('key, value');
+      setSettings(parseSiteSettings(data));
+      setLoaded(true);
+    });
+  }, []);
+
+  return <SettingsCtx.Provider value={{ settings, loaded }}>{children}</SettingsCtx.Provider>;
+}
+
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <ThemeProvider>
       <CurrencyProvider>
-        <CartProvider>
-          <WishlistProvider>
-            <AuthProvider>{children}</AuthProvider>
-          </WishlistProvider>
-        </CartProvider>
+        <SettingsProvider>
+          <CartProvider>
+            <WishlistProvider>
+              <AuthProvider>{children}</AuthProvider>
+            </WishlistProvider>
+          </CartProvider>
+        </SettingsProvider>
       </CurrencyProvider>
     </ThemeProvider>
   );

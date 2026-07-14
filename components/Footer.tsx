@@ -4,9 +4,12 @@ import Link from 'next/link';
 import Logo from './Logo';
 import { leagues } from '@/lib/mockData';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
+import { useSiteSettings } from './Providers';
+import { whatsappLink } from '@/lib/settings';
 
 export default function Footer() {
   const { t } = useLocale();
+  const { settings } = useSiteSettings();
 
   return (
     <footer className="border-t border-black/10 dark:border-white/10 mt-24">
@@ -20,6 +23,7 @@ export default function Footer() {
         <div>
           <h4 className="text-xs uppercase tracking-widest2 text-steel mb-3">{t('footer.leagues')}</h4>
           <ul className="space-y-2 text-sm">
+            <li><Link href="/sale" className="hover:opacity-70 text-crimson">{t('footer.sale')}</Link></li>
             {leagues.slice(0, 5).map(l => (
               <li key={l.slug}><Link href={`/leagues/${l.slug}`} className="hover:opacity-70" style={{ fontFamily: l.font }}>{l.name}</Link></li>
             ))}
@@ -30,7 +34,9 @@ export default function Footer() {
           <ul className="space-y-2 text-sm">
             <li><Link href="/track" className="hover:opacity-70">{t('footer.trackOrder')}</Link></li>
             <li><Link href="/track" className="hover:opacity-70">{t('footer.returns')}</Link></li>
-            <li><a href="https://wa.me/96181752873" className="hover:opacity-70">{t('footer.whatsapp')}</a></li>
+            <li><Link href="/shipping" className="hover:opacity-70">{t('footer.shipping')}</Link></li>
+            <li><Link href="/contact" className="hover:opacity-70">{t('footer.contact')}</Link></li>
+            <li><a href={whatsappLink(settings.whatsappNumber)} className="hover:opacity-70">{t('footer.whatsapp')}</a></li>
             <li><Link href="/scores" className="hover:opacity-70">{t('footer.matchResults')}</Link></li>
           </ul>
         </div>

@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { mapProductRow, mapLeagueRow, PUBLIC_PRODUCT_COLUMNS } from '@/lib/supabase/queries';
+import { parseSiteSettings, DEFAULT_SETTINGS, type SiteSettings } from '@/lib/settings';
 import {
   products as mockProducts,
   leagues as mockLeagues,
@@ -148,4 +149,21 @@ export async function getTopReviews(limit = 5): Promise<{ quote: string; name: s
     .filter(r => (r.body ?? '').trim().length >= 20) // substantive only
     .slice(0, limit)
     .map(r => ({ quote: r.body, name: r.author_name || 'Customer', rating: r.rating ?? 5 }));
+}
+
+// Operational settings (WhatsApp number, free-shipping threshold, delivery
+// estimate text, business hours) — editable at Admin → Store Settings
+// instead of hardcoded. Used by any server component that needs one of
+// these (Contact, Shipping, Footer). Client components use the
+// useSiteSettings() hook from components/Providers.tsx instead, since this
+// function needs the server Supabase client.
+export async function getSiteSettings(): Promise<SiteSettings> {
+  if (!HAS_SUPABASE) return DEFAULT_SETTINGS;
+  const supabase = await createClient();
+  const { data, error } = await supabase.from('site_settings').select('key, value');
+  if (error) {
+    console.error('[getSiteSettings] Supabase error:', error.message);
+    return DEFAULT_SETTINGS;
+  }
+  return parseSiteSettings(data);
 }

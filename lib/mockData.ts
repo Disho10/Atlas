@@ -167,6 +167,7 @@ export type Order = {
   address: string;
   userId?: string;   // signed-in customer id, if any — powers repeat-customer stats
   email?: string;
+  phone?: string;
 };
 
 export const orders: Order[] = [
