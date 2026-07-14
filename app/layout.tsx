@@ -36,6 +36,18 @@ export const metadata: Metadata = {
     template: '%s | Atlas',
   },
   description: 'Authentic kits and match-day gear from every major league, shipped across Lebanon.',
+  // Two favicon variants, switched automatically by the browser/OS's own
+  // light-or-dark setting (prefers-color-scheme) — not the site's in-app
+  // theme toggle, which is a separate thing and can't be read from a static
+  // <link> tag anyway. favicon.ico in app/ (Next's auto-detected convention)
+  // is the fallback for browsers that don't support the media query at all.
+  icons: {
+    icon: [
+      { url: '/favicon-light.png', media: '(prefers-color-scheme: light)', type: 'image/png' },
+      { url: '/favicon-dark.png', media: '(prefers-color-scheme: dark)', type: 'image/png' },
+    ],
+    apple: '/apple-touch-icon.png',
+  },
   openGraph: {
     siteName: 'Atlas',
     type: 'website',
