@@ -15,6 +15,14 @@ import {
 // switches to live data with no further changes needed.
 const HAS_SUPABASE = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 
+// Categories excluded from every customer-facing query below — currently
+// just sportswear, held back pre-launch. Products in this category still
+// exist and are fully manageable in the admin panel (which queries
+// products directly with the service-role client, not through this file),
+// they're just invisible to browsing/search/direct links until this list
+// is emptied out again.
+const HIDDEN_CATEGORIES: string[] = ['sportswear'];
+
 // IMPORTANT: when Supabase IS configured, we must NOT silently fall back to the
 // full mock catalog on error — that's what made every league show all 12
 // products. A failed/filtered query should return an empty list (and log the
@@ -38,7 +46,7 @@ export async function getProducts(filters?: {
   gender?: string;
 }): Promise<Product[]> {
   if (!HAS_SUPABASE) {
-    let items = mockProducts;
+    let items = mockProducts.filter(p => !HIDDEN_CATEGORIES.includes(p.category));
     if (filters?.leagueSlug) items = items.filter(p => p.leagueSlug === filters.leagueSlug);
     if (filters?.category && filters.category !== 'all') items = items.filter(p => p.category === filters.category);
     if (filters?.gender && filters.gender !== 'all') items = items.filter(p => p.gender === filters.gender || p.gender === 'unisex');
@@ -47,6 +55,7 @@ export async function getProducts(filters?: {
 
   const supabase = await createClient();
   let query = supabase.from('products').select(`${PUBLIC_PRODUCT_COLUMNS}, product_tags(tags(label))`).eq('status', 'published');
+  if (HIDDEN_CATEGORIES.length > 0) query = query.not('category', 'in', `(${HIDDEN_CATEGORIES.join(',')})`);
   if (filters?.leagueSlug) query = query.eq('league_slug', filters.leagueSlug);
   if (filters?.category && filters.category !== 'all') query = query.eq('category', filters.category);
   if (filters?.gender && filters.gender !== 'all') query = query.eq('gender', filters.gender);
@@ -59,15 +68,30 @@ export async function getProducts(filters?: {
   return (data ?? []).map((row: any) => mapProductRow(row));
 }
 
-export async function getProductById(id: string): Promise<Product | undefined> {
-  if (!HAS_SUPABASE) return mockProducts.find(p => p.id === id);
+// includeUnpublished is only for the staff-only preview route
+// (app/admin/preview/[id]/page.tsx), which gates on role BEFORE calling
+// this — never pass it based on anything a customer request could control.
+// Without this flag, the customer-facing product page could previously
+// load a draft (or now, a hidden-category) product just by guessing/
+// visiting its direct URL, since this query had no status filter at all.
+export async function getProductById(id: string, opts?: { includeUnpublished?: boolean }): Promise<Product | undefined> {
+  if (!HAS_SUPABASE) {
+    const p = mockProducts.find(p => p.id === id);
+    if (!p) return undefined;
+    if (!opts?.includeUnpublished && HIDDEN_CATEGORIES.includes(p.category)) return undefined;
+    return p;
+  }
 
   const supabase = await createClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from('products')
     .select(`${PUBLIC_PRODUCT_COLUMNS}, product_tags(tags(label))`)
-    .eq('id', id)
-    .single();
+    .eq('id', id);
+  if (!opts?.includeUnpublished) {
+    query = query.eq('status', 'published');
+    if (HIDDEN_CATEGORIES.length > 0) query = query.not('category', 'in', `(${HIDDEN_CATEGORIES.join(',')})`);
+  }
+  const { data, error } = await query.single();
 
   if (error) {
     console.error('[getProductById] Supabase error:', error.message, '| id:', id);
@@ -81,17 +105,20 @@ export async function searchProducts(term: string): Promise<Product[]> {
 
   if (!HAS_SUPABASE) {
     const q = term.toLowerCase();
-    return mockProducts.filter(
-      p => p.name.toLowerCase().includes(q) || p.team.toLowerCase().includes(q) || p.tags.some(t => t.toLowerCase().includes(q))
-    );
+    return mockProducts
+      .filter(p => !HIDDEN_CATEGORIES.includes(p.category))
+      .filter(p => p.name.toLowerCase().includes(q) || p.team.toLowerCase().includes(q) || p.tags.some(t => t.toLowerCase().includes(q)));
   }
 
   const supabase = await createClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from('products')
     .select(`${PUBLIC_PRODUCT_COLUMNS}, product_tags(tags(label))`)
     .eq('status', 'published')
     .or(`name.ilike.%${term}%,team.ilike.%${term}%`);
+  if (HIDDEN_CATEGORIES.length > 0) query = query.not('category', 'in', `(${HIDDEN_CATEGORIES.join(',')})`);
+
+  const { data, error } = await query;
 
   if (error) {
     console.error('[searchProducts] Supabase error:', error.message, '| term:', term);

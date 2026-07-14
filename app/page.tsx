@@ -1,7 +1,7 @@
 import Hero from '@/components/Hero';
 import CategorySlider from '@/components/CategorySlider';
 import ProductRail from '@/components/ProductRail';
-import SportswearPromo from '@/components/SportswearPromo';
+import RetroPromo from '@/components/RetroPromo';
 import { StatsBand, TrustBadges, Testimonials, FaqSection, NewsletterSignup } from '@/components/SocialProof';
 import { getProducts, getTopReviews } from '@/lib/data';
 import { createClient } from '@/lib/supabase/server';
@@ -14,7 +14,7 @@ export default async function HomePage() {
   const hot = products.filter(p => p.hot);
   const newest = [...products].slice(-4);
   const mostSearched = products.filter(p => p.reviewCount > 50);
-  const sportswear = products.filter(p => p.category === 'sportswear');
+  const retro = products.filter(p => p.tags.some(tag => tag.toLowerCase() === 'retro'));
 
   // Fetch hero slides saved by owner/manager — falls back to defaults in HeroSlideshow
   let heroSlides: any[] | undefined;
@@ -34,7 +34,7 @@ export default async function HomePage() {
       <ProductRail titleKey="home.hotTitle" subtitleKey="home.hotSubtitle" products={hot} />
       <ProductRail titleKey="home.justDroppedTitle" subtitleKey="home.justDroppedSubtitle" products={newest} showNewBadge />
 
-      <SportswearPromo products={sportswear} />
+      <RetroPromo products={retro} />
 
       {mostSearched.length > 0 && (
         <ProductRail titleKey="home.mostSearchedTitle" subtitleKey="home.mostSearchedSubtitle" products={mostSearched} />

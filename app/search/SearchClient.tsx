@@ -65,7 +65,7 @@ export default function SearchClient({ query, products, leagues }: {
       <div className="flex flex-wrap gap-2 mb-4">
         <Filter label="Team" value={team} onChange={setTeam} options={['all', ...teams]} />
         <Filter label="League" value={league} onChange={setLeague} options={['all', ...leagues.map(l => l.slug)]} display={v => leagues.find(l => l.slug === v)?.name ?? v} />
-        <Filter label="Category" value={category} onChange={setCategory} options={['all', 'shirts', 'socks', 'balls', 'shinpads', 'sportswear']} />
+        <Filter label="Category" value={category} onChange={setCategory} options={['all', 'shirts', 'socks', 'balls', 'shinpads']} />
         <Filter label="Gender" value={gender} onChange={setGender} options={['all', 'male', 'female', 'unisex']} />
         <Filter label="Tag / nationality / player" value={tag} onChange={setTag} options={['all', ...tags]} />
         <label className="text-sm">

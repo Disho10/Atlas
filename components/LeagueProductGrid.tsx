@@ -30,7 +30,7 @@ export default function LeagueProductGrid({ products }: { products: Product[] })
     <>
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <Select label="Team" allLabel="All Teams" value={team} onChange={setTeam} options={['all', ...teams]} />
-        <Select label="Category" allLabel="All Categories" value={category} onChange={setCategory} options={['all', 'shirts', 'socks', 'balls', 'shinpads', 'sportswear']} />
+        <Select label="Category" allLabel="All Categories" value={category} onChange={setCategory} options={['all', 'shirts', 'socks', 'balls', 'shinpads']} />
         <label className="text-sm">
           <span className="sr-only">Sort</span>
           <select

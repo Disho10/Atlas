@@ -24,7 +24,7 @@ export default async function ProductPreviewPage({ params }: { params: Promise<{
     }
   }
 
-  const product = await getProductById(id);
+  const product = await getProductById(id, { includeUnpublished: true });
   if (!product) return notFound();
 
   const reviews = await getReviews(product.id);

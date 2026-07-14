@@ -7,10 +7,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes: MetadataRoute.Sitemap = [
     { url: `${siteUrl}/`, changeFrequency: 'daily', priority: 1 },
     { url: `${siteUrl}/leagues`, changeFrequency: 'weekly', priority: 0.8 },
-    { url: `${siteUrl}/shop/sportswear`, changeFrequency: 'weekly', priority: 0.7 },
+    { url: `${siteUrl}/retro`, changeFrequency: 'weekly', priority: 0.7 },
+    { url: `${siteUrl}/sale`, changeFrequency: 'weekly', priority: 0.7 },
     { url: `${siteUrl}/search`, changeFrequency: 'weekly', priority: 0.5 },
     { url: `${siteUrl}/track`, changeFrequency: 'monthly', priority: 0.3 },
     { url: `${siteUrl}/about`, changeFrequency: 'monthly', priority: 0.3 },
+    { url: `${siteUrl}/contact`, changeFrequency: 'monthly', priority: 0.3 },
+    { url: `${siteUrl}/shipping`, changeFrequency: 'monthly', priority: 0.3 },
     { url: `${siteUrl}/terms`, changeFrequency: 'yearly', priority: 0.1 },
     { url: `${siteUrl}/privacy`, changeFrequency: 'yearly', priority: 0.1 },
   ];

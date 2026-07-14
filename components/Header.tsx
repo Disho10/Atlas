@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import Logo from './Logo';
+import GlitchText from './GlitchText';
 import { useState, useEffect } from 'react';
 import { useCart, useCurrency, useTheme, useWishlist, useAuth } from './Providers';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
@@ -91,8 +92,8 @@ export default function Header() {
             <Link href="/leagues" className="nav-sweep pb-1 text-steel">
               {t('nav.allLeagues')}
             </Link>
-            <Link href="/shop/sportswear" className="nav-sweep pb-1">
-              {t('nav.sportswear')}
+            <Link href="/retro" className="nav-sweep pb-1">
+              <GlitchText text={t('nav.retro')} />
             </Link>
           </nav>
         </div>
@@ -175,7 +176,7 @@ export default function Header() {
               {l.name}
             </Link>
           ))}
-          <Link href="/shop/sportswear" onClick={() => setMenuOpen(false)}>{t('nav.sportswear')}</Link>
+          <Link href="/retro" onClick={() => setMenuOpen(false)}><GlitchText text={t('nav.retro')} /></Link>
           <Link href="/about" onClick={() => setMenuOpen(false)}>{t('nav.aboutUs')}</Link>
           {!loading && (
             signedIn

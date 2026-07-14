@@ -1994,7 +1994,7 @@ function HeroSlidesTab({ initialSlides, demoMode, onDone }: { initialSlides: any
   const [slides, setSlides] = useState<any[]>(initialSlides ?? [
     { tag: 'Matchday drop · 6 leagues live now', titleTop: 'WEAR THE', titleAccent: 'RESULT.', body: 'Kits, boots-up gear, and match essentials from LaLiga to the Lebanese Premier League — carried to your door.', image: '', ctaLabel: 'Shop Premier League', ctaHref: '/leagues/premier-league', secondaryLabel: 'Browse all leagues', secondaryHref: '/leagues' },
     { tag: 'New season · 25/26 kits in stock', titleTop: 'NEW KITS', titleAccent: 'JUST LANDED.', body: 'Home and away shirts for the new season, from Madrid to Manchester — sized S to XXL, delivered across Lebanon.', image: '', ctaLabel: 'Shop new kits', ctaHref: '/search?q=Home%20Kit', secondaryLabel: 'View LaLiga', secondaryHref: '/leagues/la-liga' },
-    { tag: 'Off the pitch · men & women', titleTop: 'TRAIN LIKE', titleAccent: 'YOU MEAN IT.', body: 'Hoodies, track jackets, grip socks, and everyday sportswear built for training and styled for the terrace.', image: '', ctaLabel: 'Shop sportswear', ctaHref: '/shop/sportswear', secondaryLabel: 'Match essentials', secondaryHref: '/leagues' },
+    { tag: 'From the archive · limited numbers', titleTop: 'THE KITS THAT', titleAccent: 'STARTED IT.', body: 'Classic and vintage shirts from eras before this one — sourced in limited numbers. When a size sells out, it\'s gone for good.', image: '', ctaLabel: 'Shop retro', ctaHref: '/retro', secondaryLabel: 'Match essentials', secondaryHref: '/leagues' },
   ]);
   const [activeIdx, setActiveIdx] = useState(0);
   const [uploading, setUploading] = useState(false);

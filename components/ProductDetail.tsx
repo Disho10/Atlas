@@ -101,7 +101,7 @@ export default function ProductDetail({ product, initialReviews, related }: { pr
         <span>/</span>
         {product.leagueSlug
           ? <Link href={`/leagues/${product.leagueSlug}`} className="hover:opacity-70 capitalize">{product.leagueSlug.replace(/-/g, ' ')}</Link>
-          : <Link href="/shop/sportswear" className="hover:opacity-70">Sportswear</Link>}
+          : <Link href="/search" className="hover:opacity-70 capitalize">{product.category}</Link>}
         <span>/</span>
         <span className="text-ink dark:text-chalk">{product.name}</span>
       </nav>
