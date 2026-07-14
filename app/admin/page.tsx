@@ -68,7 +68,7 @@ export default async function AdminPage() {
     supabase.from('reviews').select('id, product_id, author_name, rating, body, hidden, hidden_reason, created_at, products(name)').order('created_at', { ascending: false }).limit(300),
     // Return/exchange requests with enough order context to act on them without a second click-through.
     supabase.from('return_requests').select('id, order_id, type, reason, status, refund_amount_usd, resolved_at, created_at, orders(order_number, customer_name, subtotal_usd)').order('created_at', { ascending: false }).limit(200),
-    supabase.from('gift_cards').select('id, code, initial_balance_usd, remaining_balance_usd, purchaser_email, recipient_email, recipient_name, status, created_at').order('created_at', { ascending: false }).limit(300),
+    supabase.from('gift_cards').select('id, code, initial_balance_usd, remaining_balance_usd, purchaser_email, recipient_email, recipient_name, status, source, created_at').order('created_at', { ascending: false }).limit(300),
   ]);
 
   const pages = (pagesRows ?? []).map((p: any) => ({ id: p.id, slug: p.slug, title: p.title, blocks: p.blocks ?? [], published: p.published, updatedAt: (p.updated_at ?? '').slice(0, 10) }));
@@ -197,7 +197,7 @@ export default async function AdminPage() {
     id: g.id, code: g.code, initialBalanceUsd: Number(g.initial_balance_usd),
     remainingBalanceUsd: Number(g.remaining_balance_usd), purchaserEmail: g.purchaser_email,
     recipientEmail: g.recipient_email, recipientName: g.recipient_name, status: g.status,
-    createdAt: (g.created_at ?? '').slice(0, 10),
+    source: g.source ?? 'purchase', createdAt: (g.created_at ?? '').slice(0, 10),
   }));
 
   return (

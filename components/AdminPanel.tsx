@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { formatCurrency, type Product, type Order } from '@/lib/mockData';
-import { saveProduct, deleteProduct, logManualOrder, logManualOrderMulti, updateOrderStatus, setStaffRole, createPromo, setPromoActive, setExchangeRate, savePage, deletePage, saveHeroSlides, setReviewHidden, resolveReturn, setSiteSetting } from '@/app/admin/actions';
+import { saveProduct, deleteProduct, logManualOrder, logManualOrderMulti, updateOrderStatus, setStaffRole, createPromo, setPromoActive, setExchangeRate, savePage, deletePage, saveHeroSlides, setReviewHidden, resolveReturn, setSiteSetting, issueGiftCard } from '@/app/admin/actions';
 import { DEFAULT_SETTINGS, settingDbKey, type SiteSettings } from '@/lib/settings';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
 import type { TranslationKey } from '@/lib/i18n/dictionary';
@@ -28,7 +28,7 @@ type ReturnRequestItem = {
 type GiftCardItem = {
   id: string; code: string; initialBalanceUsd: number; remainingBalanceUsd: number;
   purchaserEmail: string; recipientEmail: string; recipientName: string | null;
-  status: string; createdAt: string;
+  status: string; source: string; createdAt: string;
 };
 
 export default function AdminPanel({
@@ -578,7 +578,7 @@ export default function AdminPanel({
       )}
 
       {tab === 'giftCards' && (
-        <GiftCardsTab giftCards={giftCards} />
+        <GiftCardsTab giftCards={giftCards} role={role} demoMode={demoMode} onDone={flash} />
       )}
 
       {tab === 'storeSettings' && (
@@ -1742,48 +1742,92 @@ function ReturnsTab({ returnRequests, demoMode, onDone }: { returnRequests: Retu
 // directly, consistent with promo_codes/orders: financial facts aren't
 // something a client request should set, even a staff one.
 // ---------------------------------------------------------------------------
-function GiftCardsTab({ giftCards }: { giftCards: GiftCardItem[] }) {
+function GiftCardsTab({ giftCards, role, demoMode, onDone }: { giftCards: GiftCardItem[]; role: Role; demoMode: boolean; onDone: (m: string) => void }) {
   const [query, setQuery] = useState('');
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [f, setF] = useState({ recipient_email: '', recipient_name: '', amount_usd: 25, message: '' });
+
   const q = query.toLowerCase().trim();
   const filtered = giftCards.filter(g =>
     !q || g.code.toLowerCase().includes(q) || g.purchaserEmail.toLowerCase().includes(q) || g.recipientEmail.toLowerCase().includes(q)
   );
   const totalOutstanding = giftCards.filter(g => g.status === 'active').reduce((s, g) => s + g.remainingBalanceUsd, 0);
+  const totalIssuedFree = giftCards.filter(g => g.source === 'staff_issued').reduce((s, g) => s + g.initialBalanceUsd, 0);
+
+  const issue = () => {
+    setError(null);
+    if (!f.recipient_email.includes('@')) { setError('Enter a valid recipient email.'); return; }
+    if (f.amount_usd <= 0 || f.amount_usd > 1000) { setError('Amount must be between $0.01 and $1000.'); return; }
+    start(async () => {
+      const res = await issueGiftCard(f);
+      if (res.ok) {
+        onDone(`Gift card ${res.code} issued.`);
+        setF({ recipient_email: '', recipient_name: '', amount_usd: 25, message: '' });
+      } else {
+        setError(res.error);
+      }
+    });
+  };
 
   return (
-    <Section title="Gift cards" desc="Outstanding balance is a real liability — money already collected that customers haven't spent yet.">
-      <div className="grid sm:grid-cols-2 gap-3 mb-5">
-        <Stat label="Cards issued" value={String(giftCards.length)} />
-        <Stat label="Outstanding balance" value={formatCurrency(totalOutstanding, 'USD')} tone={totalOutstanding > 0 ? 'crimson' : undefined} />
-      </div>
-      <input
-        value={query}
-        onChange={e => setQuery(e.target.value)}
-        placeholder="Search code, purchaser, or recipient email..."
-        className="w-full border border-black/15 dark:border-white/20 bg-transparent rounded-xl px-4 py-2.5 text-sm mb-4"
-      />
-      {filtered.length === 0 ? (
-        <p className="text-steel text-sm">{giftCards.length === 0 ? 'No gift cards sold yet.' : 'No gift cards match that search.'}</p>
-      ) : (
-        <div className="space-y-2">
-          {filtered.map(g => (
-            <Row key={g.id}>
-              <span className="font-mono text-sm w-40 shrink-0">{g.code}</span>
-              <span className="flex-1 min-w-0 text-xs text-steel truncate">
-                {g.purchaserEmail} → {g.recipientEmail}{g.recipientName ? ` (${g.recipientName})` : ''}
-              </span>
-              <span className="text-xs tabular w-28 text-right shrink-0">
-                {formatCurrency(g.remainingBalanceUsd, 'USD')} / {formatCurrency(g.initialBalanceUsd, 'USD')}
-              </span>
-              <span className={`text-xs px-2 py-0.5 rounded-full capitalize shrink-0 ${
-                g.status === 'active' ? 'bg-pitch/10 text-pitch dark:bg-volt/10 dark:text-volt' : 'bg-black/5 dark:bg-white/10 text-steel'
-              }`}>{g.status}</span>
-              <span className="text-xs text-steel w-20 text-right shrink-0">{g.createdAt}</span>
-            </Row>
-          ))}
-        </div>
+    <>
+      {/* Issuing a card with no purchase behind it is owner-only — checked
+          here for the UI, and again inside issue_gift_card() itself, so a
+          manager or admin can't reach it even by calling the action directly. */}
+      {role === 'owner' && (
+        <Section title="Issue a gift card" desc="No purchase behind this — comes straight out as a liability, not revenue. For compensation, goodwill, or promotional giveaways.">
+          <div className="grid sm:grid-cols-2 gap-3">
+            <Field label="Recipient email"><input value={f.recipient_email} onChange={e => setF(s => ({ ...s, recipient_email: e.target.value }))} className={inputCls} /></Field>
+            <Field label="Recipient name (optional)"><input value={f.recipient_name} onChange={e => setF(s => ({ ...s, recipient_name: e.target.value }))} className={inputCls} /></Field>
+            <Field label="Amount (USD)"><input type="number" value={f.amount_usd} onChange={e => setF(s => ({ ...s, amount_usd: Number(e.target.value) }))} className={inputCls} /></Field>
+            <Field label="Message (optional)"><input value={f.message} onChange={e => setF(s => ({ ...s, message: e.target.value }))} className={inputCls} /></Field>
+          </div>
+          {error && <p className="text-crimson text-sm mt-3">{error}</p>}
+          <button onClick={issue} disabled={pending || demoMode} className="mt-4 text-sm bg-volt text-ink rounded-full px-6 py-2.5 font-medium btn-press disabled:opacity-40">
+            {pending ? 'Issuing…' : 'Issue gift card'}
+          </button>
+        </Section>
       )}
-    </Section>
+
+      <Section title="Gift cards" desc="Outstanding balance is a real liability — money already collected (or comped) that customers haven't spent yet.">
+        <div className="grid sm:grid-cols-3 gap-3 mb-5">
+          <Stat label="Cards issued" value={String(giftCards.length)} />
+          <Stat label="Outstanding balance" value={formatCurrency(totalOutstanding, 'USD')} tone={totalOutstanding > 0 ? 'crimson' : undefined} />
+          <Stat label="Comped (no revenue)" value={formatCurrency(totalIssuedFree, 'USD')} tone={totalIssuedFree > 0 ? 'crimson' : undefined} />
+        </div>
+        <input
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder="Search code, purchaser, or recipient email..."
+          className="w-full border border-black/15 dark:border-white/20 bg-transparent rounded-xl px-4 py-2.5 text-sm mb-4"
+        />
+        {filtered.length === 0 ? (
+          <p className="text-steel text-sm">{giftCards.length === 0 ? 'No gift cards yet.' : 'No gift cards match that search.'}</p>
+        ) : (
+          <div className="space-y-2">
+            {filtered.map(g => (
+              <Row key={g.id}>
+                <span className="font-mono text-sm w-40 shrink-0">{g.code}</span>
+                <span className="flex-1 min-w-0 text-xs text-steel truncate">
+                  {g.purchaserEmail} → {g.recipientEmail}{g.recipientName ? ` (${g.recipientName})` : ''}
+                </span>
+                {g.source === 'staff_issued' && (
+                  <span className="text-[10px] uppercase px-2 py-0.5 rounded-full bg-crimson/10 text-crimson shrink-0">Comped</span>
+                )}
+                <span className="text-xs tabular w-28 text-right shrink-0">
+                  {formatCurrency(g.remainingBalanceUsd, 'USD')} / {formatCurrency(g.initialBalanceUsd, 'USD')}
+                </span>
+                <span className={`text-xs px-2 py-0.5 rounded-full capitalize shrink-0 ${
+                  g.status === 'active' ? 'bg-pitch/10 text-pitch dark:bg-volt/10 dark:text-volt' : 'bg-black/5 dark:bg-white/10 text-steel'
+                }`}>{g.status}</span>
+                <span className="text-xs text-steel w-20 text-right shrink-0">{g.createdAt}</span>
+              </Row>
+            ))}
+          </div>
+        )}
+      </Section>
+    </>
   );
 }
 

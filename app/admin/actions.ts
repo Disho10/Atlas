@@ -33,6 +33,7 @@ async function getRole(): Promise<{ userId: string; role: string } | null> {
 
 const isStaff = (r: string) => ['admin', 'manager', 'owner'].includes(r);
 const canEditProducts = (r: string) => ['manager', 'owner'].includes(r);
+const isOwner = (r: string) => r === 'owner';
 
 // Fire-and-forget audit trail — never blocks or fails the action it's
 // logging for. `supabase` should be the caller's session client so the
@@ -535,4 +536,34 @@ export async function resolveReturn(
   await logAudit(supabase, auth.userId, `return.${decision}`, id, refundAmountUsd != null ? { refund_amount_usd: refundAmountUsd } : undefined);
   revalidatePath('/admin');
   return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// GIFT CARDS — issuing one directly (no purchase behind it) is owner-only,
+// checked here AND inside issue_gift_card() itself (0010) — the same
+// defense-in-depth reasoning as everywhere else: the UI check is real, but
+// the DB function refuses on its own regardless of what called it.
+// ---------------------------------------------------------------------------
+export async function issueGiftCard(input: {
+  recipient_email: string;
+  recipient_name?: string;
+  amount_usd: number;
+  message?: string;
+}): Promise<ActionResult & { code?: string }> {
+  const auth = await getRole();
+  if (!auth) return { ok: false, error: 'Not signed in.' };
+  if (!isOwner(auth.role)) return { ok: false, error: 'Only the Owner can issue gift cards.' };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('issue_gift_card', {
+    p_recipient_email: input.recipient_email.trim(),
+    p_recipient_name: input.recipient_name?.trim() || null,
+    p_amount_usd: input.amount_usd,
+    p_message: input.message?.trim() || null,
+  });
+  if (error || !data) return { ok: false, error: error?.message || 'Something went wrong.' };
+
+  await logAudit(supabase, auth.userId, 'gift_card.issue', data.code, { amount_usd: input.amount_usd, recipient: input.recipient_email });
+  revalidatePath('/admin');
+  return { ok: true, code: data.code };
 }

@@ -102,5 +102,48 @@ begin
     end if;
   end;
 
+  -- Owner-only issuance (0010) --------------------------------------------
+  declare
+    v_owner uuid := '44444444-4444-4444-4444-444444444444';
+    v_manager uuid := '55555555-5555-5555-5555-555555555555';
+    v_issued_by uuid;
+  begin
+    insert into auth.users (id, email) values (v_owner, 'owner@test.com');
+    insert into auth.users (id, email) values (v_manager, 'manager@test.com');
+    perform set_config('atlas.trusted_write', 'on', true);
+    update profiles set role = 'owner' where id = v_owner;
+    update profiles set role = 'manager' where id = v_manager;
+
+    -- Owner should succeed
+    perform set_config('request.jwt.claim.sub', v_owner::text, true);
+    v_result := issue_gift_card('comped@test.com', 'Comped Customer', 40, 'Sorry about that!');
+    if v_result->>'code' is null or v_result->>'code' !~ '^ATLAS-' then
+      raise exception 'FAIL: owner-issued gift card did not return a valid code';
+    end if;
+    raise notice 'PASS: owner can issue a gift card with no purchase behind it';
+
+    select source, issued_by into v_gc_status, v_issued_by from gift_cards where code = v_result->>'code';
+    if v_gc_status is distinct from 'staff_issued' then
+      raise exception 'FAIL: owner-issued card should have source=staff_issued, got %', v_gc_status;
+    end if;
+    if v_issued_by is distinct from v_owner then
+      raise exception 'FAIL: issued_by should record the owner who issued it, got %', v_issued_by;
+    end if;
+    raise notice 'PASS: owner-issued card is correctly tagged staff_issued and attributed to the right owner';
+
+    -- Manager should be blocked, even though they can do almost everything else
+    perform set_config('request.jwt.claim.sub', v_manager::text, true);
+    begin
+      perform issue_gift_card('nope@test.com', null, 20, null);
+      raise exception 'FAIL: a manager was able to issue a gift card — this must be owner-only';
+    exception when others then
+      if sqlerrm like '%Only the store owner%' then
+        raise notice 'PASS: manager is blocked from issuing gift cards (owner-only, confirmed at the DB level)';
+      else
+        raise;
+      end if;
+    end;
+  end;
+
   raise notice '--- all gift_card_test.sql checks passed ---';
 end $$;
