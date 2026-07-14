@@ -40,8 +40,13 @@ export default function ProductDetail({ product, initialReviews, related }: { pr
   const lowStock = product.stock > 0 && product.stock <= 6;
 
   const addToCart = () => {
-    if (!size) return;
-    for (let i = 0; i < qty; i++) add(product, size, selectedVariant || undefined, activeVariant?.price);
+    // Was `if (!size) return;` unconditionally — any product with an empty
+    // sizes array (a keychain, scarf, anything the admin form didn't get a
+    // "Sizes" value for) initializes size to null and this silently blocked
+    // every add-to-cart click with zero error message. Only require a size
+    // when the product actually offers one.
+    if (product.sizes.length > 0 && !size) return;
+    for (let i = 0; i < qty; i++) add(product, size ?? '', selectedVariant || undefined, activeVariant?.price);
     setAdded(true);
     setTimeout(() => setAdded(false), 1600);
   };

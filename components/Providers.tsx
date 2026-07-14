@@ -51,18 +51,51 @@ function CurrencyProvider({ children }: { children: ReactNode }) {
 // CART
 // ---------------------------------------------------------------------------
 export type CartLine = { product: Product; size: string; qty: number; variant?: string; variantPrice?: number };
+const CART_STORAGE_KEY = 'atlas-cart';
 const CartCtx = createContext<{
   lines: CartLine[];
   add: (p: Product, size: string, variant?: string, variantPrice?: number) => void;
   remove: (productId: string, size: string) => void;
   setQty: (productId: string, size: string, qty: number) => void;
+  clear: () => void;
   count: number;
   subtotal: number;
-}>({ lines: [], add: () => {}, remove: () => {}, setQty: () => {}, count: 0, subtotal: 0 });
+  hydrated: boolean;
+}>({ lines: [], add: () => {}, remove: () => {}, setQty: () => {}, clear: () => {}, count: 0, subtotal: 0, hydrated: false });
 export const useCart = () => useContext(CartCtx);
 
 function CartProvider({ children }: { children: ReactNode }) {
+  // Was pure in-memory useState — any page refresh, closed tab, or a mobile
+  // browser reclaiming a backgrounded tab (routine on iOS/Android) silently
+  // wiped the entire cart with zero warning. Persisting to localStorage,
+  // same pattern already used for theme. Hydration happens in an effect
+  // (not the initial useState) since localStorage isn't available during
+  // SSR — the first render is always empty on both server and client, so
+  // there's no hydration mismatch, just a one-frame flash before real data
+  // loads in.
   const [lines, setLines] = useState<CartLine[]>([]);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(CART_STORAGE_KEY);
+      if (stored) setLines(JSON.parse(stored));
+    } catch {
+      // Corrupted or unavailable storage — just start with an empty cart
+      // rather than crash the app over it.
+    }
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return; // don't overwrite real stored data with the empty initial state
+    try {
+      window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(lines));
+    } catch {
+      // Storage full or unavailable (e.g. Safari private mode) — cart still
+      // works for the current session, it just won't survive a refresh.
+    }
+  }, [lines, hydrated]);
 
   const add = (product: Product, size: string, variant?: string, variantPrice?: number) => {
     setLines(prev => {
@@ -81,6 +114,12 @@ function CartProvider({ children }: { children: ReactNode }) {
   const setQty = (productId: string, size: string, qty: number) => {
     setLines(prev => prev.map(l => (l.product.id === productId && l.size === size ? { ...l, qty: Math.max(1, qty) } : l)));
   };
+
+  // Called after a successful checkout — was missing entirely, so a placed
+  // order left the same items sitting in the cart. Refreshing /cart showed
+  // items the customer already bought, and nothing stopped a resubmit from
+  // creating a genuine duplicate order for the same items.
+  const clear = () => setLines([]);
 
   const count = lines.reduce((s, l) => s + l.qty, 0);
   const subtotal = calcSubtotal(lines);
@@ -103,7 +142,7 @@ function CartProvider({ children }: { children: ReactNode }) {
     return () => clearTimeout(t);
   }, [lines]);
 
-  return <CartCtx.Provider value={{ lines, add, remove, setQty, count, subtotal }}>{children}</CartCtx.Provider>;
+  return <CartCtx.Provider value={{ lines, add, remove, setQty, clear, count, subtotal, hydrated }}>{children}</CartCtx.Provider>;
 }
 
 // ---------------------------------------------------------------------------

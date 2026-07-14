@@ -72,7 +72,7 @@ const HAS_SUPABASE = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 const inputCls = 'w-full border border-black/15 dark:border-white/20 bg-transparent rounded-xl px-4 py-3 text-sm outline-none focus:border-volt transition-colors';
 
 export default function CheckoutPage() {
-  const { lines, subtotal, remove } = useCart();
+  const { lines, subtotal, remove, clear } = useCart();
   const { currency } = useCurrency();
   const { t } = useLocale();
   const [method, setMethod] = useState<(typeof METHODS)[number]['value']>('cod');
@@ -116,6 +116,7 @@ export default function CheckoutPage() {
       setOrderNumber('ATL-' + Math.floor(10000 + Math.random() * 90000));
       setStage(method === 'cod' ? 'confirmed' : 'payment');
       setSubmitting(false);
+      clear();
       return;
     }
 
@@ -144,7 +145,13 @@ export default function CheckoutPage() {
     });
 
     if (orderError || !result) {
-      setError('Something went wrong. Please try again.');
+      // place_order() raises specific, customer-useful messages ("Not enough
+      // stock left for X — only 2 available", the rate-limit message, etc.)
+      // — this was discarding all of that and always showing a generic
+      // "Something went wrong," which is actively unhelpful for exactly the
+      // cases (out of stock, too many recent orders) where the customer
+      // needs to know what happened and what to do about it.
+      setError(orderError?.message || 'Something went wrong. Please try again.');
       setSubmitting(false);
       return;
     }
@@ -160,6 +167,7 @@ export default function CheckoutPage() {
     // COD: confirmed immediately. Others: show payment instructions first.
     setStage(method === 'cod' ? 'confirmed' : 'payment');
     setSubmitting(false);
+    clear();
   };
 
   // -------------------------------------------------------------------------

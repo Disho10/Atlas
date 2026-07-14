@@ -8,12 +8,17 @@ import { formatCurrency } from '@/lib/mockData';
 import { Reveal } from '@/components/Motion';
 
 export default function CartPage() {
-  const { lines, remove, setQty, subtotal } = useCart();
+  const { lines, remove, setQty, subtotal, hydrated } = useCart();
   const { currency } = useCurrency();
   const { t } = useLocale();
   const FREE_SHIPPING = 110;
   const toFreeShipping = Math.max(0, FREE_SHIPPING - subtotal);
   const freeShipping = subtotal >= FREE_SHIPPING;
+
+  // Before hydration finishes reading the persisted cart, lines is always
+  // [] — without this, anyone landing on /cart with real items would see a
+  // flash of "Your cart is empty" for a frame before the real cart appears.
+  if (!hydrated) return <main className="max-w-3xl mx-auto px-6 py-32" />;
 
   if (lines.length === 0) {
     return (
