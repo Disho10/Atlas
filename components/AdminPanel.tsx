@@ -1168,6 +1168,7 @@ function StoreSettingsTab({ initialSettings, demoMode, onDone }: { initialSettin
     start(async () => {
       const results = await Promise.all([
         setSiteSetting(settingDbKey('whatsappNumber'), f.whatsappNumber),
+        setSiteSetting(settingDbKey('instagramHandle'), f.instagramHandle),
         setSiteSetting(settingDbKey('freeShippingThreshold'), String(f.freeShippingThreshold)),
         setSiteSetting(settingDbKey('deliveryEstimateText'), f.deliveryEstimateText),
         setSiteSetting(settingDbKey('businessHours'), f.businessHours),
@@ -1186,6 +1187,14 @@ function StoreSettingsTab({ initialSettings, demoMode, onDone }: { initialSettin
             value={f.whatsappNumber}
             onChange={e => setF(s => ({ ...s, whatsappNumber: e.target.value.replace(/[^\d]/g, '') }))}
             placeholder="96181752873"
+            className={inputCls}
+          />
+        </Field>
+        <Field label="Instagram handle (without @)">
+          <input
+            value={f.instagramHandle}
+            onChange={e => setF(s => ({ ...s, instagramHandle: e.target.value.replace(/^@/, '').trim() }))}
+            placeholder="atlas_leb"
             className={inputCls}
           />
         </Field>

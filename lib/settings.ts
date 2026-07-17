@@ -4,6 +4,7 @@
 // this existed — change it once here, not once per file + a redeploy).
 export type SiteSettings = {
   whatsappNumber: string;      // digits only, no +, no spaces — used to build wa.me links
+  instagramHandle: string;     // without the @ — used to build instagram.com links
   freeShippingThreshold: number; // USD
   deliveryEstimateText: string;
   businessHours: string;
@@ -11,6 +12,7 @@ export type SiteSettings = {
 
 export const DEFAULT_SETTINGS: SiteSettings = {
   whatsappNumber: '96181752873',
+  instagramHandle: 'atlas_leb',
   freeShippingThreshold: 110,
   deliveryEstimateText: '2–4 business days',
   businessHours: 'Sun–Fri, 9am–7pm Beirut time',
@@ -18,6 +20,7 @@ export const DEFAULT_SETTINGS: SiteSettings = {
 
 const KEY_MAP: Record<keyof SiteSettings, string> = {
   whatsappNumber: 'whatsapp_number',
+  instagramHandle: 'instagram_handle',
   freeShippingThreshold: 'free_shipping_threshold',
   deliveryEstimateText: 'delivery_estimate_text',
   businessHours: 'business_hours',
@@ -30,6 +33,7 @@ export function parseSiteSettings(rows: { key: string; value: string }[] | null 
   const byKey = new Map((rows ?? []).map(r => [r.key, r.value]));
   return {
     whatsappNumber: byKey.get(KEY_MAP.whatsappNumber) || DEFAULT_SETTINGS.whatsappNumber,
+    instagramHandle: byKey.get(KEY_MAP.instagramHandle) || DEFAULT_SETTINGS.instagramHandle,
     freeShippingThreshold: Number(byKey.get(KEY_MAP.freeShippingThreshold)) || DEFAULT_SETTINGS.freeShippingThreshold,
     deliveryEstimateText: byKey.get(KEY_MAP.deliveryEstimateText) || DEFAULT_SETTINGS.deliveryEstimateText,
     businessHours: byKey.get(KEY_MAP.businessHours) || DEFAULT_SETTINGS.businessHours,
@@ -42,4 +46,8 @@ export function settingDbKey(key: keyof SiteSettings): string {
 
 export function whatsappLink(whatsappNumber: string, text?: string): string {
   return `https://wa.me/${whatsappNumber}${text ? `?text=${encodeURIComponent(text)}` : ''}`;
+}
+
+export function instagramLink(instagramHandle: string): string {
+  return `https://instagram.com/${instagramHandle.replace(/^@/, '')}`;
 }

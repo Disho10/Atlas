@@ -2,8 +2,9 @@ import Hero from '@/components/Hero';
 import CategorySlider from '@/components/CategorySlider';
 import ProductRail from '@/components/ProductRail';
 import RetroPromo from '@/components/RetroPromo';
+import UnderConstructionBanner from '@/components/UnderConstructionBanner';
 import { StatsBand, TrustBadges, Testimonials, FaqSection, NewsletterSignup } from '@/components/SocialProof';
-import { getProducts, getTopReviews } from '@/lib/data';
+import { getProducts, getTopReviews, getSiteSettings } from '@/lib/data';
 import { createClient } from '@/lib/supabase/server';
 
 const HAS_SUPABASE = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -11,6 +12,7 @@ const HAS_SUPABASE = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 export default async function HomePage() {
   const products = await getProducts();
   const topReviews = await getTopReviews();
+  const settings = await getSiteSettings();
   const hot = products.filter(p => p.hot);
   const newest = [...products].slice(-4);
   const mostSearched = products.filter(p => p.reviewCount > 50);
@@ -28,6 +30,7 @@ export default async function HomePage() {
 
   return (
     <main>
+      <UnderConstructionBanner instagramHandle={settings.instagramHandle} />
       <Hero slides={heroSlides} />
       <StatsBand />
       <CategorySlider />
