@@ -44,6 +44,7 @@ $$;
 do $$ begin
   if not exists (select from pg_roles where rolname = 'anon') then create role anon; end if;
   if not exists (select from pg_roles where rolname = 'authenticated') then create role authenticated; end if;
+  if not exists (select from pg_roles where rolname = 'service_role') then create role service_role; end if;
 end $$;
 SQL
 
@@ -56,5 +57,7 @@ done
 echo "==> Running regression checks"
 $PSQL -v ON_ERROR_STOP=1 -d "$DB_NAME" -f "$SCRIPT_DIR/place_order_test.sql"
 $PSQL -v ON_ERROR_STOP=1 -d "$DB_NAME" -f "$SCRIPT_DIR/gift_card_test.sql"
+$PSQL -v ON_ERROR_STOP=1 -d "$DB_NAME" -f "$SCRIPT_DIR/loyalty_redemption_test.sql"
+$PSQL -v ON_ERROR_STOP=1 -d "$DB_NAME" -f "$SCRIPT_DIR/loyalty_expiry_test.sql"
 
 echo "==> All checks passed"

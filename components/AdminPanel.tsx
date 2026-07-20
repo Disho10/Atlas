@@ -238,6 +238,23 @@ export default function AdminPanel({
     .reduce((s, r) => s + (r.refundAmountUsd ?? 0), 0);
   const pendingReturnsCount = returnRequests.filter(r => r.status === 'submitted').length;
 
+  // Period-scoped, refund-aware cost/margin. Mirrors the all-time
+  // revenue/totalCost/grossMargin calculation above (used by the Overview
+  // tab), but scoped to periodOrders and netted against refunds actually
+  // paid in the period. Fixes two bugs found in review:
+  //   1. The Finance tab's "Gross margin" stat was computed from all-time
+  //      activeOrders and never changed when the period selector did, even
+  //      though the Revenue/AOV stats right next to it moved every time.
+  //   2. "Refunds paid" was tracked and displayed, but never actually
+  //      subtracted from Revenue or Gross Margin anywhere — a period with
+  //      heavy returns looked identical to one with none.
+  const periodCost = periodOrders.flatMap(o => o.items).reduce((s, it) => {
+    const cost = costById.get(it.productId);
+    return cost != null ? s + cost * it.qty : s;
+  }, 0);
+  const periodNetRevenue = Math.max(0, periodRevenue - totalRefundsGiven);
+  const periodGrossMargin = periodNetRevenue > 0 ? Math.round(((periodNetRevenue - periodCost) / periodNetRevenue) * 100) : 0;
+
   const exportFinanceCsv = () => {
     const header = ['Order', 'Date', 'Customer', 'Payment method', 'Status', 'Total USD'];
     const rows = orders.map(o => [o.id, o.date, o.customer, o.paymentMethod, o.status, o.total.toFixed(2)]);
@@ -612,7 +629,7 @@ export default function AdminPanel({
             <Stat label="Revenue" value={formatCurrency(periodRevenue, 'USD')} />
             <Stat label="Orders" value={String(periodOrders.length)} />
             <Stat label="Avg. order value" value={formatCurrency(periodAOV, 'USD')} />
-            <Stat label="Gross margin" value={grossMargin > 0 ? `${grossMargin}%` : '—'} tone={grossMargin < 30 ? 'crimson' : undefined} />
+            <Stat label="Gross margin" value={periodGrossMargin > 0 ? `${periodGrossMargin}%` : '—'} tone={periodGrossMargin < 30 ? 'crimson' : undefined} />
           </div>
 
           {/* Cancelled orders impact */}

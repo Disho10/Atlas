@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { redeemPoints } from '../actions';
+import { useRouter } from 'next/navigation';
+import { previewLoyaltyRedemption } from '../actions';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
 import type { TranslationKey } from '@/lib/i18n/dictionary';
 import { Reveal } from '@/components/Motion';
@@ -31,8 +32,12 @@ export default function LoyaltyClient({ balance, lifetime, ledger, demoMode = fa
   const [redeemAmt, setRedeemAmt] = useState(100);
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [localBalance, setLocalBalance] = useState(balance);
+  // No longer deducted eagerly — points are only spent once an order is
+  // actually placed (inside place_order()), so the balance shown here
+  // doesn't change just from previewing a redemption.
+  const localBalance = balance;
   const { t } = useLocale();
+  const router = useRouter();
 
   const tier = tierFor(lifetime);
   const tierIndex = TIERS.findIndex(t => t.id === tier.id);
@@ -43,8 +48,11 @@ export default function LoyaltyClient({ balance, lifetime, ledger, demoMode = fa
     if (demoMode) { setMsg({ ok: false, text: 'Connect Supabase and sign in to redeem.' }); return; }
     setMsg(null);
     start(async () => {
-      const res = await redeemPoints(redeemAmt);
-      if (res.ok) { setLocalBalance(b => b - redeemAmt); setMsg({ ok: true, text: `Redeemed for $${res.discountUsd} off — use it at checkout.` }); }
+      // Preview only — nothing is deducted yet. The points are validated
+      // again and actually spent inside place_order() once the order goes
+      // through, so an abandoned checkout never costs anything.
+      const res = await previewLoyaltyRedemption(redeemAmt);
+      if (res.ok) router.push(`/checkout?redeem=${redeemAmt}`);
       else setMsg({ ok: false, text: res.error });
     });
   };

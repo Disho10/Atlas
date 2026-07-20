@@ -1,19 +1,11 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { pointsToDiscount, isValidRedemption } from '@/lib/loyalty';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 type Result = { ok: true } | { ok: false; error: string };
-
-// Best-effort client identifier for rate limiting — not perfect (shared
-// NAT/proxies, spoofable header), but enough to stop naive scripted promo
-// guessing without adding a new infra dependency.
-async function clientKey(): Promise<string> {
-  const h = await headers();
-  return h.get('x-forwarded-for')?.split(',')[0].trim() || h.get('x-real-ip') || 'unknown';
-}
 
 // ---------------------------------------------------------------------------
 // SETTINGS — update own profile (name, phone, birthday, notification prefs)
@@ -75,10 +67,18 @@ export async function logTagClick(tag: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// LOYALTY REDEMPTION — spend points for a discount
+// LOYALTY REDEMPTION — preview a discount for a points amount
 // 100 pts = $5 off (rate below). Redemption never lowers lifetime/tier.
+//
+// IMPORTANT: this only validates and previews — it never deducts points.
+// Points are deducted atomically inside place_order() at checkout, once an
+// order actually exists (same pattern as validatePromo() below). A previous
+// version of this function deducted points immediately and told the
+// customer to "use it at checkout," but place_order() had no way to accept
+// or apply that discount — the points were simply lost. See
+// 0011_loyalty_redemption_and_referral_fix.sql.
 // ---------------------------------------------------------------------------
-export async function redeemPoints(points: number): Promise<{ ok: true; discountUsd: number } | { ok: false; error: string }> {
+export async function previewLoyaltyRedemption(points: number): Promise<{ ok: true; discountUsd: number } | { ok: false; error: string }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: 'Not signed in.' };
@@ -87,13 +87,18 @@ export async function redeemPoints(points: number): Promise<{ ok: true; discount
   const { data: profile } = await supabase.from('profiles').select('loyalty_points').eq('id', user.id).single();
   if (!profile || profile.loyalty_points < points) return { ok: false, error: 'Not enough points.' };
 
-  const { error } = await supabase.rpc('apply_loyalty', {
-    p_user: user.id, p_delta: -points, p_reason: 'redemption', p_order: null,
-  });
-  if (error) return { ok: false, error: error.message };
-
-  revalidatePath('/account/loyalty');
   return { ok: true, discountUsd: pointsToDiscount(points) };
+}
+
+// ---------------------------------------------------------------------------
+// LOYALTY BALANCE — how many points the signed-in user has to redeem
+// ---------------------------------------------------------------------------
+export async function getLoyaltyBalance(): Promise<{ points: number }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { points: 0 };
+  const { data: profile } = await supabase.from('profiles').select('loyalty_points').eq('id', user.id).single();
+  return { points: profile?.loyalty_points ?? 0 };
 }
 
 // ---------------------------------------------------------------------------
@@ -107,10 +112,8 @@ export async function validatePromo(code: string, subtotalUsd: number): Promise<
 
   const supabase = await createClient();
 
-  const { data: allowed } = await supabase.rpc('check_rate_limit', {
-    p_bucket: 'validate_promo', p_key: await clientKey(), p_max: 20, p_window_seconds: 60,
-  });
-  if (allowed === false) return { ok: false, error: 'Too many attempts — please wait a minute and try again.' };
+  const allowed = await checkRateLimit('validate_promo', 20, 60);
+  if (!allowed) return { ok: false, error: 'Too many attempts — please wait a minute and try again.' };
 
   const { data: promo } = await supabase.from('promo_codes').select('*').eq('code', clean).eq('active', true).single();
   if (!promo) return { ok: false, error: 'That code isn\'t valid.' };

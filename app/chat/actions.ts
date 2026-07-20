@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 // The chatbot answers FAQs from a static set, and can look up a live order
 // status by order number (works for guests and account holders). Anything it
@@ -40,6 +41,9 @@ export async function chatbotReply(message: string): Promise<{ text: string; fal
 
 async function lookupOrder(orderNumber: string): Promise<string | null> {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return null;
+  if (!(await checkRateLimit('track_order', 20, 300))) {
+    return "You've checked a lot of orders in a short time — please wait a few minutes and try again, or reach out on WhatsApp.";
+  }
   const supabase = await createClient();
   const { data } = await supabase.rpc('track_order_public', { p_order_number: orderNumber });
   if (!data || data.length === 0) return null;

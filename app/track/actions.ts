@@ -2,10 +2,17 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 // Public order lookups by order number — no login required, since customers
 // (especially manual WhatsApp/IG buyers) may not have accounts. The order
 // number acts as the access token, so we only ever return the minimum needed.
+//
+// Order numbers are a plain sequential counter (ATL-10001, ATL-10002, ...),
+// so track_order_public()/get_order_for_return() being open to anon is only
+// safe if lookups are throttled — otherwise anyone can script through every
+// order number and harvest status/items (and, for returns, user_id) for the
+// whole store. See 0011... note: this is the fix for that gap.
 
 type TrackResult =
   | { ok: true; status: string; date: string; delivered: boolean; expired: boolean; items: { name: string; qty: number; size: string | null }[] }
@@ -16,6 +23,10 @@ const STEPS = ['placed', 'confirmed', 'shipped', 'delivered'];
 export async function trackOrder(orderNumber: string): Promise<TrackResult> {
   const number = orderNumber.trim().toUpperCase();
   if (!number) return { ok: false, error: 'Enter your order number.' };
+
+  if (!(await checkRateLimit('track_order', 20, 300))) {
+    return { ok: false, error: 'Too many lookups — please wait a few minutes and try again.' };
+  }
 
   const supabase = await createClient();
   // track_order_public() is a narrow SECURITY DEFINER function — it returns
@@ -52,6 +63,10 @@ export async function fileReturn(input: {
   const number = input.orderNumber.trim().toUpperCase();
   if (!number) return { ok: false, error: 'Enter your order number.' };
   if (!input.reason.trim()) return { ok: false, error: 'Tell us the reason so we can help.' };
+
+  if (!(await checkRateLimit('track_order', 20, 300))) {
+    return { ok: false, error: 'Too many lookups — please wait a few minutes and try again.' };
+  }
 
   const supabase = await createClient();
   const { data: orders, error } = await supabase.rpc('get_order_for_return', { p_order_number: number });

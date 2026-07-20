@@ -1,8 +1,13 @@
 // Scheduled engagement jobs — run this on a daily cron (Supabase Dashboard →
-// Edge Functions → Schedules, or pg_cron). It handles three time-based emails:
+// Edge Functions → Schedules, or pg_cron). It handles:
 //   1. Cart recovery — items left ~24h ago, one reminder only
 //   2. Loyalty expiry warning — 6-month inactivity approaching, one warning
-//   3. Birthday treat — a small discount on the customer's birthday
+//   3. Loyalty expiry — actually zeroes points once 6 months of inactivity
+//      is reached (see expire_inactive_loyalty_points(), 0012). This step
+//      didn't used to exist: the warning above threatened expiry that never
+//      actually happened, so points just accumulated forever regardless of
+//      the emails sent about them.
+//   4. Birthday treat — a small discount on the customer's birthday
 //
 // Deploy:  supabase functions deploy engagement-jobs
 // Schedule: daily (e.g. "0 9 * * *")
@@ -21,7 +26,7 @@ const EXPIRY_MONTHS = 6;       // points expire after 6 months of inactivity
 const WARN_DAYS_BEFORE = 14;   // warn 14 days before expiry
 
 Deno.serve(async () => {
-  const results = { cartRecovery: 0, expiryWarnings: 0, birthdays: 0 };
+  const results = { cartRecovery: 0, expiryWarnings: 0, pointsExpired: 0, birthdays: 0 };
 
   // --- 1. Cart recovery: carts ~24h old, not yet reminded, not recovered ----
   const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -68,7 +73,15 @@ Deno.serve(async () => {
     results.expiryWarnings++;
   }
 
-  // --- 3. Birthday treat -----------------------------------------------------
+  // --- 3. Loyalty expiry — actually zero points past 6 months inactivity ---
+  const { data: expiredCount, error: expiryError } = await supabase.rpc('expire_inactive_loyalty_points');
+  if (expiryError) {
+    console.error('expire_inactive_loyalty_points failed:', expiryError.message);
+  } else {
+    results.pointsExpired = expiredCount ?? 0;
+  }
+
+  // --- 4. Birthday treat -----------------------------------------------------
   const today = new Date();
   const mmdd = `${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   const { data: bdays } = await supabase.rpc('birthdays_today', { p_mmdd: mmdd }).select?.() ?? { data: null };

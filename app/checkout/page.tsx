@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useCart, useCurrency, useSiteSettings } from '@/components/Providers';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
 import { formatCurrency } from '@/lib/mockData';
@@ -61,6 +62,14 @@ const HAS_SUPABASE = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 const inputCls = 'w-full border border-black/15 dark:border-white/20 bg-transparent rounded-xl px-4 py-3 text-sm outline-none focus:border-volt transition-colors';
 
 export default function CheckoutPage() {
+  return (
+    <Suspense fallback={null}>
+      <CheckoutPageInner />
+    </Suspense>
+  );
+}
+
+function CheckoutPageInner() {
   const { lines, subtotal, remove, clear } = useCart();
   const { currency } = useCurrency();
   const { t } = useLocale();
@@ -79,13 +88,36 @@ export default function CheckoutPage() {
   const [promoChecking, setPromoChecking] = useState(false);
   const [giftCardCode, setGiftCardCode] = useState('');
   const [welcomeDiscount, setWelcomeDiscount] = useState(0);
-  const finalTotal = Math.max(0, subtotal - discount - welcomeDiscount);
+  const searchParams = useSearchParams();
+  // Loyalty points chosen on the account/loyalty page, handed off via
+  // ?redeem=N. Re-validated here (and again server-side in place_order())
+  // rather than trusted outright — the balance may have changed since.
+  const [loyaltyPoints, setLoyaltyPoints] = useState(0);
+  const [loyaltyDiscount, setLoyaltyDiscount] = useState(0);
+  const [loyaltyMsg, setLoyaltyMsg] = useState<string | null>(null);
+  const finalTotal = Math.max(0, subtotal - discount - welcomeDiscount - loyaltyDiscount);
 
   useEffect(() => {
     import('@/app/account/actions').then(async m => {
       const res = await m.getRefereeWelcome();
       setWelcomeDiscount(res.discountUsd);
     });
+  }, []);
+
+  useEffect(() => {
+    const redeemParam = Number(searchParams.get('redeem'));
+    if (!redeemParam || redeemParam <= 0) return;
+    import('@/app/account/actions').then(async m => {
+      const res = await m.previewLoyaltyRedemption(redeemParam);
+      if (res.ok) {
+        setLoyaltyPoints(redeemParam);
+        setLoyaltyDiscount(res.discountUsd);
+        setLoyaltyMsg(`${redeemParam} points applied - $${res.discountUsd} off.`);
+      } else {
+        setLoyaltyMsg(res.error);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const applyPromo = async () => {
@@ -130,6 +162,7 @@ export default function CheckoutPage() {
       p_payment_method: method,
       p_promo_code: promoCode || null,
       p_gift_card_code: giftCardCode || null,
+      p_loyalty_points_redeemed: loyaltyPoints || 0,
       p_items: lines.map(l => ({
         product_id: l.product.id,
         size: l.size,
@@ -333,6 +366,7 @@ export default function CheckoutPage() {
                 </button>
               </div>
               {promoMsg && <p className={`text-xs ${discount > 0 ? 'text-volt' : 'text-crimson'}`}>{promoMsg}</p>}
+              {loyaltyMsg && <p className={`text-xs mt-1 ${loyaltyDiscount > 0 ? 'text-volt' : 'text-crimson'}`}>{loyaltyMsg}</p>}
             </div>
 
             {/* Gift card — applied for real at checkout, not previewed ahead of
@@ -353,6 +387,9 @@ export default function CheckoutPage() {
               )}
               {discount > 0 && (
                 <div className="flex justify-between"><span className="text-steel">Promo</span><span className="text-crimson tabular">−{formatCurrency(discount, currency)}</span></div>
+              )}
+              {loyaltyDiscount > 0 && (
+                <div className="flex justify-between"><span className="text-steel">Loyalty points ({loyaltyPoints})</span><span className="text-crimson tabular">−{formatCurrency(loyaltyDiscount, currency)}</span></div>
               )}
               <div className="flex justify-between"><span className="text-steel">Shipping</span><span className={subtotal >= settings.freeShippingThreshold ? 'text-volt font-medium' : 'text-steel'}>{subtotal >= settings.freeShippingThreshold ? 'Free' : 'COD'}</span></div>
               <div className="flex justify-between font-semibold text-base pt-1">
