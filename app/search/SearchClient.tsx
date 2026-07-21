@@ -46,7 +46,7 @@ export default function SearchClient({ query, products, leagues }: {
     return sorted;
   }, [products, team, league, category, gender, tag, text, effectiveCeil, sort]);
 
-  const activeFilters = [team, league, category, gender, tag].filter(v => v !== 'all').length;
+  const activeFilters = [team, league, category, gender, tag].filter(v => v !== 'all').length + (priceCeil != null && priceCeil < maxPrice ? 1 : 0);
   const [showFilters, setShowFilters] = useState(false);
 
   return (
