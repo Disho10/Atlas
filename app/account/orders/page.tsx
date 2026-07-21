@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { translate, type Locale, type TranslationKey } from '@/lib/i18n/dictionary';
 import { COOKIE_NAME } from '@/lib/i18n/LocaleProvider';
+import { ORDER_STATUS_COLORS } from '@/lib/orderStatus';
 
 const HAS_SUPABASE = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 
@@ -44,7 +45,7 @@ function Shell({ orders, demoMode = false, t }: { orders: { number: string; stat
         {orders.map(o => (
           <Link key={o.number} href="/track" className="flex items-center justify-between border border-black/10 dark:border-white/10 rounded-xl px-4 py-3.5 text-sm card-premium">
             <span className="font-mono">{o.number}</span>
-            <span className="text-xs capitalize px-2 py-1 rounded-full bg-black/5 dark:bg-white/10">{o.status}</span>
+            <span className={`text-xs capitalize px-2 py-1 rounded-full ${ORDER_STATUS_COLORS[o.status] ?? 'bg-black/5 dark:bg-white/10'}`}>{o.status}</span>
             <span className="text-steel">{o.date}</span>
             <span className="font-medium tabular">${o.total}</span>
           </Link>

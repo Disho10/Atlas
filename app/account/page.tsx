@@ -4,9 +4,13 @@ import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { translate, type Locale, type TranslationKey } from '@/lib/i18n/dictionary';
 import { COOKIE_NAME } from '@/lib/i18n/LocaleProvider';
+import { ORDER_STATUS_COLORS } from '@/lib/orderStatus';
 import SignOutButton from '@/components/SignOutButton';
 
 const HAS_SUPABASE = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
+const RECENT_ORDERS_LIMIT = 3;
+
+type RecentOrder = { number: string; status: string; date: string; total: number };
 
 // Account pages always require an auth check (redirect if signed out), which
 // already makes them server-rendered per-request in a real deployment — so
@@ -43,6 +47,16 @@ export default async function AccountPage() {
     .single();
   const p = profile as { full_name: string | null; loyalty_points: number; role: string } | null;
 
+  const { data: recentOrdersData } = await supabase
+    .from('orders')
+    .select('order_number, status, created_at, subtotal_usd')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(RECENT_ORDERS_LIMIT);
+  const recentOrders: RecentOrder[] = (recentOrdersData ?? []).map(o => ({
+    number: o.order_number ?? '—', status: o.status, date: (o.created_at ?? '').slice(0, 10), total: Number(o.subtotal_usd),
+  }));
+
   return (
     <main className="max-w-4xl mx-auto px-6 py-12">
       <div className="flex items-start justify-between mb-1">
@@ -51,7 +65,29 @@ export default async function AccountPage() {
       </div>
       <p className="text-steel mb-8">{p?.loyalty_points ?? 0} {t('account.loyaltyPoints')}{p?.role !== 'customer' ? ` · ${p?.role}` : ''}</p>
       <Tiles t={t} />
+      {recentOrders.length > 0 && <RecentOrders orders={recentOrders} t={t} />}
     </main>
+  );
+}
+
+function RecentOrders({ orders, t }: { orders: RecentOrder[]; t: (key: TranslationKey) => string }) {
+  return (
+    <div className="mt-10">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="font-display text-xl">{t('account.yourOrders')}</h2>
+        <Link href="/account/orders" className="text-sm underline underline-offset-2 shrink-0">{t('account.orders')} →</Link>
+      </div>
+      <div className="space-y-2">
+        {orders.map(o => (
+          <Link key={o.number} href="/track" className="flex items-center justify-between gap-3 border border-black/10 dark:border-white/10 rounded-xl px-4 py-3.5 text-sm card-premium">
+            <span className="font-mono truncate">{o.number}</span>
+            <span className={`text-xs capitalize px-2 py-1 rounded-full shrink-0 ${ORDER_STATUS_COLORS[o.status] ?? 'bg-black/5 dark:bg-white/10'}`}>{o.status}</span>
+            <span className="text-steel shrink-0 hidden sm:inline">{o.date}</span>
+            <span className="font-medium tabular shrink-0">${o.total}</span>
+          </Link>
+        ))}
+      </div>
+    </div>
   );
 }
 

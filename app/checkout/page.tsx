@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { useCart, useCurrency, useSiteSettings } from '@/components/Providers';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
 import { formatCurrency } from '@/lib/mockData';
@@ -209,8 +210,8 @@ function CheckoutPageInner() {
   // -------------------------------------------------------------------------
   if (stage === 'confirmed') {
     return (
-      <main className="max-w-lg mx-auto px-6 py-24 text-center stage-fade">
-        <div className="w-16 h-16 rounded-full bg-volt flex items-center justify-center mx-auto mb-6">
+      <main className="max-w-lg mx-auto px-6 py-24 text-center stage-pop">
+        <div className="w-16 h-16 rounded-full bg-volt flex items-center justify-center mx-auto mb-6" style={{ boxShadow: '0 0 0 10px rgba(214,255,63,.15)' }}>
           <CheckIcon className="w-7 h-7 text-ink" />
         </div>
         <h1 className="font-display text-3xl mb-2">Order confirmed!</h1>
@@ -221,9 +222,14 @@ function CheckoutPageInner() {
             ? "We'll prepare your order and deliver it with cash on delivery. You'll receive a message before the driver heads out."
             : "Your gift card covered the full amount — nothing left to pay. We'll prepare your order and message you before the driver heads out."}
         </p>
-        <a href="/account/orders" className="inline-block bg-volt text-ink px-6 py-3 rounded-full font-medium btn-press">
-          Track your order
-        </a>
+        <div className="flex items-center justify-center gap-4 flex-wrap">
+          <a href="/account/orders" className="inline-block bg-volt text-ink px-6 py-3 rounded-full font-medium btn-press">
+            Track your order
+          </a>
+          <Link href="/" className="inline-block text-sm text-steel underline underline-offset-2">
+            Continue shopping
+          </Link>
+        </div>
       </main>
     );
   }

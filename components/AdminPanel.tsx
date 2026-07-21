@@ -1189,6 +1189,7 @@ function StoreSettingsTab({ initialSettings, demoMode, onDone }: { initialSettin
         setSiteSetting(settingDbKey('freeShippingThreshold'), String(f.freeShippingThreshold)),
         setSiteSetting(settingDbKey('deliveryEstimateText'), f.deliveryEstimateText),
         setSiteSetting(settingDbKey('businessHours'), f.businessHours),
+        setSiteSetting(settingDbKey('brandStoryImage'), f.brandStoryImage),
       ]);
       const failed = results.find(r => !r.ok);
       if (failed && !failed.ok) setError(failed.error);
@@ -1236,6 +1237,14 @@ function StoreSettingsTab({ initialSettings, demoMode, onDone }: { initialSettin
             value={f.businessHours}
             onChange={e => setF(s => ({ ...s, businessHours: e.target.value }))}
             placeholder="Sun–Fri, 9am–7pm Beirut time"
+            className={inputCls}
+          />
+        </Field>
+        <Field label='Homepage "Premium quality" photo URL (optional — leave empty for the styled Atlas panel)'>
+          <input
+            value={f.brandStoryImage}
+            onChange={e => setF(s => ({ ...s, brandStoryImage: e.target.value.trim() }))}
+            placeholder="https://…/photo.jpg"
             className={inputCls}
           />
         </Field>

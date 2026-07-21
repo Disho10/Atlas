@@ -7,6 +7,7 @@ import { useCart, useCurrency, useWishlist, useSiteSettings } from '@/components
 import { createClient } from '@/lib/supabase/client';
 import { HeartIcon, CheckIcon } from '@/components/icons';
 import ProductImage from '@/components/ProductImage';
+import TiltCard from '@/components/TiltCard';
 import ProductCard from '@/components/ProductCard';
 import { Reveal } from '@/components/Motion';
 import { requestStockNotification } from '@/app/product/actions';
@@ -361,7 +362,7 @@ function GalleryBlock({ product }: { product: Product }) {
   return (
     <div className="lg:sticky lg:top-28 self-start space-y-3">
       {/* Main image */}
-      <div className="relative aspect-[4/5] rounded-3xl overflow-hidden bg-black/5 dark:bg-white/5 grain">
+      <TiltCard className="relative aspect-[4/5] rounded-3xl overflow-hidden bg-black/5 dark:bg-white/5 grain" intensity={8}>
         {active && <ProductImage key={active} src={active} alt={product.name} fill className="object-cover" priority sizes="(max-width: 1024px) 100vw, 50vw" />}
         <div className="absolute top-4 left-4 flex flex-col gap-1.5">
           {product.hot && <span className="text-[10px] uppercase tracking-wide px-2.5 py-1 rounded-full bg-crimson text-white">Hot</span>}
@@ -378,7 +379,7 @@ function GalleryBlock({ product }: { product: Product }) {
             </button>
           </>
         )}
-      </div>
+      </TiltCard>
       {/* Thumbnail strip */}
       {allImages.length > 1 && (
         <div className="flex gap-2 overflow-x-auto scrollbar-hide">

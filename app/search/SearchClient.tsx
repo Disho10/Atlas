@@ -47,6 +47,7 @@ export default function SearchClient({ query, products, leagues }: {
   }, [products, team, league, category, gender, tag, text, effectiveCeil, sort]);
 
   const activeFilters = [team, league, category, gender, tag].filter(v => v !== 'all').length;
+  const [showFilters, setShowFilters] = useState(false);
 
   return (
     <main className="max-w-6xl mx-auto px-6 py-12">
@@ -61,14 +62,20 @@ export default function SearchClient({ query, products, leagues }: {
         className="w-full border border-black/15 dark:border-white/20 bg-transparent rounded-xl px-4 py-3 text-sm mb-4"
       />
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-2 mb-4">
-        <Filter label="Team" value={team} onChange={setTeam} options={['all', ...teams]} />
-        <Filter label="League" value={league} onChange={setLeague} options={['all', ...leagues.map(l => l.slug)]} display={v => leagues.find(l => l.slug === v)?.name ?? v} />
-        <Filter label="Category" value={category} onChange={setCategory} options={['all', 'shirts', 'socks', 'balls', 'shinpads']} />
-        <Filter label="Gender" value={gender} onChange={setGender} options={['all', 'male', 'female', 'unisex']} />
-        <Filter label="Tag / nationality / player" value={tag} onChange={setTag} options={['all', ...tags]} />
-        <label className="text-sm">
+      {/* Filters toggle + sort — always visible; the detailed filters below collapse behind this button */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <button
+          onClick={() => setShowFilters(s => !s)}
+          aria-expanded={showFilters}
+          className={`flex items-center gap-2 text-sm rounded-full px-4 py-2 border transition-colors btn-press ${showFilters ? 'border-volt bg-volt/10' : 'border-black/15 dark:border-white/20'}`}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 6h16M7 12h10M10 18h4" /></svg>
+          Filters
+          {activeFilters > 0 && <span className="w-5 h-5 rounded-full bg-volt text-ink text-[11px] font-semibold flex items-center justify-center">{activeFilters}</span>}
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`transition-transform ${showFilters ? 'rotate-180' : ''}`}><path d="M6 9l6 6 6-6" /></svg>
+        </button>
+
+        <label className="text-sm ml-auto">
           <span className="sr-only">Sort</span>
           <select
             value={sort}
@@ -81,6 +88,7 @@ export default function SearchClient({ query, products, leagues }: {
             <option value="newest">Newest first</option>
           </select>
         </label>
+
         {activeFilters > 0 && (
           <button onClick={() => { setTeam('all'); setLeague('all'); setCategory('all'); setGender('all'); setTag('all'); setPriceCeil(null); }} className="text-sm underline underline-offset-2 text-steel px-2 btn-press">
             Clear ({activeFilters})
@@ -88,21 +96,36 @@ export default function SearchClient({ query, products, leagues }: {
         )}
       </div>
 
-      {/* Price range */}
-      <div className="flex items-center gap-3 mb-8 max-w-sm">
-        <label htmlFor="price-range" className="text-xs text-steel shrink-0">Max price</label>
-        <input
-          id="price-range"
-          type="range"
-          min={0}
-          max={maxPrice}
-          step={1}
-          value={effectiveCeil}
-          onChange={e => setPriceCeil(Number(e.target.value))}
-          className="range-volt flex-1"
-          style={{ backgroundImage: `linear-gradient(to right, #D6FF3F ${(effectiveCeil / maxPrice) * 100}%, transparent ${(effectiveCeil / maxPrice) * 100}%)` }}
-        />
-        <span className="text-xs tabular w-14 text-right font-medium">${effectiveCeil}</span>
+      {/* Retractable filter panel — grid-template-rows collapse (0fr↔1fr) so it
+          animates open/closed cleanly without measuring content height,
+          same technique used for the Cart's remove-row animation. */}
+      <div className={`grid transition-[grid-template-rows] duration-300 ease-out mb-4 ${showFilters ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
+        <div className="overflow-hidden">
+          <div className="flex flex-wrap gap-2 p-4 rounded-2xl border border-black/10 dark:border-white/10 bg-black/[.02] dark:bg-white/[.03]">
+            <Filter label="Team" value={team} onChange={setTeam} options={['all', ...teams]} />
+            <Filter label="League" value={league} onChange={setLeague} options={['all', ...leagues.map(l => l.slug)]} display={v => leagues.find(l => l.slug === v)?.name ?? v} />
+            <Filter label="Category" value={category} onChange={setCategory} options={['all', 'shirts', 'socks', 'balls', 'shinpads']} />
+            <Filter label="Gender" value={gender} onChange={setGender} options={['all', 'male', 'female', 'unisex']} />
+            <Filter label="Tag / nationality / player" value={tag} onChange={setTag} options={['all', ...tags]} />
+
+            {/* Price range */}
+            <div className="flex items-center gap-3 w-full max-w-sm pt-2">
+              <label htmlFor="price-range" className="text-xs text-steel shrink-0">Max price</label>
+              <input
+                id="price-range"
+                type="range"
+                min={0}
+                max={maxPrice}
+                step={1}
+                value={effectiveCeil}
+                onChange={e => setPriceCeil(Number(e.target.value))}
+                className="range-volt flex-1"
+                style={{ backgroundImage: `linear-gradient(to right, #D6FF3F ${(effectiveCeil / maxPrice) * 100}%, transparent ${(effectiveCeil / maxPrice) * 100}%)` }}
+              />
+              <span className="text-xs tabular w-14 text-right font-medium">${effectiveCeil}</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       {filtered.length === 0 ? (

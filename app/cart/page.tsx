@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useCart, useCurrency, useSiteSettings } from '@/components/Providers';
@@ -15,6 +16,16 @@ export default function CartPage() {
   const FREE_SHIPPING = settings.freeShippingThreshold;
   const toFreeShipping = Math.max(0, FREE_SHIPPING - subtotal);
   const freeShipping = subtotal >= FREE_SHIPPING;
+
+  // Optimistic remove: collapse the row first, then actually splice it out
+  // of cart state once the animation finishes, rather than having it just
+  // vanish. Purely a UI-layer concern — doesn't touch the cart context.
+  const [removingKey, setRemovingKey] = useState<string | null>(null);
+  const handleRemove = (productId: string, size: string) => {
+    const key = productId + size;
+    setRemovingKey(key);
+    setTimeout(() => remove(productId, size), 280);
+  };
 
   // Before hydration finishes reading the persisted cart, lines is always
   // [] — without this, anyone landing on /cart with real items would see a
@@ -53,7 +64,7 @@ export default function CartPage() {
           <div>
             <p className="text-sm mb-2">Add <span className="font-medium">${toFreeShipping.toFixed(0)}</span> more for free shipping</p>
             <div className="h-1.5 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden">
-              <div className="h-full bg-volt rounded-full transition-all duration-500" style={{ width: `${Math.min(100, (subtotal / FREE_SHIPPING) * 100)}%` }} />
+              <div className="h-full bg-volt rounded-full transition-all duration-500" style={{ width: `${Math.min(100, (subtotal / FREE_SHIPPING) * 100)}%`, boxShadow: '0 0 12px rgba(214,255,63,.6)' }} />
             </div>
           </div>
         )}
@@ -62,32 +73,45 @@ export default function CartPage() {
       <div className="grid md:grid-cols-3 gap-10">
         {/* Items */}
         <div className="md:col-span-2 space-y-4">
-          {lines.map(l => (
-            <div key={l.product.id + l.size + l.variant} className="flex gap-4 rounded-2xl border border-black/10 dark:border-white/10 p-4 card-hover">
-              <div className="relative w-24 h-28 rounded-xl overflow-hidden bg-black/5 dark:bg-white/5 shrink-0">
-                {l.product.image && <Image src={l.product.image} alt={l.product.name} fill className="object-cover" />}
+          {lines.map((l, i) => {
+            const key = l.product.id + l.size;
+            const isRemoving = removingKey === key;
+            return (
+              <div
+                key={key + l.variant}
+                className={`grid transition-[grid-template-rows,opacity] duration-300 ease-out ${isRemoving ? 'grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr] opacity-100'}`}
+              >
+                <div className="overflow-hidden">
+                  <Reveal delay={i * 70}>
+                    <div className="flex gap-4 rounded-2xl border border-black/10 dark:border-white/10 p-4 card-hover">
+                      <div className="relative w-24 h-28 rounded-xl overflow-hidden bg-black/5 dark:bg-white/5 shrink-0">
+                        {l.product.image && <Image src={l.product.image} alt={l.product.name} fill className="object-cover" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <p className="font-medium text-sm leading-tight">{l.product.name}</p>
+                          <p className="font-semibold tabular shrink-0">{formatCurrency((l.variantPrice ?? l.product.price) * l.qty, currency)}</p>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5 mb-3">
+                          <span className="text-[11px] border border-black/10 dark:border-white/10 rounded-full px-2 py-0.5 text-steel">Size {l.size}</span>
+                          {l.variant && <span className="text-[11px] border border-black/10 dark:border-white/10 rounded-full px-2 py-0.5 text-steel">{l.variant}</span>}
+                          <span className="text-[11px] text-steel">{formatCurrency(l.variantPrice ?? l.product.price, currency)} each</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center border border-black/15 dark:border-white/20 rounded-full">
+                            <button onClick={() => setQty(l.product.id, l.size, l.qty - 1)} className="w-8 h-8 text-lg leading-none btn-press">−</button>
+                            <span className="w-8 text-center text-sm tabular">{l.qty}</span>
+                            <button onClick={() => setQty(l.product.id, l.size, l.qty + 1)} className="w-8 h-8 text-lg leading-none btn-press">+</button>
+                          </div>
+                          <button onClick={() => handleRemove(l.product.id, l.size)} className="text-xs text-steel hover:text-crimson transition-colors btn-press">{t('cart.remove')}</button>
+                        </div>
+                      </div>
+                    </div>
+                  </Reveal>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-2 mb-1">
-                  <p className="font-medium text-sm leading-tight">{l.product.name}</p>
-                  <p className="font-semibold tabular shrink-0">{formatCurrency((l.variantPrice ?? l.product.price) * l.qty, currency)}</p>
-                </div>
-                <div className="flex flex-wrap gap-1.5 mb-3">
-                  <span className="text-[11px] border border-black/10 dark:border-white/10 rounded-full px-2 py-0.5 text-steel">Size {l.size}</span>
-                  {l.variant && <span className="text-[11px] border border-black/10 dark:border-white/10 rounded-full px-2 py-0.5 text-steel">{l.variant}</span>}
-                  <span className="text-[11px] text-steel">{formatCurrency(l.variantPrice ?? l.product.price, currency)} each</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center border border-black/15 dark:border-white/20 rounded-full">
-                    <button onClick={() => setQty(l.product.id, l.size, l.qty - 1)} className="w-8 h-8 text-lg leading-none btn-press">−</button>
-                    <span className="w-8 text-center text-sm tabular">{l.qty}</span>
-                    <button onClick={() => setQty(l.product.id, l.size, l.qty + 1)} className="w-8 h-8 text-lg leading-none btn-press">+</button>
-                  </div>
-                  <button onClick={() => remove(l.product.id, l.size)} className="text-xs text-steel hover:text-crimson transition-colors btn-press">{t('cart.remove')}</button>
-                </div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Summary */}

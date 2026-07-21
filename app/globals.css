@@ -347,6 +347,20 @@ html {
   .stage-fade { animation: none; opacity: 1 !important; }
 }
 
+/* Order-confirmation entrance — unlike the step-to-step stage-fade above,
+   this one IS a small hero moment (the order actually went through), so it
+   gets a spring/overshoot pop instead of a flat fade. */
+@keyframes stage-pop {
+  from { opacity: 0; transform: scale(.92) translateY(20px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+.stage-pop {
+  animation: stage-pop .5s cubic-bezier(.22,1.4,.36,1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage-pop { animation: none; opacity: 1 !important; transform: none !important; }
+}
+
 /* ---------------------------------------------------------------------
    Tilt card — cursor-tracked 3D tilt + a soft light that follows the
    pointer, driven by --tilt-x/--tilt-y/--spot-x/--spot-y set from

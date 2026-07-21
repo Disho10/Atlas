@@ -8,6 +8,7 @@ export type SiteSettings = {
   freeShippingThreshold: number; // USD
   deliveryEstimateText: string;
   businessHours: string;
+  brandStoryImage: string;     // URL for the homepage "Premium quality" section photo; '' = show the styled fallback panel
 };
 
 export const DEFAULT_SETTINGS: SiteSettings = {
@@ -16,6 +17,7 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   freeShippingThreshold: 110,
   deliveryEstimateText: '2–4 business days',
   businessHours: 'Sun–Fri, 9am–7pm Beirut time',
+  brandStoryImage: '',
 };
 
 const KEY_MAP: Record<keyof SiteSettings, string> = {
@@ -24,6 +26,7 @@ const KEY_MAP: Record<keyof SiteSettings, string> = {
   freeShippingThreshold: 'free_shipping_threshold',
   deliveryEstimateText: 'delivery_estimate_text',
   businessHours: 'business_hours',
+  brandStoryImage: 'brand_story_image',
 };
 
 // Takes the raw { key, value }[] rows straight from `site_settings` (same
@@ -37,6 +40,7 @@ export function parseSiteSettings(rows: { key: string; value: string }[] | null 
     freeShippingThreshold: Number(byKey.get(KEY_MAP.freeShippingThreshold)) || DEFAULT_SETTINGS.freeShippingThreshold,
     deliveryEstimateText: byKey.get(KEY_MAP.deliveryEstimateText) || DEFAULT_SETTINGS.deliveryEstimateText,
     businessHours: byKey.get(KEY_MAP.businessHours) || DEFAULT_SETTINGS.businessHours,
+    brandStoryImage: byKey.get(KEY_MAP.brandStoryImage) || DEFAULT_SETTINGS.brandStoryImage,
   };
 }
 

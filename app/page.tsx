@@ -1,22 +1,39 @@
 import Hero from '@/components/Hero';
 import CategorySlider from '@/components/CategorySlider';
 import ProductRail from '@/components/ProductRail';
+import LeagueSpotlight from '@/components/LeagueSpotlight';
+import BrandStory from '@/components/BrandStory';
 import RetroPromo from '@/components/RetroPromo';
 import UnderConstructionBanner from '@/components/UnderConstructionBanner';
 import { StatsBand, TrustBadges, Testimonials, FaqSection, NewsletterSignup } from '@/components/SocialProof';
-import { getProducts, getTopReviews, getSiteSettings } from '@/lib/data';
+import { getProducts, getTopReviews, getSiteSettings, getLeagues } from '@/lib/data';
 import { createClient } from '@/lib/supabase/server';
 
 const HAS_SUPABASE = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+// Leagues to feature with their own product spotlight on the homepage.
+// Matches the design handoff's request; easy to extend to more leagues
+// later since LeagueSpotlight just takes a League + its products.
+const SPOTLIGHT_LEAGUE_SLUGS = ['la-liga', 'premier-league'];
 
 export default async function HomePage() {
   const products = await getProducts();
   const topReviews = await getTopReviews();
   const settings = await getSiteSettings();
+  const allLeagues = await getLeagues();
   const hot = products.filter(p => p.hot);
-  const newest = [...products].slice(-4);
+  // 8 newest instead of 4 — this rail is now a horizontal scroller, and with
+  // only 4 items it would never overflow enough for the arrows to appear.
+  const newest = [...products].slice(-8).reverse();
   const mostSearched = products.filter(p => p.reviewCount > 50);
   const retro = products.filter(p => p.tags.some(tag => tag.toLowerCase() === 'retro'));
+
+  const spotlightLeagues = SPOTLIGHT_LEAGUE_SLUGS
+    .map(slug => allLeagues.find(l => l.slug === slug))
+    .filter((l): l is NonNullable<typeof l> => l != null);
+  const spotlightProducts = await Promise.all(
+    spotlightLeagues.map(l => getProducts({ leagueSlug: l.slug }))
+  );
 
   // Fetch hero slides saved by owner/manager — falls back to defaults in HeroSlideshow
   let heroSlides: any[] | undefined;
@@ -35,7 +52,13 @@ export default async function HomePage() {
       <StatsBand />
       <CategorySlider />
       <ProductRail titleKey="home.hotTitle" subtitleKey="home.hotSubtitle" products={hot} />
-      <ProductRail titleKey="home.justDroppedTitle" subtitleKey="home.justDroppedSubtitle" products={newest} showNewBadge />
+      <ProductRail titleKey="home.justDroppedTitle" subtitleKey="home.justDroppedSubtitle" products={newest} showNewBadge layout="scroll" />
+
+      {spotlightLeagues.map((league, i) => (
+        <LeagueSpotlight key={league.slug} league={league} products={spotlightProducts[i]} />
+      ))}
+
+      <BrandStory image={settings.brandStoryImage} />
 
       <RetroPromo products={retro} />
 
