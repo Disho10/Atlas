@@ -207,10 +207,17 @@ function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     let unsub: (() => void) | undefined;
+    let lastLoadedUserId: string | undefined | null = null; // null = not loaded yet
     import('@/lib/supabase/client').then(async ({ createClient }) => {
       const supabase = createClient();
 
       const loadRole = async (userId: string | undefined) => {
+        // onAuthStateChange fires multiple events in a burst on load
+        // (INITIAL_SESSION, SIGNED_IN, TOKEN_REFRESHED can all land within
+        // the same second) — without this guard each one re-ran the same
+        // profiles lookup for an unchanged user.
+        if (userId === lastLoadedUserId) return;
+        lastLoadedUserId = userId;
         if (!userId) { setRole('customer'); return; }
         const { data } = await supabase.from('profiles').select('role').eq('id', userId).single();
         setRole((data?.role as StaffRole) ?? 'customer');
