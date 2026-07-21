@@ -11,6 +11,7 @@ export type ApexColorSwatch = {
   productId?: string;   // set only in 'products' color mode — see colorMode below
   imageUrl?: string;    // this color's own picture; '' = fall back to productId's photo, then the section's default image
   imageCutout?: boolean; // true = render imageUrl as a frameless transparent-PNG cutout, like the section-level toggle
+  accentHex?: string;   // trim/secondary color for this swatch — the eyebrow-bar, the image border/glow, the CTA's ring, and the selected-swatch outline. '' = auto-computed contrast color.
 };
 
 export type ApexConfig = {
@@ -44,11 +45,12 @@ export type ApexConfig = {
   // catalog color is the literal fabric hex but you want the swatch/
   // background to read as a punchier brand tone. The photo, name, price,
   // and link still come from the real product either way.
-  productImageOverrides: Record<string, { imageUrl: string; imageCutout: boolean }>;
+  productImageOverrides: Record<string, { imageUrl: string; imageCutout: boolean; accentHex?: string }>;
   // ^ optional — keyed by product id, only for colorMode === 'products'.
   // Without an entry here, a product swatch just uses that product's own
-  // catalog photo (the sensible default). Set one to show a different
-  // picture (e.g. a nicer cutout PNG) for that color instead.
+  // catalog photo (the sensible default) and an auto-computed accent. Set
+  // one to show a different picture (e.g. a nicer cutout PNG) and/or a
+  // specific trim color for that color instead.
 
   // --- Layout / motion --------------------------------------------------
   sizeLabels: string[];   // default S/M/L — edit freely, e.g. shoe sizes if that's ever sold
@@ -86,10 +88,13 @@ export const DEFAULT_APEX: ApexConfig = {
 // custom/product colors instead get their contrast computed automatically
 // at render time (see contrastFor() in ApexShowcase.tsx), since there's no
 // way to hand-curate an admin's arbitrary hex choice in advance.
-export const BRAND_PRESETS: { hex: string; label: string }[] = [
-  { hex: '#D6FF3F', label: 'Volt' },
-  { hex: '#E63946', label: 'Crimson' },
-  { hex: '#12224E', label: 'Night' },
+// `accent` is each preset's curated trim/secondary color — used for the
+// image border/glow, the eyebrow bar, the CTA ring, and the selected-
+// swatch outline. Chosen as a complementary pop against the main hex.
+export const BRAND_PRESETS: { hex: string; label: string; accent: string }[] = [
+  { hex: '#D6FF3F', label: 'Volt', accent: '#E63946' },
+  { hex: '#E63946', label: 'Crimson', accent: '#D6FF3F' },
+  { hex: '#12224E', label: 'Night', accent: '#D6FF3F' },
 ];
 
 // Merge a stored (possibly partial / older-shaped) JSON value over the

@@ -2676,6 +2676,12 @@ function ApexTab({ initialConfig, products, demoMode, onDone }: { initialConfig:
                     <button onClick={() => removeCustomColor(i)} className="text-xs text-crimson px-2 btn-press">Remove</button>
                   </div>
                   <div className="flex items-center gap-2 pl-11">
+                    <span className="text-xs text-steel shrink-0">Trim/accent</span>
+                    <input type="color" value={s.accentHex || '#D6FF3F'} onChange={e => updateCustomColor(i, { accentHex: e.target.value })} className="w-7 h-7 rounded-md border border-black/15 dark:border-white/20 cursor-pointer bg-transparent shrink-0" />
+                    <input value={s.accentHex ?? ''} onChange={e => updateCustomColor(i, { accentHex: e.target.value })} placeholder="Auto (matches text contrast)" className={`w-40 ${inputCls}`} />
+                    {s.accentHex && <button onClick={() => updateCustomColor(i, { accentHex: undefined })} className="text-xs text-crimson shrink-0">Reset</button>}
+                  </div>
+                  <div className="flex items-center gap-2 pl-11">
                     {s.imageUrl && (
                       <span className="w-9 h-9 rounded-md overflow-hidden shrink-0 border border-black/10 dark:border-white/10" style={{ background: s.imageCutout ? 'repeating-conic-gradient(rgba(128,128,128,.25) 0% 25%, transparent 0% 50%) 0 / 8px 8px' : undefined }}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -2752,15 +2758,22 @@ function ApexTab({ initialConfig, products, demoMode, onDone }: { initialConfig:
                         <span className="w-16 text-xs text-steel truncate shrink-0">{p?.name ?? id}</span>
                         <input
                           value={override?.imageUrl ?? ''}
-                          onChange={e => set('productImageOverrides', { ...f.productImageOverrides, [id]: { imageUrl: e.target.value.trim(), imageCutout: override?.imageCutout ?? false } })}
+                          onChange={e => set('productImageOverrides', { ...f.productImageOverrides, [id]: { imageUrl: e.target.value.trim(), imageCutout: override?.imageCutout ?? false, accentHex: override?.accentHex } })}
                           placeholder="Override picture URL (optional)"
                           className={`flex-1 ${inputCls}`}
                         />
-                        <button onClick={() => uploadTo(url => set('productImageOverrides', { ...f.productImageOverrides, [id]: { imageUrl: url, imageCutout: override?.imageCutout ?? false } }))} disabled={uploading} className="text-xs border border-black/15 dark:border-white/20 rounded-lg px-2.5 py-2 btn-press disabled:opacity-50 shrink-0">Upload</button>
+                        <button onClick={() => uploadTo(url => set('productImageOverrides', { ...f.productImageOverrides, [id]: { imageUrl: url, imageCutout: override?.imageCutout ?? false, accentHex: override?.accentHex } }))} disabled={uploading} className="text-xs border border-black/15 dark:border-white/20 rounded-lg px-2.5 py-2 btn-press disabled:opacity-50 shrink-0">Upload</button>
+                        <input
+                          type="color"
+                          title="Trim/accent color for this color (empty = auto)"
+                          value={override?.accentHex || '#D6FF3F'}
+                          onChange={e => set('productImageOverrides', { ...f.productImageOverrides, [id]: { imageUrl: override?.imageUrl ?? '', imageCutout: override?.imageCutout ?? false, accentHex: e.target.value } })}
+                          className="w-7 h-7 rounded-md border border-black/15 dark:border-white/20 cursor-pointer bg-transparent shrink-0"
+                        />
                         {override?.imageUrl && (
                           <>
                             <label className="flex items-center gap-1 text-xs text-steel shrink-0">
-                              <input type="checkbox" checked={!!override.imageCutout} onChange={e => set('productImageOverrides', { ...f.productImageOverrides, [id]: { imageUrl: override.imageUrl, imageCutout: e.target.checked } })} className="accent-[#D6FF3F] w-3.5 h-3.5" />
+                              <input type="checkbox" checked={!!override.imageCutout} onChange={e => set('productImageOverrides', { ...f.productImageOverrides, [id]: { imageUrl: override.imageUrl, imageCutout: e.target.checked, accentHex: override.accentHex } })} className="accent-[#D6FF3F] w-3.5 h-3.5" />
                               Cutout
                             </label>
                             <button onClick={() => { const next = { ...f.productImageOverrides }; delete next[id]; set('productImageOverrides', next); }} className="text-xs text-crimson shrink-0">Clear</button>

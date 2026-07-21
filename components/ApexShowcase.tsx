@@ -84,16 +84,20 @@ export default function ApexShowcase({ config, product, colorProducts = [], inst
   };
 
   // --- Resolve the swatch list for the active color mode ------------------
-  type Swatch = ApexColorSwatch & { palette: ReturnType<typeof contrastFor> };
+  type Swatch = ApexColorSwatch & { palette: ReturnType<typeof contrastFor>; accent: string };
   let swatches: Swatch[];
   if (config.colorMode === 'products' && colorProducts.length > 0) {
     swatches = colorProducts.map(p => {
       const override = config.productImageOverrides?.[p.id];
       const hex = config.colorOverrides?.[p.id] || p.color;
-      return { hex, label: p.name, productId: p.id, imageUrl: override?.imageUrl, imageCutout: override?.imageCutout, palette: contrastFor(hex) };
+      const palette = contrastFor(hex);
+      return { hex, label: p.name, productId: p.id, imageUrl: override?.imageUrl, imageCutout: override?.imageCutout, accent: override?.accentHex || palette.pill, palette };
     });
   } else if (config.colorMode === 'custom' && config.customColors.length > 0) {
-    swatches = config.customColors.map(s => ({ ...s, palette: contrastFor(s.hex) }));
+    swatches = config.customColors.map(s => {
+      const palette = contrastFor(s.hex);
+      return { ...s, accent: s.accentHex || palette.pill, palette };
+    });
   } else {
     swatches = BRAND_PRESETS.map(p => ({ ...p, palette: BRAND_PALETTES[p.hex] ?? contrastFor(p.hex) }));
   }
@@ -195,6 +199,7 @@ export default function ApexShowcase({ config, product, colorProducts = [], inst
           className="relative z-10 max-w-xs order-2 md:order-1 transition-all duration-700 delay-150"
           style={{ opacity: inView ? 1 : 0, transform: inView ? 'none' : 'translateY(40px)' }}
         >
+          <div aria-hidden className="w-8 h-[3px] rounded-full mb-3 transition-colors duration-500" style={{ background: active.accent }} />
           {config.eyebrow && (
             <p className="text-[11px] uppercase tracking-widest2 font-semibold mb-2" style={{ color: c.fgSoft }}>{config.eyebrow}</p>
           )}
@@ -220,13 +225,14 @@ export default function ApexShowcase({ config, product, colorProducts = [], inst
               // Transparent-PNG cutout mode: free-floating object, no card.
               // Plain <img> — the URL is admin-entered (section-level or
               // per-swatch) and can point at any host (next/image throws
-              // for non-allowlisted hosts).
+              // for non-allowlisted hosts). Trim shows as a soft accent
+              // glow layered behind the grounding shadow.
               <Link href={productHref} className="block float-idle">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={displayImage} alt={displayProduct?.name ?? 'Featured product'} className="w-64 sm:w-72 md:w-96 h-auto" style={{ filter: 'drop-shadow(0 40px 50px rgba(0,0,0,.45))' }} loading="lazy" />
+                <img src={displayImage} alt={displayProduct?.name ?? 'Featured product'} className="w-64 sm:w-72 md:w-96 h-auto transition-[filter] duration-500" style={{ filter: `drop-shadow(0 40px 50px rgba(0,0,0,.45)) drop-shadow(0 0 22px ${active.accent}66)` }} loading="lazy" />
               </Link>
             ) : displayImage ? (
-              <Link href={productHref} className="block w-56 sm:w-64 md:w-80 aspect-[4/5] rounded-2xl overflow-hidden float-idle" style={{ boxShadow: '0 40px 80px -20px rgba(0,0,0,.45)' }}>
+              <Link href={productHref} className="block w-56 sm:w-64 md:w-80 aspect-[4/5] rounded-2xl overflow-hidden float-idle transition-[box-shadow] duration-500" style={{ boxShadow: `0 40px 80px -20px rgba(0,0,0,.45), 0 0 0 3px ${active.accent}` }}>
                 {!hasSwatchImage && (swatchProduct || !config.imageUrl) ? (
                   <ProductImage src={displayImage} alt={displayProduct?.name ?? 'Featured product'} width={640} height={800} className="w-full h-full object-cover" />
                 ) : (
@@ -235,7 +241,7 @@ export default function ApexShowcase({ config, product, colorProducts = [], inst
                 )}
               </Link>
             ) : (
-              <Link href={productHref} className="block w-56 sm:w-64 md:w-80 aspect-[4/5] rounded-2xl overflow-hidden float-idle bg-ink flex items-center justify-center" style={{ boxShadow: '0 40px 80px -20px rgba(0,0,0,.45)' }}>
+              <Link href={productHref} className="block w-56 sm:w-64 md:w-80 aspect-[4/5] rounded-2xl overflow-hidden float-idle bg-ink flex items-center justify-center" style={{ boxShadow: `0 40px 80px -20px rgba(0,0,0,.45), 0 0 0 3px ${active.accent}` }}>
                 <span className="font-display text-chalk/20 text-6xl">ATLAS</span>
               </Link>
             )}
@@ -268,7 +274,7 @@ export default function ApexShowcase({ config, product, colorProducts = [], inst
                   aria-label={s.label}
                   title={s.label}
                   className="w-9 h-9 rounded-full btn-press transition-transform"
-                  style={{ background: s.hex, border: `2px solid ${c.fg}`, outline: idx === i ? `2px solid ${c.fg}` : 'none', outlineOffset: '3px', transform: idx === i ? 'scale(1.1)' : 'scale(1)' }}
+                  style={{ background: s.hex, border: `2px solid ${c.fg}`, outline: idx === i ? `2px solid ${s.accent}` : 'none', outlineOffset: '3px', transform: idx === i ? 'scale(1.1)' : 'scale(1)' }}
                 />
               ))}
             </div>
@@ -308,7 +314,7 @@ export default function ApexShowcase({ config, product, colorProducts = [], inst
             </div>
           )}
 
-          <Link href="/search" className="inline-block rounded-full px-7 py-3.5 text-sm font-bold btn-press" style={{ background: c.pill, color: c.pillText }}>
+          <Link href="/search" className="inline-block rounded-full px-7 py-3.5 text-sm font-bold btn-press transition-shadow duration-500" style={{ background: c.pill, color: c.pillText, boxShadow: `0 0 0 2px ${active.accent}` }}>
             {config.ctaLabel}
           </Link>
         </div>
