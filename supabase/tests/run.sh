@@ -59,5 +59,6 @@ $PSQL -v ON_ERROR_STOP=1 -d "$DB_NAME" -f "$SCRIPT_DIR/place_order_test.sql"
 $PSQL -v ON_ERROR_STOP=1 -d "$DB_NAME" -f "$SCRIPT_DIR/gift_card_test.sql"
 $PSQL -v ON_ERROR_STOP=1 -d "$DB_NAME" -f "$SCRIPT_DIR/loyalty_redemption_test.sql"
 $PSQL -v ON_ERROR_STOP=1 -d "$DB_NAME" -f "$SCRIPT_DIR/loyalty_expiry_test.sql"
+$PSQL -v ON_ERROR_STOP=1 -d "$DB_NAME" -f "$SCRIPT_DIR/signup_welcome_and_phone_test.sql"
 
 echo "==> All checks passed"

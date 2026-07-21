@@ -3,16 +3,18 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useCart, useCurrency, useSiteSettings } from '@/components/Providers';
+import { useCart, useCurrency, useSiteSettings, useAuth } from '@/components/Providers';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
 import { formatCurrency } from '@/lib/mockData';
 import { Reveal } from '@/components/Motion';
+import SignupWelcomeBanner from '@/components/SignupWelcomeBanner';
 
 export default function CartPage() {
   const { lines, remove, setQty, subtotal, hydrated } = useCart();
   const { currency } = useCurrency();
   const { t } = useLocale();
   const { settings } = useSiteSettings();
+  const { signedIn } = useAuth();
   const FREE_SHIPPING = settings.freeShippingThreshold;
   const toFreeShipping = Math.max(0, FREE_SHIPPING - subtotal);
   const freeShipping = subtotal >= FREE_SHIPPING;
@@ -53,6 +55,8 @@ export default function CartPage() {
     <main className="max-w-5xl mx-auto px-6 py-12">
       <Reveal>
       <h1 className="font-display text-3xl mb-8">{t('cart.title')} <span className="text-steel text-xl font-sans">({lines.reduce((s, l) => s + l.qty, 0)} items)</span></h1>
+
+      {!signedIn && <SignupWelcomeBanner next="/cart" className="mb-6" />}
 
       {/* Free shipping progress */}
       <div className="rounded-2xl bg-black/5 dark:bg-white/5 px-5 py-4 mb-8">

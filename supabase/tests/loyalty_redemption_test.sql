@@ -53,13 +53,14 @@ begin
   end if;
   raise notice 'PASS: place_order() returns the correct loyalty discount for redeemed points';
 
-  -- This buyer is also a first-time referred customer, so the $10 welcome
-  -- discount correctly stacks with the $5 loyalty discount: $40 - $10 - $5.
+  -- This buyer is also a first-time referred customer, so the $10 referral
+  -- welcome AND 0013's 10% signup welcome ($4 on a $40 cart) both stack
+  -- with the $5 loyalty discount: $40 - $10 - $4 - $5 = $21.
   select subtotal_usd into v_subtotal from orders where id = v_order_id;
-  if v_subtotal is distinct from 25.00 then
-    raise exception 'FAIL: order subtotal — expected $25.00 ($40 - $10 welcome - $5 loyalty), got %', v_subtotal;
+  if v_subtotal is distinct from 21.00 then
+    raise exception 'FAIL: order subtotal — expected $21.00 ($40 - $10 welcome - $4 signup welcome - $5 loyalty), got %', v_subtotal;
   end if;
-  raise notice 'PASS: loyalty discount is actually reflected in the order total (stacked correctly with the welcome discount)';
+  raise notice 'PASS: loyalty discount is actually reflected in the order total (stacked correctly with the welcome discounts)';
 
   select loyalty_points into v_points from profiles where id = v_buyer;
   if v_points is distinct from 50 then -- 150 - 100 redeemed

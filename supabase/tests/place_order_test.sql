@@ -55,8 +55,11 @@ begin
   -- COD orders must earn purchase points even though they're inserted
   -- already-confirmed (this is the bug the AFTER INSERT OR UPDATE trigger fixes)
   select loyalty_points into v_points from profiles where id = v_user;
-  if v_points is distinct from 139 then -- 50 signup + 89 purchase
-    raise exception 'FAIL: COD purchase points — expected 139, got %. (This is the exact bug where COD orders never earned points because the trigger only fired on UPDATE.)', v_points;
+  -- NOTE: as of 0013, this user's first order also qualifies for the 10%
+  -- signup welcome discount, so subtotal_usd is 89 * 0.9 = 80.10 (floored to
+  -- 80 for points), not the raw 89 — hence 130, not 139.
+  if v_points is distinct from 130 then -- 50 signup + 80 purchase (89 - 10% signup welcome, floored)
+    raise exception 'FAIL: COD purchase points — expected 130, got %. (This is the exact bug where COD orders never earned points because the trigger only fired on UPDATE.)', v_points;
   end if;
   raise notice 'PASS: COD orders earn purchase points on INSERT, not just UPDATE';
 

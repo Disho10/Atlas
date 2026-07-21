@@ -3,11 +3,12 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { useCart, useCurrency, useSiteSettings } from '@/components/Providers';
+import { useCart, useCurrency, useSiteSettings, useAuth } from '@/components/Providers';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
 import { formatCurrency } from '@/lib/mockData';
 import { createClient } from '@/lib/supabase/client';
 import { CheckIcon } from '@/components/icons';
+import SignupWelcomeBanner from '@/components/SignupWelcomeBanner';
 
 const METHODS = [
   {
@@ -89,6 +90,8 @@ function CheckoutPageInner() {
   const [promoChecking, setPromoChecking] = useState(false);
   const [giftCardCode, setGiftCardCode] = useState('');
   const [welcomeDiscount, setWelcomeDiscount] = useState(0);
+  const [signupWelcome, setSignupWelcome] = useState(0);
+  const { signedIn } = useAuth();
   const searchParams = useSearchParams();
   // Loyalty points chosen on the account/loyalty page, handed off via
   // ?redeem=N. Re-validated here (and again server-side in place_order())
@@ -96,7 +99,7 @@ function CheckoutPageInner() {
   const [loyaltyPoints, setLoyaltyPoints] = useState(0);
   const [loyaltyDiscount, setLoyaltyDiscount] = useState(0);
   const [loyaltyMsg, setLoyaltyMsg] = useState<string | null>(null);
-  const finalTotal = Math.max(0, subtotal - discount - welcomeDiscount - loyaltyDiscount);
+  const finalTotal = Math.max(0, subtotal - discount - welcomeDiscount - signupWelcome - loyaltyDiscount);
 
   useEffect(() => {
     import('@/app/account/actions').then(async m => {
@@ -104,6 +107,14 @@ function CheckoutPageInner() {
       setWelcomeDiscount(res.discountUsd);
     });
   }, []);
+
+  useEffect(() => {
+    if (subtotal <= 0) { setSignupWelcome(0); return; }
+    import('@/app/account/actions').then(async m => {
+      const res = await m.getSignupWelcome(subtotal);
+      setSignupWelcome(res.discountUsd);
+    });
+  }, [subtotal]);
 
   useEffect(() => {
     const redeemParam = Number(searchParams.get('redeem'));
@@ -132,8 +143,8 @@ function CheckoutPageInner() {
   };
 
   const placeOrder = async () => {
-    if (!form.name.trim() || !form.address.trim()) {
-      setError('Please fill in your name and delivery address.'); return;
+    if (!form.name.trim() || !form.phone.trim() || !form.address.trim()) {
+      setError('Please fill in your name, phone number, and delivery address.'); return;
     }
     setSubmitting(true);
     setError(null);
@@ -292,6 +303,7 @@ function CheckoutPageInner() {
   // -------------------------------------------------------------------------
   return (
     <main className="max-w-4xl mx-auto px-6 py-12 stage-fade">
+      {!signedIn && <SignupWelcomeBanner next="/checkout" className="mb-6" />}
       <h1 className="font-display text-3xl mb-8">{t('checkout.title')}</h1>
       <div className="grid md:grid-cols-5 gap-10">
 
@@ -306,7 +318,7 @@ function CheckoutPageInner() {
             </h2>
             <div className="grid sm:grid-cols-2 gap-3">
               <input placeholder={`${t('checkout.name')} *`} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className={inputCls} />
-              <input placeholder={t('checkout.phone')} value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} className={inputCls} />
+              <input placeholder={`${t('checkout.phone')} *`} type="tel" required value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} className={inputCls} />
               <input placeholder={t('checkout.email')} type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className={`${inputCls} sm:col-span-2`} />
               <input placeholder={`${t('checkout.city')} *`} value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} className={`${inputCls} sm:col-span-2`} />
               <input placeholder={`${t('checkout.address')} *`} value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} className={`${inputCls} sm:col-span-2`} />
@@ -390,6 +402,9 @@ function CheckoutPageInner() {
             <div className="space-y-1.5 text-sm border-t border-black/10 dark:border-white/10 pt-4 mb-5">
               {welcomeDiscount > 0 && (
                 <div className="flex justify-between"><span className="text-steel">Welcome discount</span><span className="text-crimson tabular">−{formatCurrency(welcomeDiscount, currency)}</span></div>
+              )}
+              {signupWelcome > 0 && (
+                <div className="flex justify-between"><span className="text-steel">New customer discount (10%)</span><span className="text-crimson tabular">−{formatCurrency(signupWelcome, currency)}</span></div>
               )}
               {discount > 0 && (
                 <div className="flex justify-between"><span className="text-steel">Promo</span><span className="text-crimson tabular">−{formatCurrency(discount, currency)}</span></div>

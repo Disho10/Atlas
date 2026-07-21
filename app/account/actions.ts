@@ -143,3 +143,17 @@ export async function getRefereeWelcome(): Promise<{ discountUsd: number }> {
   const { data } = await supabase.rpc('referee_welcome_discount', { p_user: user.id });
   return { discountUsd: Number(data ?? 0) };
 }
+
+// ---------------------------------------------------------------------------
+// SIGNUP WELCOME — 10% off any signed-in customer's first order (not tied to
+// referrals; stacks with the referee welcome above if both apply). Server
+// re-validates and re-computes this again inside place_order() regardless —
+// this is only for showing the number at checkout before submitting.
+// ---------------------------------------------------------------------------
+export async function getSignupWelcome(subtotalUsd: number): Promise<{ discountUsd: number }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { discountUsd: 0 };
+  const { data } = await supabase.rpc('signup_welcome_discount', { p_user: user.id, p_subtotal: subtotalUsd });
+  return { discountUsd: Number(data ?? 0) };
+}
