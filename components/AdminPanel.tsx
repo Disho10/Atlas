@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from 'react';
 import { formatCurrency, type Product, type Order } from '@/lib/mockData';
 import { saveProduct, deleteProduct, logManualOrder, logManualOrderMulti, updateOrderStatus, setStaffRole, createPromo, setPromoActive, setExchangeRate, savePage, deletePage, saveHeroSlides, saveApexConfig, setReviewHidden, resolveReturn, setSiteSetting, issueGiftCard } from '@/app/admin/actions';
 import { DEFAULT_SETTINGS, settingDbKey, type SiteSettings } from '@/lib/settings';
-import { type ApexConfig } from '@/lib/apexConfig';
+import { type ApexConfig, type ApexColorSwatch } from '@/lib/apexConfig';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
 import type { TranslationKey } from '@/lib/i18n/dictionary';
 
@@ -579,7 +579,7 @@ export default function AdminPanel({
       )}
 
       {tab === 'apex' && (
-        <ApexTab initialConfig={initialApexConfig} demoMode={demoMode} onDone={flash} />
+        <ApexTab initialConfig={initialApexConfig} products={products} demoMode={demoMode} onDone={flash} />
       )}
 
       {tab === 'pages' && (
@@ -2503,13 +2503,33 @@ function Row({ children }: { children: React.ReactNode }) {
 // on/off, giant word, headline, copy, CTA label, image (URL or upload,
 // with a cutout-PNG mode for the frameless 3D look), and link target.
 // ---------------------------------------------------------------------------
-function ApexTab({ initialConfig, demoMode, onDone }: { initialConfig: ApexConfig; demoMode: boolean; onDone: (m: string) => void }) {
+function ApexTab({ initialConfig, products, demoMode, onDone }: { initialConfig: ApexConfig; products: Product[]; demoMode: boolean; onDone: (m: string) => void }) {
   const [f, setF] = useState<ApexConfig>(initialConfig);
   const [pending, start] = useTransition();
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const set = <K extends keyof ApexConfig>(k: K, v: ApexConfig[K]) => setF(s => ({ ...s, [k]: v }));
+
+  // --- Custom color swatches (colorMode === 'custom') ---------------------
+  const addCustomColor = () => set('customColors', [...f.customColors, { hex: '#D6FF3F', label: `Color ${f.customColors.length + 1}` }]);
+  const updateCustomColor = (i: number, patch: Partial<ApexColorSwatch>) =>
+    set('customColors', f.customColors.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
+  const removeCustomColor = (i: number) => set('customColors', f.customColors.filter((_, idx) => idx !== i));
+
+  // --- Product-linked swatches (colorMode === 'products') -----------------
+  const addColorProduct = (id: string) => {
+    if (!id || f.colorProductIds.includes(id) || f.colorProductIds.length >= 5) return;
+    set('colorProductIds', [...f.colorProductIds, id]);
+  };
+  const removeColorProduct = (id: string) => set('colorProductIds', f.colorProductIds.filter(pid => pid !== id));
+
+  // --- Size labels, edited as a comma-separated list -----------------------
+  const [sizeLabelsText, setSizeLabelsText] = useState(f.sizeLabels.join(', '));
+  const commitSizeLabels = () => {
+    const parsed = sizeLabelsText.split(',').map(s => s.trim()).filter(Boolean);
+    set('sizeLabels', parsed.length ? parsed : ['S', 'M', 'L']);
+  };
 
   // Same storage bucket + flow as hero slide uploads. For the cutout mode,
   // upload a transparent-background PNG (remove.bg or Photoshop export).
@@ -2548,11 +2568,20 @@ function ApexTab({ initialConfig, demoMode, onDone }: { initialConfig: ApexConfi
         </label>
 
         <div className="grid grid-cols-2 gap-3">
+          <Field label="Eyebrow label (optional, above headline)">
+            <input value={f.eyebrow} onChange={e => set('eyebrow', e.target.value)} placeholder="e.g. New drop" className={inputCls} />
+          </Field>
           <Field label="Giant background word">
             <input value={f.word} onChange={e => set('word', e.target.value)} placeholder="APEX" className={inputCls} />
           </Field>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
           <Field label="CTA button label">
             <input value={f.ctaLabel} onChange={e => set('ctaLabel', e.target.value)} className={inputCls} />
+          </Field>
+          <Field label="Product tilt angle (degrees)">
+            <input type="number" min={-30} max={30} value={f.tiltDeg} onChange={e => set('tiltDeg', Number(e.target.value) || 0)} className={inputCls} />
           </Field>
         </div>
 
@@ -2599,6 +2628,101 @@ function ApexTab({ initialConfig, demoMode, onDone }: { initialConfig: ApexConfi
           <Field label="Caption under image (empty = product name + price)">
             <input value={f.priceLine} onChange={e => set('priceLine', e.target.value)} className={inputCls} />
           </Field>
+        </div>
+
+        {/* --- Color source ---------------------------------------------- */}
+        <div className="rounded-xl border border-black/10 dark:border-white/10 p-4 space-y-4">
+          <div>
+            <p className="text-sm font-medium mb-1">Color swatches</p>
+            <p className="text-xs text-steel mb-3">What “Choose your color” shows, and what the section&rsquo;s background changes to.</p>
+            <div className="flex gap-2 flex-wrap">
+              {([
+                ['brand', 'Curated Atlas colors'],
+                ['custom', 'Custom colors'],
+                ['products', 'Real product colors — swaps the item shown'],
+              ] as const).map(([mode, label]) => (
+                <button
+                  key={mode}
+                  onClick={() => set('colorMode', mode)}
+                  className={`text-xs rounded-full px-3.5 py-2 border btn-press ${f.colorMode === mode ? 'border-volt bg-volt/10 font-medium' : 'border-black/15 dark:border-white/20'}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {f.colorMode === 'brand' && (
+            <p className="text-xs text-steel">Volt, Crimson, and Night — the 3 hand-picked Atlas brand colors. Switch to “Custom” or “Real product colors” to change these.</p>
+          )}
+
+          {f.colorMode === 'custom' && (
+            <div className="space-y-2">
+              {f.customColors.length === 0 && <p className="text-xs text-steel">No custom colors yet — add one below.</p>}
+              {f.customColors.map((s, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <input type="color" value={s.hex} onChange={e => updateCustomColor(i, { hex: e.target.value })} className="w-9 h-9 rounded-lg border border-black/15 dark:border-white/20 cursor-pointer bg-transparent" />
+                  <input value={s.hex} onChange={e => updateCustomColor(i, { hex: e.target.value })} className={`w-24 ${inputCls}`} />
+                  <input value={s.label} onChange={e => updateCustomColor(i, { label: e.target.value })} placeholder="Label (e.g. Home Red)" className={`flex-1 ${inputCls}`} />
+                  <button onClick={() => removeCustomColor(i)} className="text-xs text-crimson px-2 btn-press">Remove</button>
+                </div>
+              ))}
+              {f.customColors.length < 5 && (
+                <button onClick={addCustomColor} className="text-xs border border-black/15 dark:border-white/20 rounded-full px-3.5 py-2 btn-press">+ Add color</button>
+              )}
+            </div>
+          )}
+
+          {f.colorMode === 'products' && (
+            <div className="space-y-3">
+              <p className="text-xs text-steel">Pick up to 5 products. Each swatch is that product&rsquo;s real color — clicking one swaps the whole showcase (photo, name, price, link) to that product. Great for showing off a jersey&rsquo;s Home / Away / Third colorways as separate products.</p>
+              <div className="flex flex-wrap gap-2">
+                {f.colorProductIds.map(id => {
+                  const p = products.find(pr => pr.id === id);
+                  return (
+                    <span key={id} className="flex items-center gap-2 text-xs border border-black/15 dark:border-white/20 rounded-full pl-1.5 pr-1 py-1">
+                      <span className="w-4 h-4 rounded-full border border-black/15 dark:border-white/20" style={{ background: p?.color ?? '#888' }} />
+                      {p?.name ?? id}
+                      <button onClick={() => removeColorProduct(id)} className="text-crimson px-1">×</button>
+                    </span>
+                  );
+                })}
+              </div>
+              {f.colorProductIds.length < 5 && (
+                <select
+                  value=""
+                  onChange={e => addColorProduct(e.target.value)}
+                  className={inputCls}
+                >
+                  <option value="" disabled>+ Add a product…</option>
+                  {products.filter(p => !f.colorProductIds.includes(p.id)).map(p => (
+                    <option key={p.id} value={p.id}>{p.name} ({p.color})</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
+        </div>
+
+        <Field label="Size options (comma-separated)">
+          <input
+            value={sizeLabelsText}
+            onChange={e => setSizeLabelsText(e.target.value)}
+            onBlur={commitSizeLabels}
+            placeholder="S, M, L"
+            className={inputCls}
+          />
+        </Field>
+
+        <div className="flex flex-wrap gap-6">
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={f.showNav} onChange={e => set('showNav', e.target.checked)} className="accent-[#D6FF3F] w-4 h-4" />
+            Show mini nav bar
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={f.showSocial} onChange={e => set('showSocial', e.target.checked)} className="accent-[#D6FF3F] w-4 h-4" />
+            Show social icons
+          </label>
         </div>
       </div>
 

@@ -66,7 +66,13 @@ export default async function HomePage() {
       <BrandStory image={settings.brandStoryImage} />
 
       {apexConfig.enabled && (
-        <ApexShowcase config={apexConfig} product={hot[0] ?? newest[0]} instagramHandle={settings.instagramHandle} whatsappNumber={settings.whatsappNumber} />
+        <ApexShowcase
+          config={apexConfig}
+          product={hot[0] ?? newest[0]}
+          colorProducts={apexConfig.colorProductIds.map(id => products.find(p => p.id === id)).filter((p): p is NonNullable<typeof p> => p != null)}
+          instagramHandle={settings.instagramHandle}
+          whatsappNumber={settings.whatsappNumber}
+        />
       )}
 
       <RetroPromo products={retro} />

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createRawClient } from '@supabase/supabase-js';
+import type { ApexConfig } from '@/lib/apexConfig';
 
 // Service role client for writes — bypasses RLS. Falls back to null if the
 // service role key isn't configured (the action will use the session client).
@@ -493,11 +494,7 @@ export async function saveHeroSlides(slides: {
 // (giant word, headline, copy, image/cutout mode, link target). Same
 // storage + permission pattern as hero slides above.
 // ---------------------------------------------------------------------------
-export async function saveApexConfig(config: {
-  enabled: boolean; word: string; headline: string; body: string;
-  imageUrl: string; imageCutout: boolean; productId: string;
-  ctaLabel: string; priceLine: string;
-}): Promise<ActionResult> {
+export async function saveApexConfig(config: ApexConfig): Promise<ActionResult> {
   const auth = await getRole();
   if (!auth) return { ok: false, error: 'Not signed in.' };
   if (!canEditProducts(auth.role)) return { ok: false, error: 'Only Owner and Manager can edit the Apex section.' };
