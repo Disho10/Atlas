@@ -87,7 +87,11 @@ export default function ApexShowcase({ config, product, colorProducts = [], inst
   type Swatch = ApexColorSwatch & { palette: ReturnType<typeof contrastFor> };
   let swatches: Swatch[];
   if (config.colorMode === 'products' && colorProducts.length > 0) {
-    swatches = colorProducts.map(p => ({ hex: p.color, label: p.name, productId: p.id, palette: contrastFor(p.color) }));
+    swatches = colorProducts.map(p => {
+      const override = config.productImageOverrides?.[p.id];
+      const hex = config.colorOverrides?.[p.id] || p.color;
+      return { hex, label: p.name, productId: p.id, imageUrl: override?.imageUrl, imageCutout: override?.imageCutout, palette: contrastFor(hex) };
+    });
   } else if (config.colorMode === 'custom' && config.customColors.length > 0) {
     swatches = config.customColors.map(s => ({ ...s, palette: contrastFor(s.hex) }));
   } else {
@@ -98,23 +102,48 @@ export default function ApexShowcase({ config, product, colorProducts = [], inst
   const active = swatches[Math.min(idx, swatches.length - 1)] ?? swatches[0];
   const c = active.palette;
 
-  // In 'products' mode, picking a swatch swaps the whole featured item —
-  // this IS the "colors are the product's real variants" behavior.
+  // In 'products' mode, picking a swatch swaps the whole featured item.
+  // A swatch can also carry its OWN picture (imageUrl/imageCutout) — set on
+  // custom colors to associate any image with that color, or on a product
+  // color to override its catalog photo with a nicer cutout. Priority for
+  // what's actually shown: swatch's own image → linked product's photo →
+  // section-level default image → fallback featured product.
   const swatchProduct = config.colorMode === 'products'
     ? colorProducts.find(p => p.id === active.productId)
     : undefined;
   const displayProduct = swatchProduct ?? product;
 
-  const cutout = !!(config.imageUrl && config.imageCutout && !swatchProduct);
-  const displayImage = swatchProduct ? swatchProduct.image : (config.imageUrl || displayProduct?.image);
+  const hasSwatchImage = !!active.imageUrl;
+  const cutout = hasSwatchImage
+    ? !!active.imageCutout
+    : !!(config.imageUrl && config.imageCutout && !swatchProduct);
+  const displayImage = active.imageUrl || (swatchProduct ? swatchProduct.image : (config.imageUrl || displayProduct?.image));
   const productHref = swatchProduct
     ? `/product/${swatchProduct.id}`
     : config.productId
       ? `/product/${config.productId}`
-      : (!config.imageUrl && displayProduct ? `/product/${displayProduct.id}` : '/search');
+      : (!hasSwatchImage && !config.imageUrl && displayProduct ? `/product/${displayProduct.id}` : '/search');
 
   const sizeLabels = config.sizeLabels?.length ? config.sizeLabels : ['S', 'M', 'L'];
   const [size, setSize] = useState(sizeLabels[Math.min(1, sizeLabels.length - 1)]);
+
+  // "Choose your set" — the ACTIVE product's own variants (e.g. Jersey vs
+  // Jersey + Shorts), not admin-configured. This is real catalog data, so
+  // there's nothing to set up beyond the showVariantPicker toggle — it
+  // just shows whatever variants the currently-displayed product actually
+  // has, and picking one updates the price shown to that variant's real price.
+  const variants = displayProduct?.variants ?? [];
+  // Reset the selected variant when the active product changes (e.g. a
+  // 'products'-mode swatch click) — done during render, not in an effect,
+  // per React's guidance for resetting state on a prop change.
+  const [variantState, setVariantState] = useState({ forHref: productHref, idx: 0 });
+  if (variantState.forHref !== productHref) {
+    setVariantState({ forHref: productHref, idx: 0 });
+  }
+  const setVariantIdx = (idx: number) => setVariantState({ forHref: productHref, idx });
+  const variantIdx = variantState.idx;
+  const activeVariant = variants[Math.min(variantIdx, variants.length - 1)];
+  const activePrice = activeVariant?.price ?? displayProduct?.price;
 
   return (
     <section
@@ -189,15 +218,16 @@ export default function ApexShowcase({ config, product, colorProducts = [], inst
           >
             {cutout ? (
               // Transparent-PNG cutout mode: free-floating object, no card.
-              // Plain <img> — the URL is admin-entered and can point at any
-              // host (next/image throws for non-allowlisted hosts).
+              // Plain <img> — the URL is admin-entered (section-level or
+              // per-swatch) and can point at any host (next/image throws
+              // for non-allowlisted hosts).
               <Link href={productHref} className="block float-idle">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={config.imageUrl} alt={displayProduct?.name ?? 'Featured product'} className="w-64 sm:w-72 md:w-96 h-auto" style={{ filter: 'drop-shadow(0 40px 50px rgba(0,0,0,.45))' }} loading="lazy" />
+                <img src={displayImage} alt={displayProduct?.name ?? 'Featured product'} className="w-64 sm:w-72 md:w-96 h-auto" style={{ filter: 'drop-shadow(0 40px 50px rgba(0,0,0,.45))' }} loading="lazy" />
               </Link>
             ) : displayImage ? (
               <Link href={productHref} className="block w-56 sm:w-64 md:w-80 aspect-[4/5] rounded-2xl overflow-hidden float-idle" style={{ boxShadow: '0 40px 80px -20px rgba(0,0,0,.45)' }}>
-                {swatchProduct || !config.imageUrl ? (
+                {!hasSwatchImage && (swatchProduct || !config.imageUrl) ? (
                   <ProductImage src={displayImage} alt={displayProduct?.name ?? 'Featured product'} width={640} height={800} className="w-full h-full object-cover" />
                 ) : (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -214,8 +244,10 @@ export default function ApexShowcase({ config, product, colorProducts = [], inst
           <div aria-hidden className="mx-auto mt-6 h-4 w-40 md:w-56 rounded-[50%]" style={{ background: 'radial-gradient(ellipse at center, rgba(0,0,0,.35), transparent 70%)' }} />
 
           {(config.priceLine || displayProduct) && (
-            <p key={`caption-${productHref}`} className="text-center text-xs mt-3 font-medium" style={{ color: c.fgSoft }}>
-              {swatchProduct ? `${swatchProduct.name} — $${swatchProduct.price}` : (config.priceLine || `${displayProduct!.name} — $${displayProduct!.price}`)}
+            <p key={`caption-${productHref}-${variantIdx}`} className="text-center text-xs mt-3 font-medium" style={{ color: c.fgSoft }}>
+              {swatchProduct
+                ? `${swatchProduct.name}${activeVariant ? ` (${activeVariant.label})` : ''} — $${activePrice}`
+                : (config.priceLine || `${displayProduct!.name}${activeVariant ? ` (${activeVariant.label})` : ''} — $${activePrice}`)}
             </p>
           )}
         </div>
@@ -257,6 +289,24 @@ export default function ApexShowcase({ config, product, colorProducts = [], inst
               ))}
             </div>
           </div>
+
+          {config.showVariantPicker && variants.length > 0 && (
+            <div>
+              <p className="text-[11px] uppercase tracking-widest2 font-semibold mb-3" style={{ color: c.fgSoft }}>Choose your set</p>
+              <div className="flex gap-2 flex-wrap">
+                {variants.map((v, i) => (
+                  <button
+                    key={v.label}
+                    onClick={() => setVariantIdx(i)}
+                    className="rounded-full px-4 py-2 text-xs font-semibold btn-press transition-all"
+                    style={{ border: `1.5px solid ${variantIdx === i ? c.fg : c.fgSoft}`, background: variantIdx === i ? c.fg : 'transparent', color: variantIdx === i ? active.hex : c.fg }}
+                  >
+                    {v.label} — ${v.price}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <Link href="/search" className="inline-block rounded-full px-7 py-3.5 text-sm font-bold btn-press" style={{ background: c.pill, color: c.pillText }}>
             {config.ctaLabel}

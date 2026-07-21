@@ -6,9 +6,11 @@
 // ---------------------------------------------------------------------------
 
 export type ApexColorSwatch = {
-  hex: string;        // swatch color AND the section background when selected
-  label: string;      // e.g. "Volt" or "Home Red" — accessible name only
-  productId?: string; // set only in 'products' color mode — see colorMode below
+  hex: string;          // swatch color AND the section background when selected
+  label: string;        // e.g. "Volt" or "Home Red" — accessible name only
+  productId?: string;   // set only in 'products' color mode — see colorMode below
+  imageUrl?: string;    // this color's own picture; '' = fall back to productId's photo, then the section's default image
+  imageCutout?: boolean; // true = render imageUrl as a frameless transparent-PNG cutout, like the section-level toggle
 };
 
 export type ApexConfig = {
@@ -34,11 +36,25 @@ export type ApexConfig = {
   colorMode: 'brand' | 'custom' | 'products';
   customColors: ApexColorSwatch[];   // used when colorMode === 'custom'
   colorProductIds: string[];         // used when colorMode === 'products', ordered, max 5
+  colorOverrides: Record<string, string>;
+  // ^ optional — keyed by product id, only for colorMode === 'products'.
+  // Without an entry, a product swatch's dot + section background use
+  // that product's own catalog `color` field (the sensible default). Set
+  // one to show a different color for that swatch instead — e.g. the
+  // catalog color is the literal fabric hex but you want the swatch/
+  // background to read as a punchier brand tone. The photo, name, price,
+  // and link still come from the real product either way.
+  productImageOverrides: Record<string, { imageUrl: string; imageCutout: boolean }>;
+  // ^ optional — keyed by product id, only for colorMode === 'products'.
+  // Without an entry here, a product swatch just uses that product's own
+  // catalog photo (the sensible default). Set one to show a different
+  // picture (e.g. a nicer cutout PNG) for that color instead.
 
   // --- Layout / motion --------------------------------------------------
   sizeLabels: string[];   // default S/M/L — edit freely, e.g. shoe sizes if that's ever sold
   showNav: boolean;       // mini nav bar (logo, links, Place Order pill)
   showSocial: boolean;    // bottom-left Instagram/WhatsApp icons
+  showVariantPicker: boolean; // "Choose your set" — Jersey vs Jersey + Shorts etc, from the active product's own variants
   tiltDeg: number;        // base product rotation before pointer tilt is added, degrees
 };
 
@@ -56,9 +72,12 @@ export const DEFAULT_APEX: ApexConfig = {
   colorMode: 'brand',
   customColors: [],
   colorProductIds: [],
+  colorOverrides: {},
+  productImageOverrides: {},
   sizeLabels: ['S', 'M', 'L'],
   showNav: true,
   showSocial: true,
+  showVariantPicker: true,
   tiltDeg: -8,
 };
 

@@ -2522,7 +2522,14 @@ function ApexTab({ initialConfig, products, demoMode, onDone }: { initialConfig:
     if (!id || f.colorProductIds.includes(id) || f.colorProductIds.length >= 5) return;
     set('colorProductIds', [...f.colorProductIds, id]);
   };
-  const removeColorProduct = (id: string) => set('colorProductIds', f.colorProductIds.filter(pid => pid !== id));
+  const removeColorProduct = (id: string) => {
+    set('colorProductIds', f.colorProductIds.filter(pid => pid !== id));
+    if (f.productImageOverrides[id]) {
+      const next = { ...f.productImageOverrides };
+      delete next[id];
+      set('productImageOverrides', next);
+    }
+  };
 
   // --- Size labels, edited as a comma-separated list -----------------------
   const [sizeLabelsText, setSizeLabelsText] = useState(f.sizeLabels.join(', '));
@@ -2533,7 +2540,7 @@ function ApexTab({ initialConfig, products, demoMode, onDone }: { initialConfig:
 
   // Same storage bucket + flow as hero slide uploads. For the cutout mode,
   // upload a transparent-background PNG (remove.bg or Photoshop export).
-  const uploadImage = async () => {
+  const uploadTo = async (apply: (url: string) => void) => {
     const input = document.createElement('input');
     input.type = 'file'; input.accept = 'image/*';
     input.onchange = async () => {
@@ -2543,12 +2550,13 @@ function ApexTab({ initialConfig, products, demoMode, onDone }: { initialConfig:
       const supabase = createClient();
       const path = `apex/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
       const { data, error: err } = await supabase.storage.from('product-images').upload(path, file);
-      if (data) set('imageUrl', supabase.storage.from('product-images').getPublicUrl(data.path).data.publicUrl);
+      if (data) apply(supabase.storage.from('product-images').getPublicUrl(data.path).data.publicUrl);
       else if (err) setError(err.message);
       setUploading(false);
     };
     input.click();
   };
+  const uploadImage = () => uploadTo(url => set('imageUrl', url));
 
   const save = () => {
     setError(null);
@@ -2657,14 +2665,32 @@ function ApexTab({ initialConfig, products, demoMode, onDone }: { initialConfig:
           )}
 
           {f.colorMode === 'custom' && (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {f.customColors.length === 0 && <p className="text-xs text-steel">No custom colors yet — add one below.</p>}
               {f.customColors.map((s, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <input type="color" value={s.hex} onChange={e => updateCustomColor(i, { hex: e.target.value })} className="w-9 h-9 rounded-lg border border-black/15 dark:border-white/20 cursor-pointer bg-transparent" />
-                  <input value={s.hex} onChange={e => updateCustomColor(i, { hex: e.target.value })} className={`w-24 ${inputCls}`} />
-                  <input value={s.label} onChange={e => updateCustomColor(i, { label: e.target.value })} placeholder="Label (e.g. Home Red)" className={`flex-1 ${inputCls}`} />
-                  <button onClick={() => removeCustomColor(i)} className="text-xs text-crimson px-2 btn-press">Remove</button>
+                <div key={i} className="border border-black/10 dark:border-white/10 rounded-lg p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={s.hex} onChange={e => updateCustomColor(i, { hex: e.target.value })} className="w-9 h-9 rounded-lg border border-black/15 dark:border-white/20 cursor-pointer bg-transparent" />
+                    <input value={s.hex} onChange={e => updateCustomColor(i, { hex: e.target.value })} className={`w-24 ${inputCls}`} />
+                    <input value={s.label} onChange={e => updateCustomColor(i, { label: e.target.value })} placeholder="Label (e.g. Home Red)" className={`flex-1 ${inputCls}`} />
+                    <button onClick={() => removeCustomColor(i)} className="text-xs text-crimson px-2 btn-press">Remove</button>
+                  </div>
+                  <div className="flex items-center gap-2 pl-11">
+                    {s.imageUrl && (
+                      <span className="w-9 h-9 rounded-md overflow-hidden shrink-0 border border-black/10 dark:border-white/10" style={{ background: s.imageCutout ? 'repeating-conic-gradient(rgba(128,128,128,.25) 0% 25%, transparent 0% 50%) 0 / 8px 8px' : undefined }}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={s.imageUrl} alt="" className="w-full h-full object-cover" />
+                      </span>
+                    )}
+                    <input value={s.imageUrl ?? ''} onChange={e => updateCustomColor(i, { imageUrl: e.target.value.trim() })} placeholder="This color's picture (optional — empty = section default)" className={`flex-1 ${inputCls}`} />
+                    <button onClick={() => uploadTo(url => updateCustomColor(i, { imageUrl: url }))} disabled={uploading} className="text-xs border border-black/15 dark:border-white/20 rounded-lg px-2.5 py-2 btn-press disabled:opacity-50 shrink-0">Upload</button>
+                  </div>
+                  {s.imageUrl && (
+                    <label className="flex items-center gap-2 text-xs pl-11 text-steel">
+                      <input type="checkbox" checked={!!s.imageCutout} onChange={e => updateCustomColor(i, { imageCutout: e.target.checked })} className="accent-[#D6FF3F] w-3.5 h-3.5" />
+                      Transparent-PNG cutout
+                    </label>
+                  )}
                 </div>
               ))}
               {f.customColors.length < 5 && (
@@ -2679,15 +2705,72 @@ function ApexTab({ initialConfig, products, demoMode, onDone }: { initialConfig:
               <div className="flex flex-wrap gap-2">
                 {f.colorProductIds.map(id => {
                   const p = products.find(pr => pr.id === id);
+                  const effectiveHex = f.colorOverrides[id] || p?.color || '#888';
                   return (
                     <span key={id} className="flex items-center gap-2 text-xs border border-black/15 dark:border-white/20 rounded-full pl-1.5 pr-1 py-1">
-                      <span className="w-4 h-4 rounded-full border border-black/15 dark:border-white/20" style={{ background: p?.color ?? '#888' }} />
+                      <span className="w-4 h-4 rounded-full border border-black/15 dark:border-white/20" style={{ background: effectiveHex }} />
                       {p?.name ?? id}
                       <button onClick={() => removeColorProduct(id)} className="text-crimson px-1">×</button>
                     </span>
                   );
                 })}
               </div>
+
+              {f.colorProductIds.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs text-steel">Each swatch uses that product&rsquo;s real catalog color by default. Override one if you&rsquo;d rather show a different tone for it (the photo, name, and price still come from the real product):</p>
+                  {f.colorProductIds.map(id => {
+                    const p = products.find(pr => pr.id === id);
+                    const overridden = f.colorOverrides[id];
+                    return (
+                      <div key={id} className="flex items-center gap-2">
+                        <span className="w-16 text-xs text-steel truncate shrink-0">{p?.name ?? id}</span>
+                        <input
+                          type="color"
+                          value={overridden || p?.color || '#888888'}
+                          onChange={e => set('colorOverrides', { ...f.colorOverrides, [id]: e.target.value })}
+                          className="w-9 h-9 rounded-lg border border-black/15 dark:border-white/20 cursor-pointer bg-transparent shrink-0"
+                        />
+                        <span className="text-xs text-steel">{overridden ? `Overridden — catalog color is ${p?.color}` : `Using catalog color (${p?.color})`}</span>
+                        {overridden && (
+                          <button onClick={() => { const next = { ...f.colorOverrides }; delete next[id]; set('colorOverrides', next); }} className="text-xs text-crimson shrink-0 ml-auto">Reset to catalog color</button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {f.colorProductIds.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs text-steel">Each product uses its own catalog photo by default. Optionally give a color its own picture instead (e.g. a cutout PNG):</p>
+                  {f.colorProductIds.map(id => {
+                    const p = products.find(pr => pr.id === id);
+                    const override = f.productImageOverrides[id];
+                    return (
+                      <div key={id} className="flex items-center gap-2">
+                        <span className="w-16 text-xs text-steel truncate shrink-0">{p?.name ?? id}</span>
+                        <input
+                          value={override?.imageUrl ?? ''}
+                          onChange={e => set('productImageOverrides', { ...f.productImageOverrides, [id]: { imageUrl: e.target.value.trim(), imageCutout: override?.imageCutout ?? false } })}
+                          placeholder="Override picture URL (optional)"
+                          className={`flex-1 ${inputCls}`}
+                        />
+                        <button onClick={() => uploadTo(url => set('productImageOverrides', { ...f.productImageOverrides, [id]: { imageUrl: url, imageCutout: override?.imageCutout ?? false } }))} disabled={uploading} className="text-xs border border-black/15 dark:border-white/20 rounded-lg px-2.5 py-2 btn-press disabled:opacity-50 shrink-0">Upload</button>
+                        {override?.imageUrl && (
+                          <>
+                            <label className="flex items-center gap-1 text-xs text-steel shrink-0">
+                              <input type="checkbox" checked={!!override.imageCutout} onChange={e => set('productImageOverrides', { ...f.productImageOverrides, [id]: { imageUrl: override.imageUrl, imageCutout: e.target.checked } })} className="accent-[#D6FF3F] w-3.5 h-3.5" />
+                              Cutout
+                            </label>
+                            <button onClick={() => { const next = { ...f.productImageOverrides }; delete next[id]; set('productImageOverrides', next); }} className="text-xs text-crimson shrink-0">Clear</button>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               {f.colorProductIds.length < 5 && (
                 <select
                   value=""
@@ -2722,6 +2805,10 @@ function ApexTab({ initialConfig, products, demoMode, onDone }: { initialConfig:
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={f.showSocial} onChange={e => set('showSocial', e.target.checked)} className="accent-[#D6FF3F] w-4 h-4" />
             Show social icons
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={f.showVariantPicker} onChange={e => set('showVariantPicker', e.target.checked)} className="accent-[#D6FF3F] w-4 h-4" />
+            Show &ldquo;Choose your set&rdquo; (Jersey / Jersey + Shorts, from the shown product&rsquo;s own variants)
           </label>
         </div>
       </div>
