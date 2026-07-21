@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, Suspense } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
@@ -48,12 +49,13 @@ function SignInInner() {
       if (error) setError(error.message);
       else router.push(next);
     } else {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email, password,
         options: { data: { full_name: fullName, birthday: birthday || null, referred_by: refCode || '' } },
       });
       if (error) setError(error.message);
-      else router.push(next);
+      else if (data.session) router.push(next);
+      else router.push(`/auth/verify-email?email=${encodeURIComponent(email)}`);
     }
     setLoading(false);
   };
@@ -156,6 +158,13 @@ function SignInInner() {
                 {showPassword ? t('signin.hide') : t('signin.show')}
               </button>
             </div>
+            {mode === 'signin' && (
+              <div className="text-right -mt-1">
+                <Link href="/auth/forgot-password" className="text-xs text-steel underline underline-offset-2">
+                  Forgot password?
+                </Link>
+              </div>
+            )}
             {mode === 'signup' && (
               <label className="block">
                 <span className="block text-xs text-steel mb-1.5">{t('signin.birthdayHint')}</span>

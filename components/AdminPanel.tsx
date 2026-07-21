@@ -4,9 +4,11 @@ import { useEffect, useMemo, useState, useTransition } from 'react';
 import { formatCurrency, type Product, type Order } from '@/lib/mockData';
 import { saveProduct, deleteProduct, logManualOrder, logManualOrderMulti, updateOrderStatus, setStaffRole, createPromo, setPromoActive, setExchangeRate, savePage, deletePage, saveHeroSlides, saveApexConfig, setReviewHidden, resolveReturn, setSiteSetting, issueGiftCard } from '@/app/admin/actions';
 import { DEFAULT_SETTINGS, settingDbKey, type SiteSettings } from '@/lib/settings';
+import { ORDER_STATUS_COLORS } from '@/lib/orderStatus';
 import { type ApexConfig, type ApexColorSwatch } from '@/lib/apexConfig';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
 import type { TranslationKey } from '@/lib/i18n/dictionary';
+import Scoreboard from '@/components/Scoreboard';
 
 type Role = 'owner' | 'manager' | 'admin';
 type LeagueOpt = { slug: string; name: string };
@@ -363,12 +365,15 @@ export default function AdminPanel({
       </div>
 
       {tab === 'overview' && (
-        <div className="grid sm:grid-cols-4 gap-4 mb-10">
-          <Stat label="Revenue" value={formatCurrency(revenue, 'USD')} />
-          <Stat label="Active orders" value={String(activeOrders.length)} />
-          <Stat label="Avg. order value" value={formatCurrency(avgOrderValue, 'USD')} />
-          <Stat label="Low-stock items" value={String(lowStock.length)} tone={lowStock.length > 0 ? 'crimson' : undefined} />
-        </div>
+        <>
+          <p className="text-xs uppercase tracking-widest2 text-steel mb-3 font-mono">Store scoreboard · live</p>
+          <div className="grid sm:grid-cols-4 gap-4 mb-10">
+            <Stat label="Revenue" value={formatCurrency(revenue, 'USD')} />
+            <Stat label="Active orders" value={String(activeOrders.length)} />
+            <Stat label="Avg. order value" value={formatCurrency(avgOrderValue, 'USD')} />
+            <Stat label="Low-stock items" value={String(lowStock.length)} tone={lowStock.length > 0 ? 'crimson' : undefined} />
+          </div>
+        </>
       )}
 
       {tab === 'overview' && (
@@ -462,7 +467,15 @@ export default function AdminPanel({
                   {p.status === 'draft' && <span className="ml-2 text-[10px] uppercase bg-black/10 dark:bg-white/15 rounded px-1.5 py-0.5">Draft</span>}
                   {deadStockIds.has(p.id) && <span className="ml-2 text-[10px] uppercase bg-crimson/10 text-crimson rounded px-1.5 py-0.5">Dead stock</span>}
                 </span>
-                <span className="text-sm tabular w-20">{p.stock} in stock</span>
+                <span className="w-24 shrink-0 flex items-center gap-2" title={`${p.stock} in stock`}>
+                  <span className="flex-1 h-1.5 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden">
+                    <span
+                      className={`block h-full rounded-full ${p.stock <= 6 ? 'bg-crimson' : 'bg-volt'}`}
+                      style={{ width: `${Math.min(100, (p.stock / 20) * 100)}%` }}
+                    />
+                  </span>
+                  <span className={`text-xs tabular w-6 text-right shrink-0 ${p.stock <= 6 ? 'text-crimson font-medium' : 'text-steel'}`}>{p.stock}</span>
+                </span>
                 <span className="text-sm font-medium tabular w-14 text-right">${p.price}</span>
                 {canEditProducts && (
                   <button
@@ -2320,13 +2333,6 @@ function HeroSlidesTab({ initialSlides, demoMode, onDone }: { initialSlides: any
 // ORDER ROW — expandable, with status dropdown and cancel
 // ---------------------------------------------------------------------------
 const STATUS_FLOW = ['placed', 'confirmed', 'shipped', 'delivered'] as const;
-const STATUS_COLORS: Record<string, string> = {
-  placed: 'bg-black/5 dark:bg-white/10',
-  confirmed: 'bg-volt/20 text-ink',
-  shipped: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200',
-  delivered: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200',
-  cancelled: 'bg-crimson/15 text-crimson',
-};
 
 function OrderRow({ order: o, role, demoMode, onDone, stale = false }: { order: Order; role: string; demoMode: boolean; onDone: (m: string) => void; stale?: boolean }) {
   const [expanded, setExpanded] = useState(false);
@@ -2377,7 +2383,10 @@ function OrderRow({ order: o, role, demoMode, onDone, stale = false }: { order: 
           <span className="text-steel"> · {o.items.length} item{o.items.length === 1 ? '' : 's'}</span>
         </span>
         <span className="text-xs uppercase text-steel w-16 shrink-0">{o.channel}</span>
-        <span className={`text-[11px] capitalize px-2 py-1 rounded-full shrink-0 ${STATUS_COLORS[localStatus] ?? ''}`}>{localStatus}</span>
+        <span className={`inline-flex items-center gap-1.5 text-[11px] capitalize px-2 py-1 rounded-full shrink-0 ${ORDER_STATUS_COLORS[localStatus] ?? ''}`}>
+          <span className="w-1.5 h-1.5 rounded-full bg-current" aria-hidden="true" />
+          {localStatus}
+        </span>
         <span className="text-sm font-medium w-16 text-right tabular shrink-0">{formatCurrency(o.total, 'USD')}</span>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`shrink-0 transition-transform ${expanded ? 'rotate-180' : ''}`}><path d="M6 9l6 6 6-6" /></svg>
       </button>
@@ -2477,9 +2486,12 @@ function timeAgo(iso: string, now: number): string {
 
 function Stat({ label, value, tone }: { label: string; value: string; tone?: 'crimson' }) {
   return (
-    <div className="rounded-2xl border border-black/10 dark:border-white/10 p-5 card-premium">
-      <p className="text-xs uppercase tracking-widest2 text-steel">{label}</p>
-      <p className={`font-display text-3xl mt-2 tabular ${tone === 'crimson' ? 'text-crimson' : ''}`}>{value}</p>
+    <div className="relative overflow-hidden rounded-2xl bg-ink dark:bg-pitch p-5 card-premium">
+      <span className="absolute top-0 left-0 right-0 h-[3px] bg-volt" aria-hidden="true" />
+      <p className="text-[10px] uppercase tracking-widest2 text-chalk/50 font-mono">{label}</p>
+      <p className={`font-display text-3xl mt-2 tabular ${tone === 'crimson' ? 'text-crimson' : 'text-chalk'}`}>
+        <Scoreboard value={value} />
+      </p>
     </div>
   );
 }

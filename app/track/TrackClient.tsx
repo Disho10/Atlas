@@ -45,6 +45,7 @@ export default function TrackClient() {
 
   return (
     <main className="max-w-2xl mx-auto px-6 py-16">
+      <p className="text-xs uppercase tracking-widest2 text-steel mb-3 font-mono">Atlas · Tracking desk</p>
       <h1 className="font-display text-4xl mb-2">{t('track.title')}</h1>
       <p className="text-steel mb-8">{t('track.subtitle')}</p>
 
@@ -67,7 +68,7 @@ export default function TrackClient() {
 
       {result && result.ok && (
         <div className="border border-black/10 dark:border-white/10 rounded-3xl p-8">
-          <div className="flex items-baseline justify-between mb-8">
+          <div className="flex items-baseline justify-between">
             <div>
               <p className="text-xs uppercase tracking-widest2 text-steel">{t('track.order')}</p>
               <p className="font-mono text-lg">{orderNumber.toUpperCase()}</p>
@@ -77,22 +78,30 @@ export default function TrackClient() {
             </span>
           </div>
 
-          {/* Progress tracker */}
+          <div className="ticket-tear -mx-8 my-8" />
+
+          {/* Match-clock progress rail */}
           <div className="flex items-center mb-8">
             {STEPS.map((s, i) => {
               const done = i <= currentStep;
               const active = i === currentStep;
+              const isFirst = i === 0;
+              const isLast = i === STEPS.length - 1;
               return (
                 <div key={s.id} className="flex-1 flex items-center last:flex-none">
                   <div className="flex flex-col items-center">
-                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-medium transition-colors
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-medium font-mono transition-colors
                       ${done ? 'bg-volt text-ink' : 'bg-black/10 dark:bg-white/10 text-steel'} ${active ? 'ring-4 ring-volt/25' : ''}`}>
-                      {done ? '✓' : i + 1}
+                      {done ? (isLast ? '🏁' : '✓') : isFirst ? '●' : i + 1}
                     </div>
-                    <span className={`text-[11px] mt-2 ${done ? '' : 'text-steel'}`}>{t(s.labelKey)}</span>
+                    <span className={`text-[11px] mt-2 tabular ${done ? '' : 'text-steel'}`}>{t(s.labelKey)}</span>
                   </div>
                   {i < STEPS.length - 1 && (
-                    <div className={`flex-1 h-0.5 mx-1 -mt-5 ${i < currentStep ? 'bg-volt' : 'bg-black/10 dark:bg-white/10'}`} />
+                    <div className={`flex-1 h-0.5 mx-1 -mt-5 relative ${i < currentStep ? 'bg-volt' : 'bg-black/10 dark:bg-white/10'}`}>
+                      {i === currentStep - 1 && (
+                        <span className="absolute inset-0 bg-volt/60 animate-pulse" />
+                      )}
+                    </div>
                   )}
                 </div>
               );
@@ -111,7 +120,9 @@ export default function TrackClient() {
 
           {/* Delivered = tracking closed; returns available for 14 days */}
           {result.expired ? (
-            <div className="mt-8 pt-6 border-t border-black/10 dark:border-white/10">
+            <div className="mt-8">
+              <div className="ticket-tear -mx-8 mb-6" />
+              <p className="text-xs uppercase tracking-widest2 text-steel mb-3 font-mono">Second half · Returns &amp; exchanges</p>
               <p className="text-sm text-steel mb-4">
                 {t('track.deliveredClosed')}
               </p>
