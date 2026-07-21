@@ -3,6 +3,7 @@ import CategorySlider from '@/components/CategorySlider';
 import ProductRail from '@/components/ProductRail';
 import LeagueSpotlight from '@/components/LeagueSpotlight';
 import BrandStory from '@/components/BrandStory';
+import ApexShowcase from '@/components/ApexShowcase';
 import RetroPromo from '@/components/RetroPromo';
 import UnderConstructionBanner from '@/components/UnderConstructionBanner';
 import { StatsBand, TrustBadges, Testimonials, FaqSection, NewsletterSignup } from '@/components/SocialProof';
@@ -59,6 +60,8 @@ export default async function HomePage() {
       ))}
 
       <BrandStory image={settings.brandStoryImage} />
+
+      <ApexShowcase product={hot[0] ?? newest[0]} instagramHandle={settings.instagramHandle} whatsappNumber={settings.whatsappNumber} />
 
       <RetroPromo products={retro} />
 
