@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { formatCurrency, type Product, type Order } from '@/lib/mockData';
-import { saveProduct, deleteProduct, logManualOrder, logManualOrderMulti, updateOrderStatus, setStaffRole, createPromo, setPromoActive, setExchangeRate, savePage, deletePage, saveHeroSlides, setReviewHidden, resolveReturn, setSiteSetting, issueGiftCard } from '@/app/admin/actions';
+import { saveProduct, deleteProduct, logManualOrder, logManualOrderMulti, updateOrderStatus, setStaffRole, createPromo, setPromoActive, setExchangeRate, savePage, deletePage, saveHeroSlides, saveApexConfig, setReviewHidden, resolveReturn, setSiteSetting, issueGiftCard } from '@/app/admin/actions';
 import { DEFAULT_SETTINGS, settingDbKey, type SiteSettings } from '@/lib/settings';
+import { type ApexConfig } from '@/lib/apexConfig';
 import { useLocale } from '@/lib/i18n/LocaleProvider';
 import type { TranslationKey } from '@/lib/i18n/dictionary';
 
@@ -41,6 +42,7 @@ export default function AdminPanel({
   restockScores,
   exchangeRate: initialRate,
   heroSlides: initialHeroSlides,
+  apexConfig: initialApexConfig,
   pages,
   loyaltyPointsOutstanding = 0,
   promoCodes = [],
@@ -59,6 +61,7 @@ export default function AdminPanel({
   restockScores: { id: string; name: string; stock: number; sold: number; searchHits: number; score: number }[];
   exchangeRate: number;
   heroSlides: any[] | null;
+  apexConfig: ApexConfig;
   pages: PageData[];
   loyaltyPointsOutstanding?: number;
   promoCodes?: PromoCode[];
@@ -300,6 +303,7 @@ export default function AdminPanel({
     { id: 'analytics', labelKey: 'admin.searchAnalytics', roles: ['owner', 'manager'] },
     { id: 'promos', labelKey: 'admin.promoCodes', roles: ['owner', 'manager'] },
     { id: 'hero', labelKey: 'admin.heroSlides', roles: ['owner', 'manager'] },
+    { id: 'apex', labelKey: 'admin.apexSection', roles: ['owner', 'manager'] },
     { id: 'pages', labelKey: 'admin.pages', roles: ['owner', 'manager'] },
     { id: 'team', labelKey: 'admin.team', roles: ['owner'] },
     { id: 'customers', labelKey: 'admin.customers', roles: ['owner', 'manager', 'admin'] },
@@ -572,6 +576,10 @@ export default function AdminPanel({
 
       {tab === 'hero' && (
         <HeroSlidesTab initialSlides={initialHeroSlides} demoMode={demoMode} onDone={flash} />
+      )}
+
+      {tab === 'apex' && (
+        <ApexTab initialConfig={initialApexConfig} demoMode={demoMode} onDone={flash} />
       )}
 
       {tab === 'pages' && (
@@ -2488,4 +2496,116 @@ function Section({ title, desc, children }: { title: string; desc?: string; chil
 
 function Row({ children }: { children: React.ReactNode }) {
   return <div className="flex items-center gap-3 border border-black/10 dark:border-white/10 rounded-xl px-4 py-3 card-hover">{children}</div>;
+}
+
+// ---------------------------------------------------------------------------
+// APEX SECTION TAB — every aspect of the full-screen mid-scroll showcase:
+// on/off, giant word, headline, copy, CTA label, image (URL or upload,
+// with a cutout-PNG mode for the frameless 3D look), and link target.
+// ---------------------------------------------------------------------------
+function ApexTab({ initialConfig, demoMode, onDone }: { initialConfig: ApexConfig; demoMode: boolean; onDone: (m: string) => void }) {
+  const [f, setF] = useState<ApexConfig>(initialConfig);
+  const [pending, start] = useTransition();
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const set = <K extends keyof ApexConfig>(k: K, v: ApexConfig[K]) => setF(s => ({ ...s, [k]: v }));
+
+  // Same storage bucket + flow as hero slide uploads. For the cutout mode,
+  // upload a transparent-background PNG (remove.bg or Photoshop export).
+  const uploadImage = async () => {
+    const input = document.createElement('input');
+    input.type = 'file'; input.accept = 'image/*';
+    input.onchange = async () => {
+      const file = input.files?.[0]; if (!file) return;
+      setUploading(true);
+      const { createClient } = await import('@/lib/supabase/client');
+      const supabase = createClient();
+      const path = `apex/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      const { data, error: err } = await supabase.storage.from('product-images').upload(path, file);
+      if (data) set('imageUrl', supabase.storage.from('product-images').getPublicUrl(data.path).data.publicUrl);
+      else if (err) setError(err.message);
+      setUploading(false);
+    };
+    input.click();
+  };
+
+  const save = () => {
+    setError(null);
+    start(async () => {
+      const res = await saveApexConfig(f);
+      if (res.ok) onDone('Apex section saved.');
+      else setError(res.error);
+    });
+  };
+
+  return (
+    <Section title="Apex section" desc="The full-screen showcase that appears mid-scroll on the homepage. Changes go live on the next page load.">
+      <div className="space-y-4 max-w-xl">
+        <label className="flex items-center gap-3 text-sm">
+          <input type="checkbox" checked={f.enabled} onChange={e => set('enabled', e.target.checked)} className="accent-[#D6FF3F] w-4 h-4" />
+          Show this section on the homepage
+        </label>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Giant background word">
+            <input value={f.word} onChange={e => set('word', e.target.value)} placeholder="APEX" className={inputCls} />
+          </Field>
+          <Field label="CTA button label">
+            <input value={f.ctaLabel} onChange={e => set('ctaLabel', e.target.value)} className={inputCls} />
+          </Field>
+        </div>
+
+        <Field label="Headline (one line per row)">
+          <textarea value={f.headline} onChange={e => set('headline', e.target.value)} rows={2} className={inputCls} />
+        </Field>
+
+        <Field label="Body text">
+          <textarea value={f.body} onChange={e => set('body', e.target.value)} rows={3} className={inputCls} />
+        </Field>
+
+        <Field label="Showcase image (empty = featured hot product's photo)">
+          <div className="flex gap-2">
+            <input value={f.imageUrl} onChange={e => set('imageUrl', e.target.value.trim())} placeholder="Paste URL or upload →" className={`flex-1 ${inputCls}`} />
+            <button onClick={uploadImage} disabled={uploading} className="text-xs border border-black/15 dark:border-white/20 rounded-lg px-3 py-2 btn-press disabled:opacity-50">{uploading ? '…' : 'Upload'}</button>
+          </div>
+        </Field>
+
+        <label className="flex items-start gap-3 text-sm">
+          <input type="checkbox" checked={f.imageCutout} onChange={e => set('imageCutout', e.target.checked)} className="accent-[#D6FF3F] w-4 h-4 mt-0.5" />
+          <span>
+            Transparent-PNG cutout mode
+            <span className="block text-xs text-steel mt-0.5">
+              For images with the background removed (export from remove.bg or Photoshop). Renders frameless with a 3D tilt that follows the cursor and a floating shadow — the product looks like an object popping off the page instead of a photo in a card.
+            </span>
+          </span>
+        </label>
+
+        {f.imageUrl && f.imageCutout && (
+          <div className="rounded-xl border border-black/10 dark:border-white/10 p-4">
+            <p className="text-xs text-steel uppercase tracking-wide mb-3">Preview (checkered = transparent)</p>
+            <div className="w-40 mx-auto" style={{ background: 'repeating-conic-gradient(rgba(128,128,128,.25) 0% 25%, transparent 0% 50%) 0 / 16px 16px' }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={f.imageUrl} alt="Cutout preview" className="w-full h-auto" />
+            </div>
+            <p className="text-[11px] text-steel mt-2 text-center">If you see a solid rectangle behind the product here, the file still has a background — it needs a transparent PNG.</p>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Link to product ID (empty = featured product / search)">
+            <input value={f.productId} onChange={e => set('productId', e.target.value.trim())} placeholder="e.g. rm-home-25" className={inputCls} />
+          </Field>
+          <Field label="Caption under image (empty = product name + price)">
+            <input value={f.priceLine} onChange={e => set('priceLine', e.target.value)} className={inputCls} />
+          </Field>
+        </div>
+      </div>
+
+      {error && <p className="text-crimson text-sm mt-3">{error}</p>}
+      <button onClick={save} disabled={pending || demoMode} className="mt-5 text-sm bg-volt text-ink rounded-full px-6 py-2.5 font-medium btn-press disabled:opacity-40">
+        {pending ? 'Saving…' : 'Save Apex section'}
+      </button>
+    </Section>
+  );
 }

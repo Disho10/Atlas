@@ -4,6 +4,7 @@ import ProductRail from '@/components/ProductRail';
 import LeagueSpotlight from '@/components/LeagueSpotlight';
 import BrandStory from '@/components/BrandStory';
 import ApexShowcase from '@/components/ApexShowcase';
+import { DEFAULT_APEX, parseApexConfig } from '@/lib/apexConfig';
 import RetroPromo from '@/components/RetroPromo';
 import UnderConstructionBanner from '@/components/UnderConstructionBanner';
 import { StatsBand, TrustBadges, Testimonials, FaqSection, NewsletterSignup } from '@/components/SocialProof';
@@ -38,12 +39,15 @@ export default async function HomePage() {
 
   // Fetch hero slides saved by owner/manager — falls back to defaults in HeroSlideshow
   let heroSlides: any[] | undefined;
+  let apexConfig = DEFAULT_APEX;
   if (HAS_SUPABASE) {
     try {
       const supabase = await createClient();
-      const { data } = await supabase.from('site_settings').select('value').eq('key', 'hero_slides').single();
-      if (data?.value) heroSlides = JSON.parse(data.value);
-    } catch { /* no slides saved yet, use defaults */ }
+      const { data } = await supabase.from('site_settings').select('key, value').in('key', ['hero_slides', 'apex_showcase']);
+      const heroRow = data?.find(r => r.key === 'hero_slides');
+      if (heroRow?.value) heroSlides = JSON.parse(heroRow.value);
+      apexConfig = parseApexConfig(data?.find(r => r.key === 'apex_showcase')?.value);
+    } catch { /* nothing saved yet, use defaults */ }
   }
 
   return (
@@ -61,7 +65,9 @@ export default async function HomePage() {
 
       <BrandStory image={settings.brandStoryImage} />
 
-      <ApexShowcase product={hot[0] ?? newest[0]} instagramHandle={settings.instagramHandle} whatsappNumber={settings.whatsappNumber} />
+      {apexConfig.enabled && (
+        <ApexShowcase config={apexConfig} product={hot[0] ?? newest[0]} instagramHandle={settings.instagramHandle} whatsappNumber={settings.whatsappNumber} />
+      )}
 
       <RetroPromo products={retro} />
 

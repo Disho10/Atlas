@@ -3,35 +3,47 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Product } from '@/lib/mockData';
+import { ApexConfig } from '@/lib/apexConfig';
 import ProductImage from './ProductImage';
 
-// Full-screen "sneaker site" showcase section — appears mid-scroll on the
-// homepage (deliberately NOT the first hero; the admin-editable slideshow
-// keeps that job). Scroll-triggered entrance, giant background typography,
-// a real catalog product angled to pop out over it, and interactive
-// color/size elements. Requested to spec from a high-energy sneaker-site
-// concept, adapted to Atlas:
-//   - swatch colors are the brand palette (volt / crimson / deep blue),
-//     and picking one recolors the whole section live
-//   - sizes are jersey sizes (S/M/L) rather than shoe sizes, since that's
-//     what Atlas actually sells; tapping one is decorative selection here,
-//     the real size picker lives on the product page this links to
-//   - social icons are the store's REAL channels (Instagram + WhatsApp)
-//     rather than placeholder Facebook/Behance links pointing nowhere
-//   - all CTAs go to real routes: the featured product, /search, /checkout
-export default function ApexShowcase({ product, instagramHandle, whatsappNumber }: {
+// Full-screen "sneaker site" showcase — arrives mid-scroll on the homepage
+// (the admin-editable slideshow stays as the first hero). Scroll-in
+// entrance, giant background word, and a product visual that responds to
+// the cursor in pseudo-3D:
+//
+//   - Pointer tilt: the product rotates toward the cursor (perspective
+//     rotateX/rotateY), and the giant word drifts the OPPOSITE way a
+//     little — two layers moving against each other is what sells depth.
+//   - Transparent-PNG mode: if the apex_image Store Setting (Admin →
+//     Store Settings) is set to a background-removed PNG, the product
+//     renders free-floating with a real drop-shadow and a soft ground
+//     shadow beneath it — no rectangular card — which is the clean
+//     "object popping off the page" look. Remove a photo's background
+//     with any tool (e.g. remove.bg) and paste the resulting PNG's URL.
+//   - Fallback: with no PNG set, the featured product's regular photo
+//     shows in a rounded card with the same tilt.
+//
+// Mouse/fine-pointer only for the tilt; touch devices and
+// prefers-reduced-motion get the static composition.
+export default function ApexShowcase({ config, product, instagramHandle, whatsappNumber }: {
+  config: ApexConfig;
   product?: Product;
   instagramHandle: string;
   whatsappNumber: string;
 }) {
-  const ref = useRef<HTMLElement>(null);
+  // Everything visual comes from the admin-editable config (Admin → Apex
+  // section): giant word, headline/body copy, image URL + cutout flag,
+  // link target, CTA label, price caption. See lib/apexConfig.ts.
+  const cutout = !!(config.imageUrl && config.imageCutout);
+  const sectionRef = useRef<HTMLElement>(null);
+  const visualRef = useRef<HTMLDivElement>(null);
+  const wordRef = useRef<HTMLSpanElement>(null);
   const [inView, setInView] = useState(false);
 
-  // Scroll-in entry: the section content rises + scales in the first time
-  // the section reaches the viewport, same IO pattern as <Reveal> but with
-  // a more dramatic distance for the full-screen moment.
+  // Scroll-in entry — same IO pattern as <Reveal>, more dramatic distances
+  // for the full-screen moment.
   useEffect(() => {
-    const el = ref.current;
+    const el = sectionRef.current;
     if (!el) return;
     const io = new IntersectionObserver(
       entries => {
@@ -46,12 +58,34 @@ export default function ApexShowcase({ product, instagramHandle, whatsappNumber 
     return () => io.disconnect();
   }, []);
 
-  // Three contrasting brand moods. Each defines the section bg, the giant
-  // word's tint, and whether foreground text is ink or chalk for contrast.
+  // Pointer-driven pseudo-3D: tilt the product toward the cursor and slide
+  // the giant word gently the other way. Writes styles directly (no React
+  // state) so pointermove never re-renders the tree.
+  const handleMove = (e: React.PointerEvent<HTMLElement>) => {
+    if (e.pointerType !== 'mouse') return;
+    if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const section = sectionRef.current;
+    const visual = visualRef.current;
+    const word = wordRef.current;
+    if (!section || !visual || !word) return;
+    const rect = section.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5;  // -0.5 … 0.5
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    visual.style.transform = `perspective(900px) rotateX(${(-y * 14).toFixed(2)}deg) rotateY(${(x * 14).toFixed(2)}deg) rotate(-8deg)`;
+    word.style.transform = `translate(${(-x * 28).toFixed(1)}px, ${(-y * 18).toFixed(1)}px)`;
+  };
+
+  const handleLeave = () => {
+    if (visualRef.current) visualRef.current.style.transform = 'perspective(900px) rotate(-8deg)';
+    if (wordRef.current) wordRef.current.style.transform = 'translate(0, 0)';
+  };
+
+  // Three contrasting brand moods; picking one recolors the whole section.
+  // `mark` selects which real Atlas logo file has contrast on that bg.
   const COLORS = [
-    { name: 'Volt', bg: '#D6FF3F', word: 'rgba(255,255,255,.85)', fg: '#0B0D10', fgSoft: 'rgba(11,13,16,.65)', pill: '#0B0D10', pillText: '#F5F3EE' },
-    { name: 'Crimson', bg: '#E63946', word: 'rgba(255,255,255,.28)', fg: '#F5F3EE', fgSoft: 'rgba(245,243,238,.75)', pill: '#F5F3EE', pillText: '#0B0D10' },
-    { name: 'Night', bg: '#12224E', word: 'rgba(255,255,255,.14)', fg: '#F5F3EE', fgSoft: 'rgba(245,243,238,.7)', pill: '#D6FF3F', pillText: '#0B0D10' },
+    { name: 'Volt', bg: '#D6FF3F', word: 'rgba(255,255,255,.85)', fg: '#0B0D10', fgSoft: 'rgba(11,13,16,.65)', pill: '#0B0D10', pillText: '#F5F3EE', mark: '/brand/atlas-mark-dark.png' },
+    { name: 'Crimson', bg: '#E63946', word: 'rgba(255,255,255,.28)', fg: '#F5F3EE', fgSoft: 'rgba(245,243,238,.75)', pill: '#F5F3EE', pillText: '#0B0D10', mark: '/brand/atlas-mark-light.png' },
+    { name: 'Night', bg: '#12224E', word: 'rgba(255,255,255,.14)', fg: '#F5F3EE', fgSoft: 'rgba(245,243,238,.7)', pill: '#D6FF3F', pillText: '#0B0D10', mark: '/brand/atlas-mark-light.png' },
   ] as const;
   const [colorIdx, setColorIdx] = useState(0);
   const c = COLORS[colorIdx];
@@ -59,22 +93,28 @@ export default function ApexShowcase({ product, instagramHandle, whatsappNumber 
   const SIZES = ['S', 'M', 'L'] as const;
   const [size, setSize] = useState<(typeof SIZES)[number]>('M');
 
-  const productHref = product ? `/product/${product.id}` : '/search';
+  const productHref = config.productId
+    ? `/product/${config.productId}`
+    : (!config.imageUrl && product ? `/product/${product.id}` : '/search');
 
   return (
     <section
-      ref={ref}
+      ref={sectionRef}
+      onPointerMove={handleMove}
+      onPointerLeave={handleLeave}
       className="relative min-h-screen flex flex-col overflow-hidden transition-colors duration-500"
       style={{ background: c.bg, color: c.fg }}
     >
-      {/* Mini nav — this section reads as a page-within-the-page when it
-          fills the viewport, so it carries its own slim top bar. Links go
-          to real routes; "Place Order" jumps straight to checkout. */}
+      {/* Mini nav — real Atlas mark, correct variant for the current bg */}
       <div
         className="flex items-center justify-between px-6 md:px-12 pt-6 transition-all duration-700"
         style={{ opacity: inView ? 1 : 0, transform: inView ? 'none' : 'translateY(-16px)' }}
       >
-        <span className="font-display text-2xl tracking-wide">[ATLAS]</span>
+        <Link href="/" aria-label="Atlas — home" className="flex items-center gap-2.5">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={c.mark} alt="Atlas" className="h-9 w-9 object-contain" />
+          <span className="text-[10px] uppercase tracking-widest2 font-semibold hidden sm:inline" style={{ color: c.fgSoft }}>Follow Through.</span>
+        </Link>
         <nav className="hidden md:flex gap-8 text-xs uppercase tracking-widest2 font-medium">
           <Link href="/" className="hover:opacity-70 transition-opacity">Home</Link>
           <Link href="/search" className="hover:opacity-70 transition-opacity">Products</Link>
@@ -89,18 +129,19 @@ export default function ApexShowcase({ product, instagramHandle, whatsappNumber 
         </Link>
       </div>
 
-      {/* Giant background word — pure design element behind the product */}
+      {/* Giant background word — parallax layer, drifts opposite the cursor */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none" aria-hidden>
         <span
-          className="font-display leading-none tracking-wide transition-all duration-1000"
+          ref={wordRef}
+          className="font-display leading-none tracking-wide will-change-transform"
           style={{
             fontSize: 'clamp(9rem, 30vw, 26rem)',
             color: c.word,
             opacity: inView ? 1 : 0,
-            transform: inView ? 'scale(1)' : 'scale(1.15)',
+            transition: 'opacity 1s ease, color .5s ease',
           }}
         >
-          APEX
+          {config.word || 'APEX'}
         </span>
       </div>
 
@@ -112,32 +153,66 @@ export default function ApexShowcase({ product, instagramHandle, whatsappNumber 
           className="relative z-10 max-w-xs order-2 md:order-1 transition-all duration-700 delay-150"
           style={{ opacity: inView ? 1 : 0, transform: inView ? 'none' : 'translateY(40px)' }}
         >
-          <h2 className="font-display text-5xl md:text-6xl leading-[.95] mb-4">Find your<br />apex.</h2>
+          <h2 className="font-display text-5xl md:text-6xl leading-[.95] mb-4 whitespace-pre-line">{config.headline}</h2>
           <p className="text-sm leading-relaxed" style={{ color: c.fgSoft }}>
-            Match-grade kits built for pace. Breathable, featherweight fabric that moves when you do — checked piece by piece before it ships.
+            {config.body}
           </p>
         </div>
 
-        {/* Center — product popping out over the giant word */}
+        {/* Center — product layer. Entrance animates the OUTER div; the
+            pointer tilt writes to the INNER div, so the two transforms
+            never fight each other. */}
         <div
           className="relative z-10 order-1 md:order-2 mx-auto transition-all duration-1000 delay-300"
           style={{
             opacity: inView ? 1 : 0,
-            transform: inView ? 'rotate(-8deg) translateY(0)' : 'rotate(-8deg) translateY(80px) scale(.9)',
+            transform: inView ? 'none' : 'translateY(80px) scale(.9)',
           }}
         >
-          <Link href={productHref} className="block w-56 sm:w-64 md:w-80 aspect-[4/5] rounded-2xl overflow-hidden shadow-2xl float-idle" style={{ boxShadow: '0 40px 80px -20px rgba(0,0,0,.45)' }}>
-            {product ? (
-              <ProductImage src={product.image} alt={product.name} width={640} height={800} className="w-full h-full object-cover" />
+          <div ref={visualRef} className="will-change-transform" style={{ transform: 'perspective(900px) rotate(-8deg)', transition: 'transform .3s cubic-bezier(.16,1,.3,1)' }}>
+            {cutout ? (
+              // Transparent-PNG cutout mode: free-floating object, no card.
+              // Plain <img> on purpose — the URL is admin-entered and can
+              // point at any host (next/image throws for non-allowlisted hosts).
+              <Link href={productHref} className="block float-idle">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={config.imageUrl}
+                  alt={product?.name ?? 'Featured product'}
+                  className="w-64 sm:w-72 md:w-96 h-auto"
+                  style={{ filter: 'drop-shadow(0 40px 50px rgba(0,0,0,.45))' }}
+                  loading="lazy"
+                />
+              </Link>
+            ) : config.imageUrl ? (
+              <Link href={productHref} className="block w-56 sm:w-64 md:w-80 aspect-[4/5] rounded-2xl overflow-hidden float-idle" style={{ boxShadow: '0 40px 80px -20px rgba(0,0,0,.45)' }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={config.imageUrl} alt={product?.name ?? 'Featured product'} className="w-full h-full object-cover" loading="lazy" />
+              </Link>
             ) : (
-              <div className="w-full h-full bg-ink flex items-center justify-center">
-                <span className="font-display text-chalk/20 text-6xl">ATLAS</span>
-              </div>
+              <Link href={productHref} className="block w-56 sm:w-64 md:w-80 aspect-[4/5] rounded-2xl overflow-hidden float-idle" style={{ boxShadow: '0 40px 80px -20px rgba(0,0,0,.45)' }}>
+                {product ? (
+                  <ProductImage src={product.image} alt={product.name} width={640} height={800} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-ink flex items-center justify-center">
+                    <span className="font-display text-chalk/20 text-6xl">ATLAS</span>
+                  </div>
+                )}
+              </Link>
             )}
-          </Link>
-          {product && (
-            <p className="text-center text-xs mt-4 font-medium" style={{ color: c.fgSoft }}>
-              {product.name} — ${product.price}
+          </div>
+
+          {/* Ground shadow puddle — anchors the floating object to a
+              surface, which is most of what makes the PNG mode read as 3D */}
+          <div
+            aria-hidden
+            className="mx-auto mt-6 h-4 w-40 md:w-56 rounded-[50%]"
+            style={{ background: 'radial-gradient(ellipse at center, rgba(0,0,0,.35), transparent 70%)' }}
+          />
+
+          {(config.priceLine || product) && (
+            <p className="text-center text-xs mt-3 font-medium" style={{ color: c.fgSoft }}>
+              {config.priceLine || `${product!.name} — $${product!.price}`}
             </p>
           )}
         </div>
@@ -193,7 +268,7 @@ export default function ApexShowcase({ product, instagramHandle, whatsappNumber 
             className="inline-block rounded-full px-7 py-3.5 text-sm font-bold btn-press"
             style={{ background: c.pill, color: c.pillText }}
           >
-            See all products →
+            {config.ctaLabel}
           </Link>
         </div>
       </div>

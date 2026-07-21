@@ -489,6 +489,29 @@ export async function saveHeroSlides(slides: {
 }
 
 // ---------------------------------------------------------------------------
+// APEX SHOWCASE — owner/manager edits the full-screen mid-scroll section
+// (giant word, headline, copy, image/cutout mode, link target). Same
+// storage + permission pattern as hero slides above.
+// ---------------------------------------------------------------------------
+export async function saveApexConfig(config: {
+  enabled: boolean; word: string; headline: string; body: string;
+  imageUrl: string; imageCutout: boolean; productId: string;
+  ctaLabel: string; priceLine: string;
+}): Promise<ActionResult> {
+  const auth = await getRole();
+  if (!auth) return { ok: false, error: 'Not signed in.' };
+  if (!canEditProducts(auth.role)) return { ok: false, error: 'Only Owner and Manager can edit the Apex section.' };
+
+  const session = await createClient();
+  const supabase = serviceClient() ?? session;
+  const { error } = await supabase.from('site_settings').upsert({ key: 'apex_showcase', value: JSON.stringify(config) });
+  if (error) return { ok: false, error: error.message };
+  await logAudit(session, auth.userId, 'settings.apex_showcase', null, { enabled: config.enabled });
+  revalidatePath('/');
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
 // REVIEW MODERATION — hide/show instead of only hard-delete. Available to any
 // staff tier (same bar as logging orders), not just owner/manager.
 // ---------------------------------------------------------------------------

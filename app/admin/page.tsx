@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { createClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { STAFF_PRODUCT_COLUMNS, mapProductRow } from '@/lib/supabase/queries';
 import { parseSiteSettings, DEFAULT_SETTINGS } from '@/lib/settings';
+import { parseApexConfig } from '@/lib/apexConfig';
 import AdminPanel from '@/components/AdminPanel';
 import {
   products as mockProducts,
@@ -16,7 +17,7 @@ const HAS_SUPABASE = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 export default async function AdminPage() {
   // Prototype mode — no Supabase yet: keep the demo panel with a role switcher.
   if (!HAS_SUPABASE) {
-    return <AdminPanel role="owner" products={mockProducts} orders={mockOrders} zeroResultSearches={mockZero} leagues={[]} staff={[]} restockScores={[]} exchangeRate={89500} heroSlides={null} pages={[]} loyaltyPointsOutstanding={2450} promoCodes={[]} reviews={[]} returnRequests={[]} giftCards={[]} storeSettings={DEFAULT_SETTINGS} demoMode />;
+    return <AdminPanel role="owner" products={mockProducts} orders={mockOrders} zeroResultSearches={mockZero} leagues={[]} staff={[]} restockScores={[]} exchangeRate={89500} heroSlides={null} apexConfig={parseApexConfig(null)} pages={[]} loyaltyPointsOutstanding={2450} promoCodes={[]} reviews={[]} returnRequests={[]} giftCards={[]} storeSettings={DEFAULT_SETTINGS} demoMode />;
   }
 
   const supabase = await createClient();
@@ -211,6 +212,7 @@ export default async function AdminPage() {
       restockScores={restockScores}
       exchangeRate={Number((settingsRows ?? []).find((s: any) => s.key === 'usd_to_lbp')?.value ?? 89500)}
       heroSlides={(settingsRows ?? []).find((s: any) => s.key === 'hero_slides')?.value ? JSON.parse((settingsRows ?? []).find((s: any) => s.key === 'hero_slides')!.value) : null}
+      apexConfig={parseApexConfig((settingsRows ?? []).find((s: any) => s.key === 'apex_showcase')?.value)}
       pages={pages}
       loyaltyPointsOutstanding={loyaltyPointsOutstanding}
       promoCodes={promoCodes}
